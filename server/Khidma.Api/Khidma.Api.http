@@ -1,0 +1,6 @@
+@Khidma.Api_HostAddress = http://localhost:5093
+
+GET {{Khidma.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
