@@ -44,6 +44,19 @@ coverage/
 TestResults/
 
 # =========================
+# SPA production output
+# =========================
+server/Khidma.Api/wwwroot/
+
+# =========================
+# Certificates
+# =========================
+*.pfx
+*.p12
+*.crt
+*.key
+
+# =========================
 # Misc
 # =========================
 *.log

@@ -1,44 +1,109 @@
+using Khidma.Api.Auth;
 using Khidma.Api.Data;
 using Khidma.Api.Domain;
+using Khidma.Api.Infrastructure;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var connectionString =
-    builder.Configuration.GetConnectionString("Default")
-    ?? throw new InvalidOperationException(
-        "Connection string 'Default' was not found.");
-
-builder.Services.AddDbContext<AppDbContext>(options =>
+if (!builder.Environment.IsEnvironment("Testing"))
 {
-    options.UseSqlServer(connectionString);
-});
+    var connectionString =
+        builder.Configuration.GetConnectionString("Default")
+        ?? throw new InvalidOperationException(
+            "Connection string 'Default' was not found.");
+
+    builder.Services.AddDbContext<AppDbContext>(options =>
+    {
+        options.UseSqlServer(connectionString);
+    });
+}
 
 builder.Services
-    .AddIdentity<ApplicationUser, IdentityRole>()
+    .AddIdentity<ApplicationUser, IdentityRole>(options =>
+    {
+        options.User.RequireUniqueEmail = true;
+        options.SignIn.RequireConfirmedAccount = false;
+    })
     .AddEntityFrameworkStores<AppDbContext>()
     .AddDefaultTokenProviders();
 
-builder.Services.AddControllers();
+builder.Services.ConfigureApplicationCookie(options =>
+{
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SameSite = SameSiteMode.Lax;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+    options.ExpireTimeSpan = TimeSpan.FromDays(7);
+    options.SlidingExpiration = true;
+
+    options.Events.OnRedirectToLogin = context =>
+        CookieAuthProblemWriter.WriteAsync(
+            context,
+            StatusCodes.Status401Unauthorized,
+            "Unauthorized");
+
+    options.Events.OnRedirectToAccessDenied = context =>
+        CookieAuthProblemWriter.WriteAsync(
+            context,
+            StatusCodes.Status403Forbidden,
+            "Forbidden");
+});
+
+builder.Services.AddAntiforgery(options =>
+{
+    options.HeaderName = "X-XSRF-TOKEN";
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SameSite = SameSiteMode.Lax;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+});
+
+builder.Services.AddControllersWithViews(options =>
+{
+    options.Filters.Add(new AutoValidateAntiforgeryTokenAttribute());
+});
+
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddOpenApi();
+builder.Services.AddScoped<UserRegistrationService>();
 
 var app = builder.Build();
+
+app.UseExceptionHandler();
+app.UseStatusCodePages();
 
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 
-    await DbSeeder.SeedAsync(
-        app.Services,
-        app.Configuration);
+    await using var scope = app.Services.CreateAsyncScope();
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    await db.Database.MigrateAsync();
+
+    await DbSeeder.SeedAsync(app.Services, app.Configuration);
 }
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsEnvironment("Testing"))
+{
+    app.UseHttpsRedirection();
+}
+
+app.UseDefaultFiles();
+app.UseStaticFiles();
 
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
 
+app.MapFallback("/api/{**slug}", () => Results.Problem(
+    statusCode: StatusCodes.Status404NotFound,
+    title: "Not Found"));
+
+app.MapFallbackToFile("index.html");
+
 app.Run();
+
+public partial class Program;
