@@ -304,7 +304,7 @@ Browser DevTools were not available in this environment. SPA route serving was v
 - Base: `develop` (`1553398`)
 - `e6cade8` feat: implement cookie authentication API
 - `6e39275` feat: wire React authentication shell
-- Documentation / CI commit: recorded in `git log --oneline develop..HEAD` as the commit that added this report
+- `4ccbd08` feat: complete week one vertical slice
 
 ## 22. Exact instructions for another developer
 
