@@ -116,14 +116,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   )
 
   if (!authResolved) {
-    return <div className="app-boot">Loading Khidma…</div>
+    return (
+      <div className="app-boot">
+        <div className="boot-mark" aria-hidden="true" />
+        <p>Loading Khidma…</p>
+      </div>
+    )
   }
 
   if (bootError) {
     return (
       <div className="app-boot">
-        Unable to reach the API. Confirm the backend is running on
-        https://localhost:5001.
+        <div className="boot-mark" aria-hidden="true" />
+        <p>
+          Unable to reach the API. Confirm the backend is running on
+          https://localhost:5001.
+        </p>
       </div>
     )
   }
