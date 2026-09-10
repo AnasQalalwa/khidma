@@ -321,7 +321,7 @@ Browser DevTools were not available in this environment. SPA route serving was v
 - `4ccbd08` feat: complete week one vertical slice
 - `c357d4a` docs: record week 1 commit hashes
 - `d0733df` style: redesign Week 1 frontend experience
-- Pre-merge cleanup is committed as `fix: harden Week 1 tests and frontend checks` on this branch (see `git log -1`)
+- `d016527` fix: harden Week 1 tests and frontend checks
 
 ## 22. Exact instructions for another developer
 
