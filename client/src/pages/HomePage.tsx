@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { getCategories, getServices, type CatalogService, type Category } from '../api/catalog'
-import { useAuth } from '../auth/AuthContext'
+import { useAuth } from '../auth/useAuth'
 import { dashboardPath } from '../auth/roles'
 import { Button } from '../components/Button'
 import { CategoryCard, EmptyState, LoadingState } from '../components/CategoryCard'

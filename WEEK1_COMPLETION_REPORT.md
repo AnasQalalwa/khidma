@@ -38,17 +38,23 @@ Backend:
 - `server/Khidma.Api.Tests/CatalogEndpointsTests.cs`
 - `server/Khidma.Api.Tests/AntiforgeryTestHelper.cs`
 - `server/Khidma.Api.Tests/AppRolesTests.cs`
+- `server/Khidma.Api.Tests/RelationalConstraintTests.cs`
 
 Frontend:
 
 - `client/src/api/client.ts`
 - `client/src/api/auth.ts`
 - `client/src/api/catalog.ts`
-- `client/src/auth/AuthContext.tsx`
+- `client/src/auth/AuthContext.ts`
+- `client/src/auth/AuthProvider.tsx`
+- `client/src/auth/useAuth.ts`
 - `client/src/auth/RequireAuth.tsx`
 - `client/src/auth/RequireRole.tsx`
 - `client/src/auth/roles.ts`
 - `client/src/components/Layout.tsx`
+- `client/src/components/Button.tsx`
+- `client/src/components/CategoryCard.tsx`
+- `client/src/components/PageHeader.tsx`
 - `client/src/pages/HomePage.tsx`
 - `client/src/pages/LoginPage.tsx`
 - `client/src/pages/RegisterPage.tsx`
@@ -70,7 +76,8 @@ Docs:
 - `server/Khidma.Api/Program.cs`
 - `server/Khidma.Api/Data/DbSeeder.cs`
 - `server/Khidma.Api/Properties/launchSettings.json`
-- `server/Khidma.Api/appsettings.json`
+- `server/Khidma.Api/appsettings.json` (`ConnectionStrings` removed; local SQL Server comes from user-secrets)
+- `server/Khidma.Api/Data/AppDbContext.cs` (SQLite test compatibility shim only; production provider unchanged)
 - `server/Khidma.Api.Tests/Khidma.Api.Tests.csproj`
 - `client/vite.config.ts`
 - `client/package.json`
@@ -114,11 +121,13 @@ Deleted scaffold leftovers:
 - Production build output: `server/Khidma.Api/wwwroot`, `emptyOutDir: true`
 - Single typed fetch wrapper with `credentials: "include"` and CSRF header on POST/PUT/PATCH/DELETE
 - Auth and catalog API modules
-- `AuthContext` bootstraps via `GET /api/auth/me` before role-dependent chrome
+- Auth split: `AuthProvider` component, `AuthContext` object, and `useAuth` hook in separate files so ESLint `react-refresh/only-export-components` stays clean
+- Auth bootstraps via `GET /api/auth/me` before role-dependent chrome
 - `RequireAuth` / `RequireRole`
 - Routes: `/`, `/login`, `/register`, `/catalog`, `/customer`, `/provider`, `/admin`, `/forbidden`
 - Nav: anonymous vs authenticated; only the current role dashboard is shown
 - Design tokens + global CSS
+- Week 1 frontend redesign (`d0733df`): reusable `Button`, `CategoryCard`, `PageHeader`; homepage/catalog/auth/dashboard shells; footer auth-aware links; category icons; loading/empty/error catalog states
 
 ## 6. Day 5 work completed
 
@@ -225,16 +234,21 @@ After local smoke registration, SQL inspection showed:
 
 ## 14. Build results
 
+Re-run during pre-merge cleanup (executed):
+
 - `dotnet restore` succeeded
-- `dotnet build -c Release` succeeded, 0 warnings
+- `dotnet build -c Release` succeeded, 0 warnings, 0 errors
+- `npm run lint` succeeded, 0 errors
 - `npx tsc -b` succeeded
-- `npm run build` succeeded; output written to `server/Khidma.Api/wwwroot`
+- `npm run build` succeeded; output written to `server/Khidma.Api/wwwroot` (gitignored)
 
 ## 15. Test results
 
-- `dotnet test -c Release`: 20 passed, 0 failed
+- `dotnet test -c Release`: 21 passed, 0 failed
 - Coverage includes: anonymous `/me` 401 JSON, customer/provider register, admin rejection, invalid login, login/logout, CSRF reject/accept, catalog, persistence of user/role/profile, role normalization
-- No frontend unit tests existed; none were added (CI does not require them)
+- Added `UniqueCustomerProfileUserId_RejectsDuplicates` to prove SQLite enforces the unique `CustomerProfiles.UserId` index
+- Tests use SQLite in-memory (`Microsoft.EntityFrameworkCore.Sqlite`, connection kept open for the factory lifetime). EF Core InMemory was removed
+- No frontend unit tests existed; none were added. Frontend CI now runs `npm run lint` in addition to TypeScript and build
 
 ## 16. EF migration / model-change result
 
@@ -263,7 +277,7 @@ API and SPA share one origin/port: `https://localhost:5001`.
 
 ## 18. Manual verification results
 
-Verified with `curl.exe` against the live SQL Server-backed API (and xUnit for in-memory persistence):
+Verified with `curl.exe` against the live SQL Server-backed API (and xUnit against SQLite in-memory):
 
 1. Anonymous `GET /api/auth/me` → 401 JSON, not HTML, not redirect
 2. Valid Customer login → Identity cookie created (HttpOnly, SameSite=Lax)
@@ -291,8 +305,8 @@ Browser DevTools were not available in this environment. SPA route serving was v
 ## 20. Deviations from the capstone plan and why
 
 1. **`AddControllersWithViews` instead of `AddControllers`.** `AutoValidateAntiforgeryTokenAttribute` requires the ViewFeatures filter service. `AddControllers()` threw at runtime: filter type not registered.
-2. **LocalDB default in `appsettings.json`.** Connection string is not a password. User-secrets still override it. This avoids a hard fail when configuration sources used by tests/hosting do not include user-secrets, while seed passwords remain secret-only.
-3. **Testing host skips SQL Server registration.** CI runs on Ubuntu without LocalDB. Tests use EF InMemory. Program.cs registers SQL Server except when `Environment=Testing`.
+2. **No connection string in `appsettings.json`.** `ConnectionStrings:Default` is required from user-secrets (or another non-committed configuration source). `Program.cs` still calls `GetConnectionString("Default")` and throws if it is missing outside Testing. There is no hardcoded fallback.
+3. **Testing host skips SQL Server registration.** CI runs on Ubuntu without LocalDB. Tests use SQLite in-memory with an open `SqliteConnection("DataSource=:memory:")`. Program.cs registers SQL Server except when `Environment=Testing`. `AppDbContext` maps SQL Server `rowversion` to a BLOB concurrency token only when the provider is SQLite, so production SQL Server constraints (rowversion, filtered unique indexes, check constraints, money precision, foreign keys) are unchanged.
 4. **CI TypeScript check is `npx tsc -b`.** The previous `tsc --noEmit` against the solution-style `tsconfig.json` (`files: []`) did not typecheck the app. This is stricter, not weaker.
 5. **Always refresh antiforgery before mutations.** Identity antiforgery tokens are tied to the current user. Reusing an anonymous token after login/register fails CSRF validation.
 6. **No JWT, Docker, payments, or extra UI library**, as specified.
@@ -305,6 +319,9 @@ Browser DevTools were not available in this environment. SPA route serving was v
 - `e6cade8` feat: implement cookie authentication API
 - `6e39275` feat: wire React authentication shell
 - `4ccbd08` feat: complete week one vertical slice
+- `c357d4a` docs: record week 1 commit hashes
+- `d0733df` style: redesign Week 1 frontend experience
+- Pre-merge cleanup is committed as `fix: harden Week 1 tests and frontend checks` on this branch (see `git log -1`)
 
 ## 22. Exact instructions for another developer
 
@@ -348,6 +365,7 @@ dotnet build -c Release
 dotnet test -c Release
 dotnet ef migrations has-pending-model-changes --project server/Khidma.Api/Khidma.Api.csproj --startup-project server/Khidma.Api/Khidma.Api.csproj
 cd client
+npm run lint
 npx tsc -b
 npm run build
 ```
@@ -359,8 +377,8 @@ khidma/
 ├── client/
 │   ├── src/
 │   │   ├── api/                # typed fetch wrapper, auth, catalog
-│   │   ├── auth/               # AuthContext, route guards
-│   │   ├── components/         # layout / nav
+│   │   ├── auth/               # AuthProvider, useAuth, route guards
+│   │   ├── components/         # Layout, Button, CategoryCard, PageHeader
 │   │   ├── pages/             # Home, auth, catalog, dashboards
 │   │   └── styles/             # tokens + global CSS
 │   └── vite.config.ts         # proxy + wwwroot outDir

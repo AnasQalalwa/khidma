@@ -61,7 +61,7 @@ khidma/
 
 ## User secrets
 
-Do not commit passwords or connection strings. Set these keys with `dotnet user-secrets` on `server/Khidma.Api`:
+Do not commit passwords or connection strings. `appsettings.json` does not include `ConnectionStrings`. Set these keys with `dotnet user-secrets` on `server/Khidma.Api`:
 
 - `ConnectionStrings:Default`
 - `Seed:AdminPassword`

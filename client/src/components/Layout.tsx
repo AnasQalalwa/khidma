@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useState, type MouseEvent } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
-import { useAuth } from '../auth/AuthContext'
+import { useAuth } from '../auth/useAuth'
 import { dashboardPath } from '../auth/roles'
 import { Button } from './Button'
 
@@ -13,11 +13,23 @@ export function Layout() {
     location.pathname === '/login' ||
     location.pathname === '/register'
 
-  useEffect(() => {
+  function closeMenu() {
     setMenuOpen(false)
-  }, [location.pathname])
+  }
+
+  function handleNavClick(event: MouseEvent<HTMLElement>) {
+    const target = event.target
+    if (!(target instanceof Element)) {
+      return
+    }
+
+    if (target.closest('a, button')) {
+      closeMenu()
+    }
+  }
 
   async function handleLogout() {
+    closeMenu()
     await logout()
   }
 
@@ -28,7 +40,7 @@ export function Layout() {
       </a>
       <header className="header">
         <div className="container header-inner">
-          <NavLink to="/" className="brand">
+          <NavLink to="/" className="brand" onClick={closeMenu}>
             <span className="brand-mark">K</span>
             Khidma
           </NavLink>
@@ -49,7 +61,7 @@ export function Layout() {
               />
             </svg>
           </button>
-          <nav id="site-nav" className={menuOpen ? 'nav open' : 'nav'}>
+          <nav id="site-nav" className={menuOpen ? 'nav open' : 'nav'} onClick={handleNavClick}>
             <NavLink to="/" className="nav-link" end>
               Home
             </NavLink>

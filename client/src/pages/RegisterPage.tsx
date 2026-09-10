@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { ApiError, fieldError } from '../api/client'
-import { useAuth } from '../auth/AuthContext'
+import { useAuth } from '../auth/useAuth'
 import { dashboardPath } from '../auth/roles'
 import { AuthCard } from '../components/CategoryCard'
 import { Button } from '../components/Button'

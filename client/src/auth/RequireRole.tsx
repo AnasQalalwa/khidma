@@ -1,7 +1,7 @@
 import { Navigate } from 'react-router-dom'
 import type { ReactNode } from 'react'
 import { RequireAuth } from './RequireAuth'
-import { useAuth } from './AuthContext'
+import { useAuth } from './useAuth'
 import type { Role } from './roles'
 
 export function RequireRole({
