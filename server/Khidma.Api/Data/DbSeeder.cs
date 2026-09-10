@@ -1,3 +1,4 @@
+using Khidma.Api.Auth;
 using Khidma.Api.Domain;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -26,126 +27,130 @@ public static class DbSeeder
             ?? throw new InvalidOperationException(
                 "Seed:DemoPassword is missing from configuration.");
 
-        await EnsureRoleAsync(roleManager, "Admin");
-        await EnsureRoleAsync(roleManager, "Customer");
-        await EnsureRoleAsync(roleManager, "Provider");
+        foreach (var roleName in AppRoles.All)
+        {
+            await EnsureRoleAsync(roleManager, roleName);
+        }
 
-        var admin = await EnsureUserAsync(
+        await EnsureUserAsync(
             userManager,
             "admin@khidma.local",
             "Khidma Admin",
-            "Admin",
+            AppRoles.Admin,
             adminPassword);
 
-        var customer = await EnsureUserAsync(
+        var customerOne = await EnsureUserAsync(
             userManager,
             "customer@khidma.local",
             "Demo Customer",
-            "Customer",
+            AppRoles.Customer,
+            demoPassword);
+
+        var customerTwo = await EnsureUserAsync(
+            userManager,
+            "customer2@khidma.local",
+            "Nablus Customer",
+            AppRoles.Customer,
             demoPassword);
 
         var providerOne = await EnsureUserAsync(
             userManager,
             "provider1@khidma.local",
             "Demo Provider One",
-            "Provider",
+            AppRoles.Provider,
             demoPassword);
 
         var providerTwo = await EnsureUserAsync(
             userManager,
             "provider2@khidma.local",
             "Demo Provider Two",
-            "Provider",
+            AppRoles.Provider,
             demoPassword);
 
-        if (!await db.CustomerProfiles.AnyAsync(
-                p => p.UserId == customer.Id))
-        {
-            db.CustomerProfiles.Add(new CustomerProfile
-            {
-                UserId = customer.Id,
-                City = "Ramallah",
-                DefaultContact = "0590000000"
-            });
-        }
+        var providerThree = await EnsureUserAsync(
+            userManager,
+            "provider3@khidma.local",
+            "Demo Provider Three",
+            AppRoles.Provider,
+            demoPassword);
 
-        if (!await db.ProviderProfiles.AnyAsync(
-                p => p.UserId == providerOne.Id))
-        {
-            db.ProviderProfiles.Add(new ProviderProfile
-            {
-                UserId = providerOne.Id,
-                City = "Ramallah",
-                YearsOfExperience = 5,
-                Bio = "Home services provider",
-                IsApproved = true,
-                AverageRating = 0,
-                ReviewCount = 0
-            });
-        }
+        await EnsureCustomerProfileAsync(
+            db,
+            customerOne.Id,
+            "Ramallah");
 
-        if (!await db.ProviderProfiles.AnyAsync(
-                p => p.UserId == providerTwo.Id))
-        {
-            db.ProviderProfiles.Add(new ProviderProfile
-            {
-                UserId = providerTwo.Id,
-                City = "Ramallah",
-                YearsOfExperience = 3,
-                Bio = "Technology services provider",
-                IsApproved = true,
-                AverageRating = 0,
-                ReviewCount = 0
-            });
-        }
+        await EnsureCustomerProfileAsync(
+            db,
+            customerTwo.Id,
+            "Nablus");
+
+        await EnsureProviderProfileAsync(
+            db,
+            providerOne.Id,
+            "Ramallah",
+            5,
+            "Home services provider");
+
+        await EnsureProviderProfileAsync(
+            db,
+            providerTwo.Id,
+            "Hebron",
+            3,
+            "Technology services provider");
+
+        await EnsureProviderProfileAsync(
+            db,
+            providerThree.Id,
+            "Bethlehem",
+            7,
+            "Cleaning and tutoring provider");
 
         await db.SaveChangesAsync();
 
-        var homeServices = await EnsureCategoryAsync(
-            db,
-            "Home Services");
+        var homeServices = await EnsureCategoryAsync(db, "Home Services");
+        var technology = await EnsureCategoryAsync(db, "Technology");
+        var cleaning = await EnsureCategoryAsync(db, "Cleaning");
+        var tutoring = await EnsureCategoryAsync(db, "Tutoring");
 
-        var technology = await EnsureCategoryAsync(
-            db,
-            "Technology");
+        var plumbing = await EnsureServiceAsync(db, homeServices.Id, "Plumbing");
+        var electrical = await EnsureServiceAsync(db, homeServices.Id, "Electrical");
+        var painting = await EnsureServiceAsync(db, homeServices.Id, "Painting");
+        var carpentry = await EnsureServiceAsync(db, homeServices.Id, "Carpentry");
 
-        var plumbing = await EnsureServiceAsync(
-            db,
-            homeServices.Id,
-            "Plumbing");
+        var computerRepair = await EnsureServiceAsync(db, technology.Id, "Computer Repair");
+        var phoneRepair = await EnsureServiceAsync(db, technology.Id, "Phone Repair");
+        var networkSetup = await EnsureServiceAsync(db, technology.Id, "Network Setup");
 
-        var electrical = await EnsureServiceAsync(
-            db,
-            homeServices.Id,
-            "Electrical");
+        var homeCleaning = await EnsureServiceAsync(db, cleaning.Id, "Home Cleaning");
+        var carpetCleaning = await EnsureServiceAsync(db, cleaning.Id, "Carpet Cleaning");
+        var windowCleaning = await EnsureServiceAsync(db, cleaning.Id, "Window Cleaning");
 
-        var computerRepair = await EnsureServiceAsync(
-            db,
-            technology.Id,
-            "Computer Repair");
+        var mathTutoring = await EnsureServiceAsync(db, tutoring.Id, "Math Tutoring");
+        var englishTutoring = await EnsureServiceAsync(db, tutoring.Id, "English Tutoring");
 
         var providerOneProfile =
-            await db.ProviderProfiles.SingleAsync(
-                p => p.UserId == providerOne.Id);
+            await db.ProviderProfiles.SingleAsync(p => p.UserId == providerOne.Id);
 
         var providerTwoProfile =
-            await db.ProviderProfiles.SingleAsync(
-                p => p.UserId == providerTwo.Id);
+            await db.ProviderProfiles.SingleAsync(p => p.UserId == providerTwo.Id);
 
-        await EnsureProviderServiceAsync(
-            db,
-            providerOneProfile.Id,
-            plumbing.Id);
+        var providerThreeProfile =
+            await db.ProviderProfiles.SingleAsync(p => p.UserId == providerThree.Id);
 
-        await EnsureProviderServiceAsync(
-            db,
-            providerOneProfile.Id,
-            electrical.Id);
+        await EnsureProviderServiceAsync(db, providerOneProfile.Id, plumbing.Id);
+        await EnsureProviderServiceAsync(db, providerOneProfile.Id, electrical.Id);
+        await EnsureProviderServiceAsync(db, providerOneProfile.Id, painting.Id);
+        await EnsureProviderServiceAsync(db, providerOneProfile.Id, carpentry.Id);
 
-        await EnsureProviderServiceAsync(
-            db,
-            providerTwoProfile.Id,
-            computerRepair.Id);
+        await EnsureProviderServiceAsync(db, providerTwoProfile.Id, computerRepair.Id);
+        await EnsureProviderServiceAsync(db, providerTwoProfile.Id, phoneRepair.Id);
+        await EnsureProviderServiceAsync(db, providerTwoProfile.Id, networkSetup.Id);
+
+        await EnsureProviderServiceAsync(db, providerThreeProfile.Id, homeCleaning.Id);
+        await EnsureProviderServiceAsync(db, providerThreeProfile.Id, carpetCleaning.Id);
+        await EnsureProviderServiceAsync(db, providerThreeProfile.Id, windowCleaning.Id);
+        await EnsureProviderServiceAsync(db, providerThreeProfile.Id, mathTutoring.Id);
+        await EnsureProviderServiceAsync(db, providerThreeProfile.Id, englishTutoring.Id);
 
         await db.SaveChangesAsync();
     }
@@ -223,6 +228,48 @@ public static class DbSeeder
         }
 
         return user;
+    }
+
+    private static async Task EnsureCustomerProfileAsync(
+        AppDbContext db,
+        string userId,
+        string city)
+    {
+        if (await db.CustomerProfiles.AnyAsync(p => p.UserId == userId))
+        {
+            return;
+        }
+
+        db.CustomerProfiles.Add(new CustomerProfile
+        {
+            UserId = userId,
+            City = city,
+            DefaultContact = null
+        });
+    }
+
+    private static async Task EnsureProviderProfileAsync(
+        AppDbContext db,
+        string userId,
+        string city,
+        int yearsOfExperience,
+        string bio)
+    {
+        if (await db.ProviderProfiles.AnyAsync(p => p.UserId == userId))
+        {
+            return;
+        }
+
+        db.ProviderProfiles.Add(new ProviderProfile
+        {
+            UserId = userId,
+            City = city,
+            YearsOfExperience = yearsOfExperience,
+            Bio = bio,
+            IsApproved = true,
+            AverageRating = 0,
+            ReviewCount = 0
+        });
     }
 
     private static async Task<Category> EnsureCategoryAsync(

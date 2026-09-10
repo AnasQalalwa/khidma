@@ -1,6 +1,7 @@
 using Khidma.Api.Domain;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
 
 namespace Khidma.Api.Data;
 
@@ -34,5 +35,48 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
         base.OnModelCreating(builder);
 
         builder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
+
+        if (IsSqliteProvider())
+        {
+            ApplySqliteTestCompatibility(builder);
+        }
+    }
+
+    private bool IsSqliteProvider() =>
+        string.Equals(
+            Database.ProviderName,
+            "Microsoft.EntityFrameworkCore.Sqlite",
+            StringComparison.Ordinal);
+
+    /// <summary>
+    /// SQLite is used only by automated tests. Production remains SQL Server.
+    /// This shim maps SQL Server rowversion to a BLOB concurrency token so
+    /// EnsureCreated can succeed without changing production configuration.
+    /// </summary>
+    private static void ApplySqliteTestCompatibility(ModelBuilder builder)
+    {
+        foreach (var entityType in builder.Model.GetEntityTypes())
+        {
+            foreach (var property in entityType.GetProperties())
+            {
+                if (property.ClrType == typeof(byte[]) &&
+                    property.IsConcurrencyToken &&
+                    property.ValueGenerated == ValueGenerated.OnAddOrUpdate)
+                {
+                    property.SetColumnType("BLOB");
+                    property.ValueGenerated = ValueGenerated.Never;
+                }
+            }
+
+            foreach (var index in entityType.GetIndexes())
+            {
+                var filter = index.GetFilter();
+                if (!string.IsNullOrEmpty(filter))
+                {
+                    index.SetFilter(filter.Replace("[", "\"", StringComparison.Ordinal)
+                        .Replace("]", "\"", StringComparison.Ordinal));
+                }
+            }
+        }
     }
 }
