@@ -1,26 +1,35 @@
+import { CalendarCheck, FileText, Inbox, Search, Star } from 'lucide-react'
 import { useAuth } from '../auth/useAuth'
-import { DashboardStatCard } from '../components/CategoryCard'
+import { RoleBadge } from '../components/Badge'
+import { Button } from '../components/Button'
+import { DashboardPanel, DashboardShell } from '../components/DashboardShell'
+import { StatCard } from '../components/StatCard'
 
 export function CustomerDashboard() {
   const { user } = useAuth()
 
   return (
-    <section className="dashboard-shell">
-      <div className="dashboard dashboard-hero">
-        <div>
-          <span className="badge">Customer</span>
-          <h1>Hello, {user?.fullName}</h1>
-          <p className="muted">
-            Later weeks will let you create service requests, compare provider
-            offers, and manage bookings.
-          </p>
-        </div>
-      </div>
+    <DashboardShell
+      badge={<RoleBadge role="Customer" />}
+      title={`Welcome back, ${user?.fullName ?? 'Customer'}`}
+      description="Create requests, compare offers, and manage bookings in later weeks. For now you can browse the live catalog."
+    >
       <div className="dash-grid">
-        <DashboardStatCard title="Active Requests" hint="Coming soon" />
-        <DashboardStatCard title="Offers" hint="Coming soon" />
-        <DashboardStatCard title="Bookings" hint="Coming soon" />
+        <StatCard title="My Requests" hint="Coming in Week 2" icon={FileText} accent="home" />
+        <StatCard title="Offers Received" hint="Coming in Week 2" icon={Inbox} accent="technology" />
+        <StatCard title="Bookings" hint="No data yet" icon={CalendarCheck} accent="cleaning" />
+        <StatCard title="Reviews" hint="Coming soon" icon={Star} accent="education" />
       </div>
-    </section>
+      <div className="dashboard-actions">
+        <Button to="/catalog" icon={Search}>
+          Browse services
+        </Button>
+      </div>
+      <DashboardPanel
+        title="Create a request"
+        description="Service requests will be available in a later week. This action is not available yet."
+        comingSoon
+      />
+    </DashboardShell>
   )
 }

@@ -1,23 +1,25 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Search, X } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
 import { getCategories, getServices, type CatalogService, type Category } from '../api/catalog'
-import { Button } from '../components/Button'
-import {
-  EmptyState,
-  LoadingState,
-  ServiceCard,
-} from '../components/CategoryCard'
+import { Icon } from '../components/icons'
 import { PageHeader } from '../components/PageHeader'
+import { ServiceCard } from '../components/ServiceCard'
+import { EmptyState, ErrorState, LoadingState, SearchEmptyState } from '../components/States'
 
 const CATALOG_ERROR = "We couldn't load services right now. Please try again."
 
 export function CatalogPage() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [categories, setCategories] = useState<Category[]>([])
   const [services, setServices] = useState<CatalogService[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState('')
-  const [categoryId, setCategoryId] = useState<number | 'all'>('all')
   const [reloadToken, setReloadToken] = useState(0)
+
+  const categoryParam = searchParams.get('category')
+  const categoryId = categoryParam ? Number(categoryParam) : 'all'
 
   const retryCatalog = useCallback(() => {
     setReloadToken((token) => token + 1)
@@ -55,39 +57,54 @@ export function CatalogPage() {
     }
   }, [reloadToken])
 
+  const selectedCategoryId = useMemo(() => {
+    if (categoryId === 'all' || Number.isNaN(categoryId)) {
+      return 'all' as const
+    }
+
+    return categories.some((category) => category.id === categoryId)
+      ? categoryId
+      : 'all'
+  }, [categories, categoryId])
+
   const visibleServices = useMemo(() => {
     const needle = query.trim().toLowerCase()
     return services.filter((service) => {
       const matchesCategory =
-        categoryId === 'all' || service.categoryId === categoryId
+        selectedCategoryId === 'all' || service.categoryId === selectedCategoryId
       const matchesQuery =
         needle.length === 0 ||
         service.name.toLowerCase().includes(needle) ||
         service.categoryName.toLowerCase().includes(needle)
       return matchesCategory && matchesQuery
     })
-  }, [categoryId, query, services])
+  }, [query, selectedCategoryId, services])
+
+  function selectCategory(next: number | 'all') {
+    if (next === 'all') {
+      setSearchParams({})
+      return
+    }
+
+    setSearchParams({ category: String(next) })
+  }
 
   return (
     <section>
       <PageHeader
         eyebrow="Marketplace"
-        title="Service catalog"
-        description="Browse live categories and services from the Khidma API."
+        title="Find the right service"
+        description="Browse live categories and services from the Khidma catalog. Booking requests will arrive in a later phase."
       />
 
-      {loading ? <LoadingState label="Loading catalog" /> : null}
+      {loading ? <LoadingState label="Loading catalog" count={6} /> : null}
 
       {!loading && error ? (
-        <div className="error-state status-block" role="alert">
-          <h2>Services unavailable</h2>
-          <p className="muted">{error}</p>
-          <div className="status-actions">
-            <Button variant="secondary" onClick={retryCatalog}>
-              Try again
-            </Button>
-          </div>
-        </div>
+        <ErrorState
+          title="Services unavailable"
+          description={error}
+          onRetry={retryCatalog}
+        />
       ) : null}
 
       {!loading && !error && categories.length === 0 ? (
@@ -100,19 +117,32 @@ export function CatalogPage() {
       {!loading && !error && categories.length > 0 ? (
         <>
           <div className="toolbar">
-            <input
-              className="search-input"
-              type="search"
-              placeholder="Search services"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              aria-label="Search services"
-            />
+            <div className="search-field">
+              <Icon icon={Search} size={16} className="field-icon" />
+              <input
+                className="search-input"
+                type="search"
+                placeholder="Search services"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                aria-label="Search services"
+              />
+              {query ? (
+                <button
+                  type="button"
+                  className="search-clear"
+                  aria-label="Clear search"
+                  onClick={() => setQuery('')}
+                >
+                  <Icon icon={X} size={16} />
+                </button>
+              ) : null}
+            </div>
             <button
               type="button"
               className="filter-chip"
-              aria-pressed={categoryId === 'all'}
-              onClick={() => setCategoryId('all')}
+              aria-pressed={selectedCategoryId === 'all'}
+              onClick={() => selectCategory('all')}
             >
               All
             </button>
@@ -121,19 +151,21 @@ export function CatalogPage() {
                 key={category.id}
                 type="button"
                 className="filter-chip"
-                aria-pressed={categoryId === category.id}
-                onClick={() => setCategoryId(category.id)}
+                aria-pressed={selectedCategoryId === category.id}
+                onClick={() => selectCategory(category.id)}
               >
                 {category.name}
               </button>
             ))}
           </div>
 
+          <p className="catalog-meta">
+            {visibleServices.length}{' '}
+            {visibleServices.length === 1 ? 'service' : 'services'} shown
+          </p>
+
           {visibleServices.length === 0 ? (
-            <EmptyState
-              title="No matching services"
-              description="Try another category or search term."
-            />
+            <SearchEmptyState />
           ) : (
             <div className="service-grid">
               {visibleServices.map((service) => (

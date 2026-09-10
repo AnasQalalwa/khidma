@@ -1,12 +1,14 @@
 import { useState, type FormEvent } from 'react'
+import { Mail, MapPin, User } from 'lucide-react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { ApiError, fieldError } from '../api/client'
 import { useAuth } from '../auth/useAuth'
 import { dashboardPath } from '../auth/roles'
-import { AuthCard } from '../components/CategoryCard'
+import { AuthShell } from '../components/AuthShell'
 import { Button } from '../components/Button'
-
-type PublicRole = 'Customer' | 'Provider'
+import { FormField } from '../components/FormField'
+import { PasswordField } from '../components/PasswordField'
+import { RoleSelector, type PublicRole } from '../components/RoleSelector'
 
 export function RegisterPage() {
   const { authenticated, user, register } = useAuth()
@@ -14,7 +16,6 @@ export function RegisterPage() {
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
   const [role, setRole] = useState<PublicRole>('Customer')
   const [city, setCity] = useState('')
   const [yearsOfExperience, setYearsOfExperience] = useState('0')
@@ -63,134 +64,116 @@ export function RegisterPage() {
   }
 
   return (
-    <div className="auth-shell">
-      <div className="auth-visual">
-        <span className="eyebrow">Join Khidma</span>
-        <h2>Create a customer or provider account in minutes.</h2>
-        <p>Admin accounts are seeded for development and cannot be registered here.</p>
+    <AuthShell
+      eyebrow="Join Khidma"
+      title="Create a customer or provider account in minutes."
+      description="Admin accounts are seeded for development and cannot be registered here."
+      points={[
+        'Customers request services and compare offers',
+        'Providers offer work in approved categories',
+        'The same secure account model for every role',
+      ]}
+    >
+      <div>
+        <span className="eyebrow">Get started</span>
+        <h1>Register</h1>
+        <p className="muted">
+          Choose how you will use Khidma, then complete your profile.
+        </p>
       </div>
-      <div className="auth-panel">
-        <AuthCard
-          title="Register"
-          description="Choose how you will use Khidma, then complete your profile."
-        >
-          <form className="form" onSubmit={(event) => void handleSubmit(event)}>
-            {error ? <div className="alert" role="alert">{error}</div> : null}
-            <div className="field">
-              <span>Account type</span>
-              <div className="role-grid">
-                <button
-                  type="button"
-                  className="role-choice"
-                  aria-pressed={role === 'Customer'}
-                  onClick={() => setRole('Customer')}
-                >
-                  <strong>Customer</strong>
-                  <span>Request services and compare offers.</span>
-                </button>
-                <button
-                  type="button"
-                  className="role-choice"
-                  aria-pressed={role === 'Provider'}
-                  onClick={() => setRole('Provider')}
-                >
-                  <strong>Provider</strong>
-                  <span>Offer work and manage bookings.</span>
-                </button>
-              </div>
-              {fieldError(fieldErrors, 'role') ? (
-                <span className="field-error">{fieldError(fieldErrors, 'role')}</span>
-              ) : null}
-            </div>
-            <label className="field">
-              <span>Full name</span>
+      <form className="form" onSubmit={(event) => void handleSubmit(event)}>
+        {error ? (
+          <div className="alert" role="alert">
+            {error}
+          </div>
+        ) : null}
+
+        <div className="form-section">
+          <h2 className="form-section-title">Your account</h2>
+          <FormField
+            label="Full name"
+            icon={User}
+            error={fieldError(fieldErrors, 'fullName')}
+          >
+            <input
+              value={fullName}
+              onChange={(event) => setFullName(event.target.value)}
+              autoComplete="name"
+              required
+            />
+          </FormField>
+          <FormField
+            label="Email"
+            icon={Mail}
+            error={fieldError(fieldErrors, 'email')}
+          >
+            <input
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              required
+            />
+          </FormField>
+          <PasswordField
+            label="Password"
+            value={password}
+            onChange={setPassword}
+            autoComplete="new-password"
+            required
+            error={fieldError(fieldErrors, 'password')}
+          />
+          <FormField
+            label="City"
+            icon={MapPin}
+            error={fieldError(fieldErrors, 'city')}
+          >
+            <input
+              value={city}
+              onChange={(event) => setCity(event.target.value)}
+              autoComplete="address-level2"
+              required
+            />
+          </FormField>
+        </div>
+
+        <div className="form-section">
+          <RoleSelector
+            value={role}
+            onChange={setRole}
+            error={fieldError(fieldErrors, 'role')}
+          />
+        </div>
+
+        {role === 'Provider' ? (
+          <div className="form-section provider-fields">
+            <h2 className="form-section-title">Provider details</h2>
+            <FormField label="Years of experience">
               <input
-                value={fullName}
-                onChange={(event) => setFullName(event.target.value)}
-                required
+                type="number"
+                min={0}
+                max={80}
+                value={yearsOfExperience}
+                onChange={(event) => setYearsOfExperience(event.target.value)}
               />
-              {fieldError(fieldErrors, 'fullName') ? (
-                <span className="field-error">{fieldError(fieldErrors, 'fullName')}</span>
-              ) : null}
-            </label>
-            <label className="field">
-              <span>Email</span>
-              <input
-                type="email"
-                autoComplete="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                required
+            </FormField>
+            <FormField label="Bio">
+              <textarea
+                rows={3}
+                value={bio}
+                onChange={(event) => setBio(event.target.value)}
               />
-              {fieldError(fieldErrors, 'email') ? (
-                <span className="field-error">{fieldError(fieldErrors, 'email')}</span>
-              ) : null}
-            </label>
-            <label className="field">
-              <span>Password</span>
-              <div className="password-field">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  autoComplete="new-password"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  required
-                />
-                <button
-                  type="button"
-                  className="password-toggle"
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  onClick={() => setShowPassword((value) => !value)}
-                >
-                  {showPassword ? 'Hide' : 'Show'}
-                </button>
-              </div>
-              {fieldError(fieldErrors, 'password') ? (
-                <span className="field-error">{fieldError(fieldErrors, 'password')}</span>
-              ) : null}
-            </label>
-            <label className="field">
-              <span>City</span>
-              <input
-                value={city}
-                onChange={(event) => setCity(event.target.value)}
-                required
-              />
-              {fieldError(fieldErrors, 'city') ? (
-                <span className="field-error">{fieldError(fieldErrors, 'city')}</span>
-              ) : null}
-            </label>
-            {role === 'Provider' ? (
-              <div className="provider-fields">
-                <label className="field">
-                  <span>Years of experience</span>
-                  <input
-                    type="number"
-                    min={0}
-                    max={80}
-                    value={yearsOfExperience}
-                    onChange={(event) => setYearsOfExperience(event.target.value)}
-                  />
-                </label>
-                <label className="field">
-                  <span>Bio</span>
-                  <textarea
-                    rows={3}
-                    value={bio}
-                    onChange={(event) => setBio(event.target.value)}
-                  />
-                </label>
-              </div>
-            ) : null}
-            <Button type="submit" block disabled={submitting}>
-              {submitting ? 'Creating account…' : 'Create account'}
-            </Button>
-          </form>
-          <p className="muted">
-            Already registered? <Link to="/login">Login</Link>
-          </p>
-        </AuthCard>
-      </div>
-    </div>
+            </FormField>
+          </div>
+        ) : null}
+
+        <Button type="submit" block loading={submitting}>
+          {submitting ? 'Creating account…' : 'Create account'}
+        </Button>
+      </form>
+      <p className="muted auth-footer">
+        Already registered? <Link to="/login">Login</Link>
+      </p>
+    </AuthShell>
   )
 }
