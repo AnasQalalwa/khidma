@@ -1,6 +1,8 @@
+import { Home } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
 import { dashboardPath, Roles } from '../auth/roles'
+import { Icon } from './icons'
 
 export function Footer() {
   const { authenticated, user, logout } = useAuth()
@@ -16,15 +18,17 @@ export function Footer() {
     <footer className="footer">
       <div className="container">
         <div className="footer-grid">
-          <div>
-            <h2>Khidma</h2>
-            <p>
-              A trusted marketplace for requesting local services, comparing
-              offers, and booking with confidence.
-            </p>
+          <div className="footer-brand">
+            <NavLink to="/" className="brand">
+              <span className="brand-mark">
+                <Icon icon={Home} size={16} />
+              </span>
+              Khidma
+            </NavLink>
+            <p>People. Services. A better way to get things done locally.</p>
           </div>
           <div>
-            <h3>Explore</h3>
+            <h3>Quick Links</h3>
             <ul>
               <li>
                 <NavLink to="/">Home</NavLink>

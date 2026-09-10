@@ -1,10 +1,9 @@
 import { ArrowRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { Icon, IconTile, categoryVisual } from './icons'
+import { Icon, categoryVisual } from './icons'
 
 export function CategoryCard({
   name,
-  serviceCount,
   to,
 }: {
   name: string
@@ -12,26 +11,34 @@ export function CategoryCard({
   to?: string
 }) {
   const visual = categoryVisual(name)
+  const description = visual.description
+
   const content = (
     <>
       <div className="category-card-top">
-        <IconTile icon={visual.icon} accent={visual.accent} />
-        <Icon icon={ArrowRight} size={16} className="card-arrow" />
+        <span className={`category-card-icon icon-tile-${visual.accent}`}>
+          <Icon icon={visual.icon} size={20} />
+        </span>
+        <span className="category-card-arrow" aria-hidden="true">
+          <Icon icon={ArrowRight} size={16} />
+        </span>
       </div>
       <h3>{name}</h3>
-      <p className="count">
-        {serviceCount} {serviceCount === 1 ? 'service' : 'services'}
-      </p>
+      <p className="count">{description}</p>
     </>
   )
 
   if (to) {
     return (
-      <Link className="category-card" to={to}>
+      <Link className={`category-card category-card-${visual.accent}`} to={to}>
         {content}
       </Link>
     )
   }
 
-  return <article className="category-card">{content}</article>
+  return (
+    <article className={`category-card category-card-${visual.accent}`}>
+      {content}
+    </article>
+  )
 }

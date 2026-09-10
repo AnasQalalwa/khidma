@@ -1,10 +1,11 @@
 import { useEffect, useState, type MouseEvent } from 'react'
-import { LogOut, Menu, Search, X } from 'lucide-react'
+import { ArrowRight, Home, LogOut, Menu, X } from 'lucide-react'
 import { Link, NavLink } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
 import { dashboardPath, Roles } from '../auth/roles'
 import { RoleBadge } from './Badge'
 import { Button, IconButton } from './Button'
+import { Icon } from './icons'
 
 export function Header() {
   const { authenticated, user, logout } = useAuth()
@@ -36,7 +37,7 @@ export function Header() {
 
   useEffect(() => {
     function onResize() {
-      if (window.innerWidth > 720) {
+      if (window.innerWidth > 900) {
         setMenuOpen(false)
       }
     }
@@ -68,7 +69,9 @@ export function Header() {
     <header className="header">
       <div className="container header-inner">
         <NavLink to="/" className="brand" onClick={closeMenu}>
-          <span className="brand-mark">K</span>
+          <span className="brand-mark">
+            <Icon icon={Home} size={16} />
+          </span>
           Khidma
         </NavLink>
         <IconButton
@@ -90,11 +93,9 @@ export function Header() {
           <NavLink to="/catalog" className="nav-link">
             Catalog
           </NavLink>
-          {!authenticated ? (
-            <Link to="/#how-it-works" className="nav-link">
-              How It Works
-            </Link>
-          ) : null}
+          <Link to="/#how-it-works" className="nav-link">
+            How It Works
+          </Link>
           <div className="nav-actions">
             {authenticated && user ? (
               <>
@@ -123,7 +124,7 @@ export function Header() {
                 <NavLink to="/register" className="nav-link">
                   Register
                 </NavLink>
-                <Button to="/catalog" icon={Search}>
+                <Button to="/catalog" iconRight={ArrowRight}>
                   Find a Service
                 </Button>
               </>

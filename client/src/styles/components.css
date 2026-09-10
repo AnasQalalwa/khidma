@@ -5,7 +5,7 @@
   gap: 0.45rem;
   border: 0;
   border-radius: var(--radius-pill);
-  padding: 0.78rem 1.15rem;
+  padding: 0.7rem 1.15rem;
   cursor: pointer;
   font-weight: 700;
   line-height: 1.2;
@@ -65,6 +65,16 @@
 
 .btn-ghost:hover {
   background: var(--color-primary-light);
+}
+
+.btn-light {
+  background: #ffffff;
+  color: var(--color-primary-deep);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-light:hover {
+  background: #f3fbf8;
 }
 
 .btn-block {
@@ -171,9 +181,9 @@
 }
 
 .icon-tile {
-  width: 42px;
-  height: 42px;
-  border-radius: 14px;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
   display: grid;
   place-items: center;
   flex-shrink: 0;
@@ -235,12 +245,8 @@
   color: var(--accent-service-fg);
 }
 
-.category-card,
 .service-card,
 .stat-card,
-.trust-card,
-.step-card,
-.why-card,
 .dashboard-panel,
 .status-block,
 .auth-card {
@@ -250,7 +256,6 @@
   box-shadow: var(--shadow-sm);
 }
 
-.category-card,
 .service-card,
 .stat-card {
   padding: var(--space-5);
@@ -261,7 +266,6 @@
     box-shadow var(--transition-normal);
 }
 
-.category-card:hover,
 .service-card:hover,
 .stat-card:hover {
   transform: translateY(-2px);
@@ -269,12 +273,6 @@
   text-decoration: none;
 }
 
-.category-card {
-  color: inherit;
-  position: relative;
-}
-
-.category-card-top,
 .service-card-top {
   display: flex;
   justify-content: space-between;
@@ -282,17 +280,12 @@
   gap: var(--space-3);
 }
 
-.category-card h3,
 .service-card h3,
-.stat-card h3,
-.trust-card h3,
-.step-card h3,
-.why-card h3 {
+.stat-card h3 {
   margin: 0;
   font-size: 1.05rem;
 }
 
-.category-card .count,
 .service-card .meta,
 .stat-card .meta {
   color: var(--color-text-muted);
@@ -302,6 +295,104 @@
 .card-arrow {
   color: var(--color-primary);
   margin-top: var(--space-1);
+}
+
+.category-card {
+  color: inherit;
+  position: relative;
+  display: grid;
+  gap: 0.55rem;
+  min-height: 118px;
+  padding: 1rem 1rem 0.95rem;
+  border: 0;
+  border-radius: 20px;
+  box-shadow: none;
+  transition:
+    transform var(--transition-normal),
+    box-shadow var(--transition-normal);
+}
+
+.category-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  text-decoration: none;
+}
+
+.category-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.category-card-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.category-card-arrow {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.8);
+  color: var(--color-heading);
+}
+
+.category-card h3 {
+  margin: 0;
+  font-size: 0.98rem;
+}
+
+.category-card .count {
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  margin: 0;
+}
+
+.category-card-cleaning {
+  background: #e4f6ef;
+}
+
+.category-card-plumbing {
+  background: #fdece8;
+}
+
+.category-card-electrical {
+  background: #fef6e0;
+}
+
+.category-card-painting {
+  background: #f6eef8;
+}
+
+.category-card-carpentry {
+  background: #f4efe6;
+}
+
+.category-card-technology {
+  background: #e8f1fb;
+}
+
+.category-card-education {
+  background: #f3eefc;
+}
+
+.category-card-moving {
+  background: #e8f5ea;
+}
+
+.category-card-home {
+  background: #e6f6f2;
+}
+
+.category-card-service {
+  background: #e8f1ee;
 }
 
 .coming-soon {

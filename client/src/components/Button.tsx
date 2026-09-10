@@ -6,7 +6,7 @@ import { Icon } from './icons'
 
 type ButtonProps = {
   children: ReactNode
-  variant?: 'primary' | 'secondary' | 'ghost'
+  variant?: 'primary' | 'secondary' | 'ghost' | 'light'
   size?: 'md' | 'sm'
   to?: string
   block?: boolean
