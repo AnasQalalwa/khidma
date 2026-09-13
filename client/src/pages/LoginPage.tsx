@@ -1,5 +1,11 @@
 import { useState, type FormEvent } from 'react'
-import { Mail } from 'lucide-react'
+import {
+  ArrowRight,
+  CalendarCheck,
+  Mail,
+  ShieldCheck,
+  Users,
+} from 'lucide-react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { ApiError } from '../api/client'
 import { useAuth } from '../auth/useAuth'
@@ -24,6 +30,10 @@ export function LoginPage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (submitting) {
+      return
+    }
+
     setSubmitting(true)
     setError(null)
 
@@ -47,15 +57,33 @@ export function LoginPage() {
   return (
     <AuthShell
       eyebrow="Welcome back"
-      title="Sign in to manage requests, offers, and bookings."
-      description="Your session is restored from a secure HttpOnly cookie."
-      points={[
-        'Role-based dashboards for customers, providers, and admins',
-        'Protected booking workflow coming in later weeks',
-        'One account, one trusted marketplace',
+      title={
+        <>
+          <span>Sign in to manage</span>
+          <span>requests, offers,</span>
+          <span>and bookings.</span>
+        </>
+      }
+      description="Continue to your Khidma account and keep things moving."
+      benefits={[
+        {
+          icon: Users,
+          title: 'Role-based dashboards',
+          description: 'Manage the experience that matches your account.',
+        },
+        {
+          icon: CalendarCheck,
+          title: 'Protected booking workflow',
+          description: 'Your activity stays organized in one place.',
+        },
+        {
+          icon: ShieldCheck,
+          title: 'One account, one trusted marketplace',
+          description: 'Simple. Secure. Reliable.',
+        },
       ]}
     >
-      <div>
+      <div className="auth-card-head">
         <span className="eyebrow">Account</span>
         <h1>Login</h1>
         <p className="muted">Use your Khidma email and password.</p>
@@ -72,6 +100,7 @@ export function LoginPage() {
             autoComplete="email"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
+            placeholder="you@example.com"
             required
           />
         </FormField>
@@ -80,9 +109,10 @@ export function LoginPage() {
           value={password}
           onChange={setPassword}
           autoComplete="current-password"
+          placeholder="Enter your password"
           required
         />
-        <Button type="submit" block loading={submitting}>
+        <Button type="submit" block loading={submitting} iconRight={ArrowRight}>
           {submitting ? 'Signing in…' : 'Login'}
         </Button>
       </form>

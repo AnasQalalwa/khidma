@@ -1,5 +1,12 @@
 import { useState, type FormEvent } from 'react'
-import { Mail, MapPin, User } from 'lucide-react'
+import {
+  ChartNoAxesColumnIncreasing,
+  Mail,
+  MapPin,
+  ShieldCheck,
+  UserRound,
+  UsersRound,
+} from 'lucide-react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { ApiError, fieldError } from '../api/client'
 import { useAuth } from '../auth/useAuth'
@@ -30,6 +37,10 @@ export function RegisterPage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (submitting) {
+      return
+    }
+
     setSubmitting(true)
     setError(null)
     setFieldErrors({})
@@ -65,17 +76,35 @@ export function RegisterPage() {
 
   return (
     <AuthShell
-      eyebrow="Join Khidma"
-      title="Create a customer or provider account in minutes."
-      description="Admin accounts are seeded for development and cannot be registered here."
-      points={[
-        'Customers request services and compare offers',
-        'Providers offer work in approved categories',
-        'The same secure account model for every role',
+      eyebrow="Get started"
+      title={
+        <>
+          <span>Create a customer or</span>
+          <span>provider account</span>
+          <span>in minutes.</span>
+        </>
+      }
+      description="Join Khidma and be part of a trusted local marketplace where people find services, offer their skills, and build stronger communities."
+      benefits={[
+        {
+          icon: UsersRound,
+          title: 'Access real opportunities',
+          description: 'Request services or offer your skills.',
+        },
+        {
+          icon: ShieldCheck,
+          title: 'A secure and trusted platform',
+          description: 'Your account is protected throughout the experience.',
+        },
+        {
+          icon: ChartNoAxesColumnIncreasing,
+          title: 'Grow with your community',
+          description: 'More services. More connections.',
+        },
       ]}
     >
-      <div>
-        <span className="eyebrow">Get started</span>
+      <div className="auth-card-head">
+        <span className="eyebrow">Account</span>
         <h1>Register</h1>
         <p className="muted">
           Choose how you will use Khidma, then complete your profile.
@@ -88,67 +117,68 @@ export function RegisterPage() {
           </div>
         ) : null}
 
-        <div className="form-section">
-          <h2 className="form-section-title">Your account</h2>
-          <FormField
-            label="Full name"
-            icon={User}
-            error={fieldError(fieldErrors, 'fullName')}
-          >
-            <input
-              value={fullName}
-              onChange={(event) => setFullName(event.target.value)}
-              autoComplete="name"
-              required
-            />
-          </FormField>
-          <FormField
-            label="Email"
-            icon={Mail}
-            error={fieldError(fieldErrors, 'email')}
-          >
-            <input
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              required
-            />
-          </FormField>
-          <PasswordField
-            label="Password"
-            value={password}
-            onChange={setPassword}
-            autoComplete="new-password"
+        <FormField
+          label="Full name"
+          icon={UserRound}
+          error={fieldError(fieldErrors, 'fullName')}
+        >
+          <input
+            value={fullName}
+            onChange={(event) => setFullName(event.target.value)}
+            autoComplete="name"
+            placeholder="Enter your full name"
             required
-            error={fieldError(fieldErrors, 'password')}
           />
-          <FormField
-            label="City"
-            icon={MapPin}
-            error={fieldError(fieldErrors, 'city')}
-          >
-            <input
-              value={city}
-              onChange={(event) => setCity(event.target.value)}
-              autoComplete="address-level2"
-              required
-            />
-          </FormField>
-        </div>
+        </FormField>
+        <FormField
+          label="Email"
+          icon={Mail}
+          error={fieldError(fieldErrors, 'email')}
+        >
+          <input
+            type="email"
+            autoComplete="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="you@example.com"
+            required
+          />
+        </FormField>
+        <PasswordField
+          label="Password"
+          value={password}
+          onChange={setPassword}
+          autoComplete="new-password"
+          placeholder="Create a password"
+          required
+          error={fieldError(fieldErrors, 'password')}
+        />
+        <FormField
+          label="City"
+          icon={MapPin}
+          error={fieldError(fieldErrors, 'city')}
+        >
+          <input
+            value={city}
+            onChange={(event) => setCity(event.target.value)}
+            autoComplete="address-level2"
+            placeholder="Enter your city"
+            required
+          />
+        </FormField>
 
-        <div className="form-section">
-          <RoleSelector
-            value={role}
-            onChange={setRole}
-            error={fieldError(fieldErrors, 'role')}
-          />
-        </div>
+        <RoleSelector
+          value={role}
+          onChange={setRole}
+          error={fieldError(fieldErrors, 'role')}
+        />
 
         {role === 'Provider' ? (
-          <div className="form-section provider-fields">
-            <h2 className="form-section-title">Provider details</h2>
-            <FormField label="Years of experience">
+          <div className="provider-fields">
+            <FormField
+              label="Years of experience"
+              error={fieldError(fieldErrors, 'yearsOfExperience')}
+            >
               <input
                 type="number"
                 min={0}
@@ -157,11 +187,15 @@ export function RegisterPage() {
                 onChange={(event) => setYearsOfExperience(event.target.value)}
               />
             </FormField>
-            <FormField label="Bio">
+            <FormField
+              label="Bio"
+              error={fieldError(fieldErrors, 'bio')}
+            >
               <textarea
                 rows={3}
                 value={bio}
                 onChange={(event) => setBio(event.target.value)}
+                placeholder="Tell customers about your work"
               />
             </FormField>
           </div>

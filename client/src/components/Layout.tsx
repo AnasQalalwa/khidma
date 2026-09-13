@@ -4,13 +4,13 @@ import { Header } from './Header'
 
 export function Layout() {
   const location = useLocation()
-  const flush =
-    location.pathname === '/' ||
-    location.pathname === '/login' ||
-    location.pathname === '/register'
+  const isHome = location.pathname === '/'
+  const isAuth =
+    location.pathname === '/login' || location.pathname === '/register'
+  const flush = isHome || isAuth
 
   return (
-    <div className="layout">
+    <div className={isAuth ? 'layout layout-auth' : 'layout'}>
       <a className="skip-link" href="#main">
         Skip to content
       </a>
@@ -18,7 +18,7 @@ export function Layout() {
       <main id="main" className={flush ? 'main main-flush' : 'main'}>
         {flush ? <Outlet /> : <div className="container"><Outlet /></div>}
       </main>
-      <Footer />
+      {isAuth ? null : <Footer />}
     </div>
   )
 }

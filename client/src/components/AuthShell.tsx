@@ -1,41 +1,54 @@
 import type { ReactNode } from 'react'
-import { CheckCircle2, ShieldCheck, Sparkles } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
+import { AuthVisual } from './AuthVisual'
 import { Icon } from './icons'
+
+export type AuthBenefit = {
+  icon: LucideIcon
+  title: string
+  description: string
+}
 
 export function AuthShell({
   eyebrow,
   title,
   description,
-  points,
+  benefits,
   children,
 }: {
   eyebrow: string
-  title: string
+  title: ReactNode
   description: string
-  points?: string[]
+  benefits: AuthBenefit[]
   children: ReactNode
 }) {
-  const icons = [ShieldCheck, CheckCircle2, Sparkles]
-
   return (
     <div className="auth-shell">
       <aside className="auth-visual">
-        <span className="eyebrow">{eyebrow}</span>
-        <h2>{title}</h2>
-        <p>{description}</p>
-        {points && points.length > 0 ? (
-          <div className="auth-points">
-            {points.map((point, index) => {
-              const PointIcon = icons[index] ?? CheckCircle2
-              return (
-                <div className="auth-point" key={point}>
-                  <Icon icon={PointIcon} size={16} />
-                  <span>{point}</span>
-                </div>
-              )
-            })}
-          </div>
-        ) : null}
+        <div className="auth-copy">
+          <span className="eyebrow">{eyebrow}</span>
+          <h2 className="auth-title">{title}</h2>
+          <p className="auth-lead">{description}</p>
+          <ul className="auth-points">
+            {benefits.map((benefit) => (
+              <li className="auth-point" key={benefit.title}>
+                <span className="auth-point-icon">
+                  <Icon icon={benefit.icon} size={16} />
+                </span>
+                <span>
+                  <strong>{benefit.title}</strong>
+                  <span>{benefit.description}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="auth-tagline">
+            Local services.
+            <br />
+            Stronger communities.
+          </p>
+        </div>
+        <AuthVisual />
       </aside>
       <div className="auth-panel">
         <section className="auth-card">{children}</section>

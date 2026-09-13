@@ -1,5 +1,5 @@
 import { useId, useState } from 'react'
-import { Eye, EyeOff, Lock } from 'lucide-react'
+import { Eye, EyeOff, LockKeyhole } from 'lucide-react'
 import { Icon } from './icons'
 
 export function PasswordField({
@@ -10,6 +10,7 @@ export function PasswordField({
   autoComplete,
   error,
   required,
+  placeholder,
 }: {
   id?: string
   label: string
@@ -18,6 +19,7 @@ export function PasswordField({
   autoComplete?: string
   error?: string
   required?: boolean
+  placeholder?: string
 }) {
   const generatedId = useId()
   const fieldId = id ?? generatedId
@@ -28,7 +30,7 @@ export function PasswordField({
     <div className="field">
       <label htmlFor={fieldId}>{label}</label>
       <div className="field-control has-icon password-field">
-        <Icon icon={Lock} size={16} className="field-icon" />
+        <Icon icon={LockKeyhole} size={16} className="field-icon" />
         <input
           id={fieldId}
           type={visible ? 'text' : 'password'}
@@ -36,6 +38,7 @@ export function PasswordField({
           value={value}
           onChange={(event) => onChange(event.target.value)}
           required={required}
+          placeholder={placeholder}
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? errorId : undefined}
         />
