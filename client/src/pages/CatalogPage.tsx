@@ -169,7 +169,7 @@ export function CatalogPage() {
             </h1>
             <p>
               Browse live categories and services from the Khidma catalog.
-              Booking requests will arrive in a later phase.
+              Create a request when you are ready to hire.
             </p>
           </div>
           <div className="catalog-hero-visual">
@@ -288,7 +288,7 @@ export function CatalogPage() {
                   <Icon icon={Lightbulb} size={16} />
                 </span>
                 <h2>Don't see what you need?</h2>
-                <p>More services will be available in the next phase.</p>
+                <p>Create a request if you need something that is not listed yet.</p>
               </section>
             </aside>
 
@@ -366,7 +366,7 @@ export function CatalogPage() {
           <div className="catalog-cta-copy">
             <span className="eyebrow">Need a service that isn't listed?</span>
             <h2>Let us know what you need.</h2>
-            <p>More services and providers will be available in the next phase.</p>
+            <p>Create a service request and eligible local providers can respond.</p>
           </div>
           <Button variant="light" icon={Search} onClick={scrollToCatalog}>
             Explore services

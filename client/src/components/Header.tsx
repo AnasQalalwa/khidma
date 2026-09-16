@@ -2,7 +2,7 @@ import { useEffect, useState, type MouseEvent } from 'react'
 import { ArrowRight, Home, LogOut, Menu, X } from 'lucide-react'
 import { Link, NavLink } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
-import { dashboardPath, Roles } from '../auth/roles'
+import { dashboardPath, Roles, workspaceLinks } from '../auth/roles'
 import { RoleBadge } from './Badge'
 import { Button, IconButton } from './Button'
 import { Icon } from './icons'
@@ -93,7 +93,7 @@ export function Header() {
           <NavLink to="/catalog" className="nav-link">
             Catalog
           </NavLink>
-          <Link to="/#how-it-works" className="nav-link">
+          <Link to="/#how-it-works" className="nav-link nav-desktop-only">
             How It Works
           </Link>
           <div className="nav-actions">
@@ -108,6 +108,17 @@ export function Header() {
                 <NavLink to={dashboardPath(user.role)} className="nav-link">
                   {dashboardLabel}
                 </NavLink>
+                {workspaceLinks(user.role)
+                  .filter((link) => link.to !== dashboardPath(user.role))
+                  .map((link) => (
+                    <NavLink
+                      key={link.to}
+                      to={link.to}
+                      className="nav-link nav-mobile-only"
+                    >
+                      {link.label}
+                    </NavLink>
+                  ))}
                 <Button
                   variant="ghost"
                   icon={LogOut}

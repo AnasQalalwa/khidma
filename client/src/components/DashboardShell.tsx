@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react'
-import { Badge } from './Badge'
 
 export function DashboardShell({
   title,
@@ -35,19 +34,16 @@ export function DashboardShell({
 export function DashboardPanel({
   title,
   description,
-  comingSoon = false,
   children,
 }: {
   title: string
   description?: string
-  comingSoon?: boolean
   children?: ReactNode
 }) {
   return (
     <article className="dashboard-panel">
       <div className="dashboard-panel-head">
         <h2>{title}</h2>
-        {comingSoon ? <Badge tone="muted">Coming soon</Badge> : null}
       </div>
       {description ? <p className="muted">{description}</p> : null}
       {children}

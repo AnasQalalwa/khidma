@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { AlertTriangle, Inbox, RotateCcw, SearchX } from 'lucide-react'
 import { Button } from './Button'
@@ -30,16 +31,19 @@ export function EmptyState({
   title,
   description,
   icon = Inbox,
+  action,
 }: {
   title: string
   description: string
   icon?: LucideIcon
+  action?: ReactNode
 }) {
   return (
     <div className="empty-state status-block">
       <IconTile icon={icon} accent="service" />
       <h2>{title}</h2>
       <p className="muted">{description}</p>
+      {action ? <div className="status-actions">{action}</div> : null}
     </div>
   )
 }
