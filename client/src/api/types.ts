@@ -201,6 +201,16 @@ export type BookingDetail = {
   review: Review | null
 }
 
+export type ProviderVerificationStatus = 'PendingReview' | 'Approved' | 'Rejected'
+export type VerificationDocumentStatus = 'Pending' | 'Approved' | 'Rejected'
+export type VerificationDocumentType =
+  | 'ProfessionalCertificate'
+  | 'ProfessionalLicense'
+  | 'TrainingCertificate'
+  | 'PortfolioEvidence'
+  | 'Other'
+export type AuditOutcome = 'Success' | 'Denied' | 'Failed'
+
 export type ProviderMe = {
   id: number
   userId: string
@@ -209,7 +219,10 @@ export type ProviderMe = {
   city: string
   yearsOfExperience: number
   bio: string | null
-  isApproved: boolean
+  verificationStatus: ProviderVerificationStatus
+  isSuspended: boolean
+  suspensionReason: string | null
+  verificationRejectionReason: string | null
   averageRating: number
   reviewCount: number
   services: CatalogService[]
@@ -221,7 +234,7 @@ export type PublicProvider = {
   city: string
   yearsOfExperience: number
   bio: string | null
-  isApproved: boolean
+  isVerified: boolean
   averageRating: number
   reviewCount: number
   services: CatalogService[]
@@ -229,14 +242,32 @@ export type PublicProvider = {
 }
 
 export type AdminStats = {
+  totalUsers: number
   customers: number
   providers: number
   pendingProviders: number
+  pendingVerification: number
+  approvedProviders: number
+  suspendedProviders: number
+  pendingDocuments: number
+  rejectedDocuments: number
   categories: number
   services: number
   openRequests: number
   activeBookings: number
   completedBookings: number
+  auditEventsLast24h: number
+}
+
+export type AdminAttentionItem = {
+  kind: string
+  title: string
+  detail: string
+  href: string
+}
+
+export type AdminAttention = {
+  items: AdminAttentionItem[]
 }
 
 export type AdminProvider = {
@@ -245,10 +276,118 @@ export type AdminProvider = {
   fullName: string
   email: string
   city: string
-  isApproved: boolean
+  verificationStatus: ProviderVerificationStatus
+  isSuspended: boolean
+  suspensionReason: string | null
+  averageRating: number
+  reviewCount: number
+  documentCount: number
+  approvedDocumentCount: number
+  services: string[]
+}
+
+export type AdminUser = {
+  userId: string
+  fullName: string
+  email: string
+  role: string
+  createdAt: string
+  lastLoginAt: string | null
+  providerProfileId: number | null
+  verificationStatus: ProviderVerificationStatus | null
+  isSuspended: boolean | null
+  averageRating: number | null
+  reviewCount: number | null
+  city: string | null
+}
+
+export type AdminUserDetail = AdminUser & {
+  requestCount: number
+  bookingCount: number
+  reviewCount: number
+  suspensionReason: string | null
+  offerCount: number
+  activeBookingCount: number
+  completedBookingCount: number
+  services: string[]
+  recentAuditEvents: AuditLogItem[]
+}
+
+export type VerificationDocument = {
+  id: number
+  documentType: VerificationDocumentType
+  originalFileName: string
+  contentType: string
+  fileSizeBytes: number
+  uploadedAt: string
+  reviewStatus: VerificationDocumentStatus
+  reviewNote: string | null
+  reviewedAt: string | null
+}
+
+export type ProviderVerification = {
+  providerProfileId: number
+  userId: string
+  fullName: string
+  email: string
+  city: string
+  yearsOfExperience: number
+  bio: string | null
+  verificationStatus: ProviderVerificationStatus
+  verificationRejectionReason: string | null
+  verificationReviewedAt: string | null
+  isSuspended: boolean
+  suspensionReason: string | null
+  suspendedAt: string | null
   averageRating: number
   reviewCount: number
   services: string[]
+  documents: VerificationDocument[]
+  hasApprovedDocument: boolean
+}
+
+export type AdminVerificationListItem = {
+  providerProfileId: number
+  userId: string
+  fullName: string
+  email: string
+  city: string
+  yearsOfExperience: number
+  verificationStatus: ProviderVerificationStatus
+  isSuspended: boolean
+  documentCount: number
+  pendingDocumentCount: number
+  approvedDocumentCount: number
+  rejectedDocumentCount: number
+  services: string[]
+}
+
+export type AuditLogItem = {
+  id: number
+  createdAt: string
+  actorUserId: string | null
+  actorEmail: string | null
+  actorRole: string | null
+  category: string
+  action: string
+  entityType: string | null
+  entityId: string | null
+  outcome: AuditOutcome
+  message: string | null
+  ipAddress: string | null
+}
+
+export type AuditLogDetail = AuditLogItem & {
+  detailsJson: string | null
+  userAgent: string | null
+  correlationId: string | null
+}
+
+export type AuditSummary = {
+  eventsToday: number
+  deniedActions: number
+  adminActions: number
+  providerVerificationEvents: number
 }
 
 export type CustomerDashboard = {
@@ -261,7 +400,9 @@ export type CustomerDashboard = {
 }
 
 export type ProviderDashboard = {
-  isApproved: boolean
+  verificationStatus: ProviderVerificationStatus
+  isSuspended: boolean
+  suspensionReason: string | null
   eligibleRequestCount: number
   pendingOfferCount: number
   activeBookingCount: number

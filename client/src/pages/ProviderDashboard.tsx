@@ -50,9 +50,19 @@ export function ProviderDashboard() {
         ) : null}
         {!loading && !error && data ? (
           <>
-            {!data.isApproved ? (
+            {data.isSuspended ? (
+              <div className="alert" role="alert">
+                Your account is suspended
+                {data.suspensionReason ? `: ${data.suspensionReason}` : '.'} You cannot see matching
+                requests or submit new offers. Existing bookings stay available so in-progress jobs
+                can still be completed.
+              </div>
+            ) : null}
+            {!data.isSuspended && data.verificationStatus !== 'Approved' ? (
               <div className="alert" role="status">
-                Your profile is pending admin approval. You will see matching requests after approval.
+                {data.verificationStatus === 'Rejected'
+                  ? 'Professional verification was rejected. Upload updated documents from your profile, then wait for admin review.'
+                  : 'Professional verification is pending review. You will see matching requests after an admin approves your documents.'}
               </div>
             ) : null}
             <div className="dash-grid">

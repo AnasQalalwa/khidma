@@ -1,26 +1,47 @@
-import { apiRequest } from './client'
+import { apiDownload, apiRequest } from './client'
 import { toQuery } from './query'
+import type {
+  AdminProvider,
+  AdminStats,
+  AdminAttention,
+  AdminUser,
+  AdminUserDetail,
+  PageQuery,
+  PagedResult,
+} from './types'
 import type { Category, CatalogService } from './catalog'
-import type { AdminProvider, AdminStats, PageQuery, PagedResult } from './types'
 
 export function getAdminStats(): Promise<AdminStats> {
   return apiRequest('/api/admin/stats')
 }
 
+export function getAdminAttention(): Promise<AdminAttention> {
+  return apiRequest('/api/admin/attention')
+}
+
 export function getAdminProviders(
-  query: PageQuery & { approved?: boolean } = {},
+  query: PageQuery & {
+    verificationStatus?: string
+    suspended?: boolean
+    search?: string
+  } = {},
 ): Promise<PagedResult<AdminProvider>> {
   return apiRequest(`/api/admin/providers${toQuery(query)}`)
 }
 
-export function setProviderApproval(
-  id: number,
-  isApproved: boolean,
-): Promise<AdminProvider> {
-  return apiRequest(`/api/admin/providers/${id}/approval`, {
-    method: 'POST',
-    body: JSON.stringify({ isApproved }),
-  })
+export function getAdminUsers(
+  query: PageQuery & {
+    search?: string
+    role?: string
+    providerVerificationStatus?: string
+    suspended?: boolean
+  } = {},
+): Promise<PagedResult<AdminUser>> {
+  return apiRequest(`/api/admin/users${toQuery(query)}`)
+}
+
+export function getAdminUser(userId: string): Promise<AdminUserDetail> {
+  return apiRequest(`/api/admin/users/${userId}`)
 }
 
 export function createCategory(name: string): Promise<Category> {
@@ -63,4 +84,8 @@ export function updateService(
 
 export function deleteService(id: number): Promise<boolean> {
   return apiRequest(`/api/admin/services/${id}`, { method: 'DELETE' })
+}
+
+export function downloadAdminDocument(documentId: number, fileName: string): Promise<void> {
+  return apiDownload(`/api/admin/verification-documents/${documentId}/download`, fileName)
 }

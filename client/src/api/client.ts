@@ -97,7 +97,11 @@ export async function apiRequest<T>(
     headers.set('X-XSRF-TOKEN', token)
   }
 
-  if (options.body !== undefined && !headers.has('Content-Type')) {
+  if (
+    options.body !== undefined &&
+    !(options.body instanceof FormData) &&
+    !headers.has('Content-Type')
+  ) {
     headers.set('Content-Type', 'application/json')
   }
 
@@ -145,4 +149,43 @@ export async function warmupAntiforgery(): Promise<void> {
   } catch {
     // Auth bootstrap still proceeds; mutations will retry.
   }
+}
+
+export async function apiDownload(path: string, fallbackName = 'document'): Promise<void> {
+  const method = 'GET'
+  const headers = new Headers()
+
+  let response: Response
+  try {
+    response = await fetch(path, {
+      method,
+      headers,
+      credentials: 'include',
+    })
+  } catch {
+    throw new ApiError('Network error. Confirm the API is running.', 0)
+  }
+
+  if (!response.ok) {
+    const body = await parseBody(response)
+    const problem = isProblemDetails(body) ? body : null
+    throw new ApiError(
+      problem?.detail ?? problem?.title ?? `Download failed with status ${response.status}`,
+      response.status,
+      problem,
+    )
+  }
+
+  const blob = await response.blob()
+  const disposition = response.headers.get('content-disposition') ?? ''
+  const match = /filename\*?=(?:UTF-8''|")?([^";]+)/i.exec(disposition)
+  const fileName = match ? decodeURIComponent(match[1].replaceAll('"', '')) : fallbackName
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = fileName
+  document.body.append(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
 }

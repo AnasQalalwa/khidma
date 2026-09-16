@@ -1,27 +1,60 @@
 import { useCallback, useEffect, useState } from 'react'
-import {
-  getAdminProviders,
-  setProviderApproval,
-} from '../../api/admin'
+import { Link, useSearchParams } from 'react-router-dom'
+import { getAdminProviders } from '../../api/admin'
 import { ApiError } from '../../api/client'
+import { setProviderSuspension } from '../../api/verification'
 import type { AdminProvider, PagedResult } from '../../api/types'
 import { Roles } from '../../auth/roles'
 import { Button } from '../../components/Button'
+import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { PageHeader } from '../../components/PageHeader'
 import { Pagination } from '../../components/Pagination'
+import { ReasonDialog } from '../../components/ReasonDialog'
 import { StatusBadge } from '../../components/StatusBadge'
 import { EmptyState, ErrorState, LoadingState } from '../../components/States'
 import { WorkspaceLayout } from '../../components/WorkspaceLayout'
 import { formatRating } from '../../utils/format'
 
+const FILTERS = [
+  { value: 'active', label: 'Active' },
+  { value: 'suspended', label: 'Suspended' },
+  { value: 'pending', label: 'Pending' },
+  { value: 'rejected', label: 'Rejected' },
+  { value: 'all', label: 'All' },
+] as const
+
+function queryForFilter(filter: string) {
+  if (filter === 'active') {
+    return { verificationStatus: 'Approved', suspended: false as const }
+  }
+  if (filter === 'suspended') {
+    return { suspended: true as const }
+  }
+  if (filter === 'pending') {
+    return { verificationStatus: 'PendingReview' }
+  }
+  if (filter === 'rejected') {
+    return { verificationStatus: 'Rejected' }
+  }
+  return {}
+}
+
 export function AdminProvidersPage() {
+  const [params, setParams] = useSearchParams()
+  const filter =
+    params.get('suspended') === 'true'
+      ? 'suspended'
+      : (params.get('filter') ?? 'all')
   const [page, setPage] = useState(1)
-  const [approved, setApproved] = useState('')
+  const [search, setSearch] = useState(params.get('search') ?? '')
+  const [submittedSearch, setSubmittedSearch] = useState(params.get('search') ?? '')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
-  const [busyId, setBusyId] = useState<number | null>(null)
   const [data, setData] = useState<PagedResult<AdminProvider> | null>(null)
+  const [suspendTarget, setSuspendTarget] = useState<AdminProvider | null>(null)
+  const [reactivateTarget, setReactivateTarget] = useState<AdminProvider | null>(null)
+  const [busy, setBusy] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -31,7 +64,8 @@ export function AdminProvidersPage() {
         await getAdminProviders({
           page,
           pageSize: 12,
-          approved: approved === '' ? undefined : approved === 'true',
+          search: submittedSearch || undefined,
+          ...queryForFilter(filter),
         }),
       )
     } catch (err) {
@@ -39,23 +73,69 @@ export function AdminProvidersPage() {
     } finally {
       setLoading(false)
     }
-  }, [approved, page])
+  }, [filter, page, submittedSearch])
 
   useEffect(() => {
     void load()
   }, [load])
 
-  async function toggle(provider: AdminProvider) {
-    setBusyId(provider.id)
+  function setFilter(next: string) {
+    setPage(1)
+    const updated = new URLSearchParams(params)
+    if (next === 'all') {
+      updated.delete('filter')
+      updated.delete('suspended')
+    } else if (next === 'suspended') {
+      updated.set('suspended', 'true')
+      updated.delete('filter')
+    } else {
+      updated.set('filter', next)
+      updated.delete('suspended')
+    }
+    setParams(updated)
+  }
+
+  async function suspend(reason: string) {
+    if (!suspendTarget) {
+      return
+    }
+
+    setBusy(true)
     setActionError(null)
     try {
-      await setProviderApproval(provider.id, !provider.isApproved)
+      await setProviderSuspension(suspendTarget.id, { suspended: true, reason })
+      setSuspendTarget(null)
       await load()
     } catch (err) {
-      setActionError(err instanceof ApiError ? err.message : 'Could not update approval.')
+      setActionError(err instanceof ApiError ? err.message : 'Could not suspend this provider.')
     } finally {
-      setBusyId(null)
+      setBusy(false)
     }
+  }
+
+  async function reactivate() {
+    if (!reactivateTarget) {
+      return
+    }
+
+    setBusy(true)
+    setActionError(null)
+    try {
+      await setProviderSuspension(reactivateTarget.id, { suspended: false })
+      setReactivateTarget(null)
+      await load()
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : 'Could not reactivate this provider.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  function providerStatus(provider: AdminProvider) {
+    if (provider.isSuspended) {
+      return 'Suspended'
+    }
+    return provider.verificationStatus
   }
 
   return (
@@ -63,36 +143,58 @@ export function AdminProvidersPage() {
       <PageHeader
         eyebrow="Admin"
         title="Providers"
-        description="Approve providers before they can see matching requests."
+        description="Operational control: suspend access to new work, or reactivate a provider who is already verified."
       />
+      <p className="muted">
+        Suspension rejects pending offers and hides matching requests. Existing bookings stay
+        in place so in-progress jobs can still be completed.
+      </p>
       {actionError ? (
         <div className="alert" role="alert">
           {actionError}
         </div>
       ) : null}
-      <div className="filter-bar">
-        <label htmlFor="provider-approval">
-          Approval
+      <form
+        className="filter-bar"
+        onSubmit={(event) => {
+          event.preventDefault()
+          setPage(1)
+          setSubmittedSearch(search.trim())
+        }}
+      >
+        <label htmlFor="provider-filter">
+          Status
           <select
-            id="provider-approval"
-            value={approved}
-            onChange={(event) => {
-              setPage(1)
-              setApproved(event.target.value)
-            }}
+            id="provider-filter"
+            value={filter}
+            onChange={(event) => setFilter(event.target.value)}
           >
-            <option value="">All</option>
-            <option value="true">Approved</option>
-            <option value="false">Pending</option>
+            {FILTERS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
           </select>
         </label>
-      </div>
+        <label htmlFor="provider-search">
+          Search name or email
+          <input
+            id="provider-search"
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+        </label>
+        <button className="btn btn-secondary btn-sm" type="submit">
+          Search
+        </button>
+      </form>
       {loading ? <LoadingState label="Loading providers" /> : null}
       {error ? (
         <ErrorState title="Unable to load providers" description={error} onRetry={() => void load()} />
       ) : null}
       {!loading && !error && data && data.items.length === 0 ? (
-        <EmptyState title="No providers" description="Registered providers will appear here." />
+        <EmptyState title="No providers" description="No providers match the current filters." />
       ) : null}
       {!loading && !error && data && data.items.length > 0 ? (
         <>
@@ -119,17 +221,25 @@ export function AdminProvidersPage() {
                     <td>{provider.services.join(', ') || '—'}</td>
                     <td>{formatRating(provider.averageRating, provider.reviewCount)}</td>
                     <td>
-                      <StatusBadge status={provider.isApproved ? 'Approved' : 'Pending'} />
+                      <StatusBadge status={providerStatus(provider)} />
                     </td>
                     <td>
-                      <Button
-                        size="sm"
-                        variant={provider.isApproved ? 'secondary' : 'primary'}
-                        loading={busyId === provider.id}
-                        onClick={() => void toggle(provider)}
-                      >
-                        {provider.isApproved ? 'Unapprove' : 'Approve'}
-                      </Button>
+                      <div className="inline-actions">
+                        <Link to={`/admin/verifications/${provider.id}`}>Verification</Link>
+                        {provider.isSuspended ? (
+                          <Button size="sm" onClick={() => setReactivateTarget(provider)}>
+                            Reactivate
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => setSuspendTarget(provider)}
+                          >
+                            Suspend
+                          </Button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -144,20 +254,22 @@ export function AdminProvidersPage() {
                     <h3>{provider.fullName}</h3>
                     <p className="muted">{provider.email}</p>
                   </div>
-                  <StatusBadge status={provider.isApproved ? 'Approved' : 'Pending'} />
+                  <StatusBadge status={providerStatus(provider)} />
                 </div>
                 <p>{provider.city}</p>
                 <p className="muted">{provider.services.join(', ') || 'No services'}</p>
-                <p className="muted">
-                  {formatRating(provider.averageRating, provider.reviewCount)}
-                </p>
-                <Button
-                  size="sm"
-                  loading={busyId === provider.id}
-                  onClick={() => void toggle(provider)}
-                >
-                  {provider.isApproved ? 'Unapprove' : 'Approve'}
-                </Button>
+                {provider.isSuspended && provider.suspensionReason ? (
+                  <p>Reason: {provider.suspensionReason}</p>
+                ) : null}
+                {provider.isSuspended ? (
+                  <Button size="sm" onClick={() => setReactivateTarget(provider)}>
+                    Reactivate
+                  </Button>
+                ) : (
+                  <Button size="sm" variant="secondary" onClick={() => setSuspendTarget(provider)}>
+                    Suspend
+                  </Button>
+                )}
               </article>
             ))}
           </div>
@@ -169,6 +281,27 @@ export function AdminProvidersPage() {
           />
         </>
       ) : null}
+
+      <ReasonDialog
+        open={suspendTarget !== null}
+        title="Suspend this provider?"
+        description="They will stop receiving new work. Pending offers are rejected. Existing bookings continue."
+        confirmLabel="Suspend provider"
+        label="Suspension reason"
+        danger
+        busy={busy}
+        onConfirm={(reason) => void suspend(reason)}
+        onClose={() => setSuspendTarget(null)}
+      />
+      <ConfirmDialog
+        open={reactivateTarget !== null}
+        title="Reactivate this provider?"
+        description="Suspension fields are cleared. The provider can receive new work only if they are already approved."
+        confirmLabel="Reactivate"
+        busy={busy}
+        onConfirm={() => void reactivate()}
+        onClose={() => setReactivateTarget(null)}
+      />
     </WorkspaceLayout>
   )
 }

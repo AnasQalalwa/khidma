@@ -58,7 +58,7 @@ export function PublicProviderPage() {
         title={data.fullName}
         description={data.bio ?? 'Local Khidma provider.'}
         actions={
-          <StatusBadge status={data.isApproved ? 'Approved' : 'Pending'} />
+          <StatusBadge status={data.isVerified ? 'Approved' : 'PendingReview'} />
         }
       />
       <p className="lead">{formatRating(data.averageRating, data.reviewCount)}</p>
