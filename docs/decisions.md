@@ -15,7 +15,7 @@ These ADRs record the choices that shape Khidma’s Weeks 2–3 marketplace. Wee
 **Decision.** A provider sees an open request only when all of these are true, in one reusable query (`EligibleOpenRequestsForProvider`):
 
 1. Request status is `Open`
-2. The provider profile is approved
+2. The provider is professionally verified (`VerificationStatus == Approved`) and not suspended
 3. The request’s service is in the provider’s `ProviderServices`
 4. `request.City.ToLower() == provider.City.ToLower()`
 
@@ -67,15 +67,16 @@ Sibling `Pending` offers become `Rejected`. The request becomes `Booked`. One `B
 
 **Why.** Auto-migrate in production races with multiple instances and hides DBA review.
 
-## ADR 9 — Providers pending by default
+## ADR 9 — Providers pending review by default
 
-**Decision.** New provider registration sets `ProviderProfile.IsApproved = false`. Unapproved providers cannot see or offer on available requests. Admin `POST /api/admin/providers/{id}/approval` toggles approval.
+**Decision.** New provider registration sets `ProviderProfile.VerificationStatus = PendingReview` (replacing the old `IsApproved` flag). Unverified providers cannot receive new work. Admin approval requires at least one **Approved** professional document; otherwise the decision API returns 409. Rejection requires a reason.
 
-The seeder keeps `provider1` and `provider3` approved and `provider2` pending so the approval queue is demoable without extra setup.
+The seeder keeps `provider1` and `provider3` as `Approved` and `provider2` as `PendingReview`.
 
-**Why.** The admin workflow is meaningless if every self-registered provider is immediately live.
+**Why.** Professional proof is the trust gate. A boolean approval toggle let an admin mark a provider live with no documents on file.
 
 ## ADR 10 — Dashboard summary endpoints
+
 
 **Decision.** `GET /api/dashboard/customer` and `GET /api/dashboard/provider` return counters plus a short recent list. They are not a substitute for the paged list endpoints.
 
@@ -105,3 +106,29 @@ DTOs that link to a public profile include both `providerId` and `providerProfil
 **Decision.** Recent-item and mine lists order by descending `Id`, not `CreatedAt`.
 
 **Why.** Identity columns are monotonic with insert time. This keeps the same LINQ provider path on SQL Server and SQLite (see ADR 6).
+
+## ADR 14 — Eligibility is approved and not suspended
+
+**Decision.** `ServiceRequestService.EligibleOpenRequestsForProvider` is the only eligibility source. A provider can receive work when:
+
+1. `VerificationStatus == Approved`
+2. `IsSuspended == false`
+3. matching service
+4. exact city (case-insensitive)
+5. request is `Open`
+
+`GET /api/service-requests/available` returns **200 with an empty page** for unverified or suspended providers (same convention as the old unapproved list). `POST /api/service-requests/{id}/offers` returns **403** when the provider is not approved or is suspended, checked **before** the existing 404 ineligible-request path. Suspension rejects `Pending` offers and never mutates bookings.
+
+**Why.** Hiding the marketplace (empty 200) avoids leaking demand to ineligible accounts. 403 on offer is an explicit policy denial and is audited as `Denied`. Bookings already in flight must still be completable.
+
+## ADR 15 — Persistent append-only audit log
+
+**Decision.** `AuditLog` has no foreign keys and no update/delete endpoints. `IAuditService.RecordAsync` captures actor claims, IP, user agent, and `TraceIdentifier`, serializes only an explicit details dictionary, and swallows persistence failures after logging them. Call sites run after the business commit.
+
+**Why.** Trust and moderation actions need a durable trail. Audit must not take down the request that succeeded. No FKs means deleting a user cannot cascade-erase history.
+
+## ADR 16 — Private professional documents
+
+**Decision.** Providers upload PDF/JPEG/PNG files (1 byte–10 MB) with matching extension, content type, and magic bytes. Storage is `IProviderDocumentStorage` rooted at `ProviderDocuments:RootPath` (default `{ContentRoot}/App_Data/provider-documents`). Stored names are GUIDs. Downloads go through authorized `File()` results, never static files.
+
+**Why.** These files are identity evidence, not a public portfolio. `wwwroot` would make them anonymously fetchable.

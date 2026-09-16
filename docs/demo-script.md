@@ -8,8 +8,8 @@ Passwords are in user secrets (`Seed:DemoPassword`, `Seed:AdminPassword`). They 
 | --- | --- | --- |
 | Customer | `customer@khidma.local` | Ramallah |
 | Provider (approved) | `provider1@khidma.local` | Ramallah, Home Services |
-| Provider (pending) | `provider2@khidma.local` | Hebron — use for admin approval |
-| Admin | `admin@khidma.local` | Catalog and approval |
+| Provider (pending review) | `provider2@khidma.local` | Hebron — upload documents, then admin review |
+| Admin | `admin@khidma.local` | Verification, suspension, users, audit, catalog |
 
 ## Happy path
 
@@ -21,5 +21,8 @@ Passwords are in user secrets (`Seed:DemoPassword`, `Seed:AdminPassword`). They 
 
 ## Admin
 
-1. Sign in as admin. **Providers** lists provider 2 as pending. Approve them.
-2. **Catalog** can add a category or service; deleting a used category returns a conflict message.
+1. Sign in as admin. **Overview** shows stats, a needs-attention queue, and recent audit events.
+2. **Provider Verification** lists provider 2 as pending review. Open the profile, review documents, then approve the provider only after a document is approved.
+3. **Providers** can suspend with a reason (pending offers are rejected; bookings continue) and reactivate.
+4. **Users** and **Audit Logs** are read-only monitoring. Logs cannot be edited or deleted.
+5. **Catalog** can add a category or service; deleting a used category returns a conflict message.

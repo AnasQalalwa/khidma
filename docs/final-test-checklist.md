@@ -19,16 +19,30 @@ Use seeded accounts (`customer@khidma.local` + `provider1@khidma.local` in Ramal
 | 13 | Participant cancels a Scheduled booking with a reason | Booking and request `Cancelled` | Yes — `BookingTests` |
 | 14 | Customer reviews a completed booking (1–5) | Review stored; `AverageRating` / `ReviewCount` recomputed | Yes — `ReviewTests` |
 | 15 | Review when not completed, duplicate review, wrong customer, rating 6 | 409 / 409 / 403 / 400 | Yes — `ReviewTests` |
-| 16 | New provider registers | `IsApproved = false`; dashboard shows pending banner; no available requests | Yes — registration + eligibility tests |
-| 17 | Admin approves the provider and the provider sets services | Provider appears in available matching requests | Yes — `AdminTests` + `ProviderProfileTests` |
+| 16 | New provider registers | `VerificationStatus = PendingReview`; dashboard shows verification banner; available list empty; offer 403 | Yes — registration + eligibility tests |
+| 17 | Admin approves a document then the provider | Provider appears in matching available requests | Yes — `ProviderVerificationDecisionTests` + `AdminTests` |
 | 18 | Admin catalog: duplicate name, delete category with services | 409 | Yes — `AdminTests` |
 | 19 | Role matrix: anonymous POST request, provider hitting `/mine`, customer hitting `/available` | 401 / 403 / 403 | Yes — `AuthorizationMatrixTests` |
-| 20 | Pagination `pageSize=99` | Capped to 50 | Yes — `PaginationTests` |
-| 21 | Frontend: login error, wrong-role redirect, empty requests, offer submit, ApiError empty/error states, booking actions, rating required | UI matches | Yes — Vitest (11 cases) |
+| 20 | Pagination `pageSize=99` | Capped to 50 (audit logs cap at 100) | Yes — `PaginationTests` |
+| 21 | Frontend: login error, wrong-role redirect, empty requests, offer submit, ApiError empty/error states, booking actions, rating required | UI matches | Yes — Vitest |
+| 22 | Provider uploads PDF/JPEG/PNG; exe, fake signature, and oversize rejected | 200 / 400 | Yes — `VerificationDocumentTests` |
+| 23 | Document access matrix (own / other provider / customer / anon / admin) | 200 / 403 / 401 | Yes — `VerificationDocumentTests` |
+| 24 | Approve provider with 0 / pending / rejected docs | 409 until one document is Approved | Yes — `ProviderVerificationDecisionTests` |
+| 25 | Admin suspends an approved provider | Pending offers rejected; bookings untouched; available empty; offer 403 | Yes — `SuspensionTests` |
+| 26 | Suspended provider can complete an InProgress booking | 200, booking Completed | Yes — `SuspensionTests` |
+| 27 | Reactivate a suspended approved provider | Eligible again; suspension fields cleared | Yes — `SuspensionTests` |
+| 28 | Audit events for auth, verification, suspension; no password/cookie/XSRF/binary in details | Listed actions present; secrets absent; no DELETE route | Yes — `AuditLogTests` |
+| 29 | Admin user list/filter/search and `LastLoginAt` on successful login only | DTO populated; failed login leaves LastLoginAt null | Yes — `AdminUserMonitoringTests` |
+| 30 | CSRF: missing token 400, valid token succeeds | 400 / 200 | Yes — `CsrfMutationTests` |
+| 31 | Full marketplace workflow including verification | Request → offer → accept → complete → review + audit | Yes — `FullMarketplaceWorkflowTests` |
+| 32 | Frontend admin users, verification queue/detail, providers suspend/reactivate, audit filters/drawer, provider banners/documents | UI matches | Yes — Vitest admin/provider tests |
 
 Manual (SQL Server / browser) — not replaced by SQLite tests:
 
-- Full UI pass of the 21 scenarios at 360 / 430 / 768 / 1024 / 1280 / 1440.
-- Confirm cookie + CSRF through the Vite proxy (`http://localhost:5173` → `https://localhost:5001`).
-- Confirm SPA fallback: refresh `/customer/requests/1` on the API host still serves the React app.
-- Concurrent accept against SQL Server (two tabs).
+- [ ] Full UI pass of admin Overview, Users, Verification, Providers, Audit Logs at 360 / 430 / 768 / 1024 / 1280 / 1440.
+- [ ] Confirm cookie + CSRF through the Vite proxy (`http://localhost:5173` → `https://localhost:5001`).
+- [ ] Confirm SPA fallback: refresh `/customer/requests/1` on the API host still serves the React app.
+- [ ] Concurrent accept against SQL Server (`scripts/concurrency-check.ps1`).
+- [ ] Live smoke against LocalDB (`scripts/smoke-test.ps1`).
+- [ ] Upload a real PDF in the provider profile and download it as admin.
+- [ ] Suspend a provider in the UI and confirm pending offers flip to Rejected.

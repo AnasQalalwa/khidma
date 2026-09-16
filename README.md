@@ -8,7 +8,7 @@ Khidma is a local service marketplace. Customers publish service requests, eligi
 Customer creates ServiceRequest (Open)
         │
         ▼
-Eligible provider sees it (approved + matching service + same city)
+Eligible provider sees it (verified + not suspended + matching service + same city)
         │
         ▼
 Provider submits Offer (Pending)
@@ -26,7 +26,7 @@ Customer leaves one review (rating 1–5)
 ProviderProfile.AverageRating / ReviewCount recomputed in the same transaction
 ```
 
-Roles: **Customer**, **Provider**, **Admin**. New providers register as pending until an admin approves them.
+Roles: **Customer**, **Provider**, **Admin**. New providers register as `PendingReview`. They become eligible only after an admin approves at least one professional document and the provider account, and only while the account is not suspended.
 
 Out of scope: payments, chat, JWT, maps, notifications, and multi-offer acceptance.
 
@@ -77,12 +77,12 @@ Passwords come from `Seed:*` secrets, never from source.
 
 | Email | Role | Notes |
 | --- | --- | --- |
-| `admin@khidma.local` | Admin | Catalog + provider approval |
+| `admin@khidma.local` | Admin | Catalog, verification, suspension, users, audit |
 | `customer@khidma.local` | Customer | Ramallah — full-flow pair with provider 1 |
 | `customer2@khidma.local` | Customer | Nablus |
-| `provider1@khidma.local` | Provider | Ramallah, approved, Home Services |
-| `provider2@khidma.local` | Provider | Hebron, **pending approval** |
-| `provider3@khidma.local` | Provider | Bethlehem, approved |
+| `provider1@khidma.local` | Provider | Ramallah, **Approved**, Home Services |
+| `provider2@khidma.local` | Provider | Hebron, **PendingReview** |
+| `provider3@khidma.local` | Provider | Bethlehem, **Approved** |
 
 ## Development
 
@@ -140,20 +140,30 @@ npm run test
 npm run build
 
 # EF (after dotnet tool restore)
+dotnet ef migrations list --project server/Khidma.Api
 dotnet ef migrations has-pending-model-changes --project server/Khidma.Api
+dotnet ef database update --project server/Khidma.Api
 dotnet ef migrations script --idempotent --project server/Khidma.Api --output khidma.sql
+
+# Live API checks (never print secrets; passwords from env or SecureString prompts)
+pwsh -File scripts/smoke-test.ps1
+pwsh -File scripts/concurrency-check.ps1
 ```
 
 Production does **not** auto-migrate. Apply the idempotent script (or `dotnet ef database update`) as a deploy step.
 
-There is one schema migration (`InitialCreate`). Weeks 2–3 added no new migrations.
+Migrations: `InitialCreate`, then `AddProviderVerificationAuditAndSuspension` (converts `IsApproved` to `VerificationStatus`, adds documents, suspension, audit logs, and `LastLoginAt`).
 
 ## Architecture notes
 
 - Thin controllers → services → EF. Responses are DTOs only.
 - `ServiceResult<T>` maps to 400 / 401 / 403 / 404 / 409 Problem Details.
 - Lists are paged (`page`, `pageSize`, max 50).
-- Eligibility is one query reused by available-list and provider detail.
+- Eligibility is one query reused by available-list and provider detail: `VerificationStatus == Approved && !IsSuspended`, plus matching service and exact city.
+- Unverified or suspended providers get **200 empty** on `GET /api/service-requests/available` and **403** on `POST .../offers`.
+- Professional verification documents (PDF/JPEG/PNG, 10 MB, magic-byte check) are stored outside `wwwroot` under `App_Data/provider-documents`.
+- Admin workspace: Overview, Users, Provider Verification, Providers (suspend/reactivate), Audit Logs, Catalog.
+- Audit logs are append-only. There is no update or delete API.
 - Accept-offer is transactional with state checks, rowversion, and a filtered unique index.
 - Identity user id vs `ProviderProfile.Id`: see `docs/decisions.md` ADR 11.
 
@@ -162,7 +172,7 @@ There is one schema migration (`InitialCreate`). Weeks 2–3 added no new migrat
 - City match is exact (case-insensitive), not geographic.
 - SQLite tests cannot `ORDER BY DateTimeOffset`; lists sort by `Id`.
 - SQLite filtered indexes are not SQL Server. Concurrent-accept proof on SQL Server is still a manual check.
-- No payments, messaging, file uploads, or email sending.
+- No payments, messaging, or email sending. File uploads are limited to private professional verification documents.
 - Rating aggregates are stored; they are recomputed only when a review is created (reviews are immutable after insert).
 
 ## Docs
@@ -171,4 +181,6 @@ There is one schema migration (`InitialCreate`). Weeks 2–3 added no new migrat
 - `docs/security-matrix.md`
 - `docs/final-test-checklist.md`
 - `docs/demo-script.md`
+- `docs/TEST_RESULTS.md`
+- `docs/ADMIN_SECURITY_REVIEW_REPORT.md`
 - `FINAL_IMPLEMENTATION_REPORT.md`
