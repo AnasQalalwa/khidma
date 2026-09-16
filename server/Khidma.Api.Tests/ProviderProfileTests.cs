@@ -28,7 +28,7 @@ public sealed class ProviderProfileTests : IClassFixture<KhidmaApiFactory>
         using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         Assert.Equal("Jenin", doc.RootElement.GetProperty("city").GetString());
         Assert.Equal(8, doc.RootElement.GetProperty("yearsOfExperience").GetInt32());
-        Assert.False(doc.RootElement.GetProperty("isApproved").GetBoolean());
+        Assert.Equal("PendingReview", doc.RootElement.GetProperty("verificationStatus").GetString());
         Assert.Equal(0, doc.RootElement.GetProperty("reviewCount").GetInt32());
     }
 

@@ -49,7 +49,7 @@ public sealed class OfferTests : IClassFixture<KhidmaApiFactory>
                 estimatedDate = TestHarness.FutureDate()
             });
 
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
     [Fact]
@@ -57,8 +57,9 @@ public sealed class OfferTests : IClassFixture<KhidmaApiFactory>
     {
         var city = UniqueCity();
         var (customer, _) = await TestHarness.RegisterAsync(_factory, "Customer", city);
-        var (provider, _) = await TestHarness.RegisterAsync(_factory, "Provider", city);
+        var (provider, providerUser) = await TestHarness.RegisterAsync(_factory, "Provider", city);
         var serviceId = await TestHarness.GetServiceIdAsync(_factory);
+        await TestHarness.ApproveProviderAsync(_factory, providerUser.Id, city);
         var requestId = await TestHarness.CreateRequestAsync(customer, serviceId, city);
 
         var response = await provider.PostAsJsonAsync(

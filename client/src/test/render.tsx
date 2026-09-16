@@ -44,6 +44,18 @@ export function providerUser(
   }
 }
 
+export function adminUser(
+  overrides: Partial<CurrentUser> = {},
+): CurrentUser {
+  return {
+    id: 'admin-1',
+    email: 'admin@khidma.test',
+    fullName: 'Test Admin',
+    role: 'Admin',
+    ...overrides,
+  }
+}
+
 export function renderWithRouter(
   ui: ReactNode,
   options?: {

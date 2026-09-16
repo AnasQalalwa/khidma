@@ -5,6 +5,7 @@ using Khidma.Api.Auth;
 using Khidma.Api.Contracts.Auth;
 using Khidma.Api.Data;
 using Khidma.Api.Domain;
+using Khidma.Api.Domain.Enums;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -129,7 +130,11 @@ internal static class TestHarness
             .Include(p => p.ProviderServices)
             .SingleAsync(p => p.UserId == userId);
 
-        profile.IsApproved = true;
+        profile.VerificationStatus = ProviderVerificationStatus.Approved;
+        profile.IsSuspended = false;
+        profile.SuspensionReason = null;
+        profile.SuspendedAt = null;
+        profile.SuspendedByUserId = null;
         if (city is not null)
         {
             profile.City = city;
@@ -159,7 +164,9 @@ internal static class TestHarness
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var profile = await db.ProviderProfiles.SingleAsync(p => p.UserId == userId);
-        profile.IsApproved = isApproved;
+        profile.VerificationStatus = isApproved
+            ? ProviderVerificationStatus.Approved
+            : ProviderVerificationStatus.PendingReview;
         await db.SaveChangesAsync();
     }
 
@@ -202,5 +209,81 @@ internal static class TestHarness
         response.EnsureSuccessStatusCode();
         using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         return doc.RootElement.GetProperty("id").GetInt32();
+    }
+
+    public static ByteArrayContent PdfContent(string fileName = "certificate.pdf")
+    {
+        var bytes = "%PDF-1.4\n1 0 obj\n<<>>\nendobj\n"u8.ToArray();
+        return FileContent(bytes, fileName, "application/pdf");
+    }
+
+    public static ByteArrayContent JpegContent(string fileName = "portfolio.jpg")
+    {
+        var bytes = new byte[] { 0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46 };
+        return FileContent(bytes, fileName, "image/jpeg");
+    }
+
+    public static ByteArrayContent PngContent(string fileName = "license.png")
+    {
+        var bytes = new byte[]
+        {
+            0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D
+        };
+        return FileContent(bytes, fileName, "image/png");
+    }
+
+    public static ByteArrayContent FileContent(byte[] bytes, string fileName, string contentType)
+    {
+        var content = new ByteArrayContent(bytes);
+        content.Headers.ContentType = new MediaTypeHeaderValue(contentType);
+        return content;
+    }
+
+    public static async Task<int> UploadDocumentAsync(
+        HttpClient provider,
+        string documentType = "ProfessionalCertificate",
+        HttpContent? file = null,
+        string fileName = "certificate.pdf")
+    {
+        using var form = new MultipartFormDataContent
+        {
+            { new StringContent(documentType), "documentType" }
+        };
+        form.Add(file ?? PdfContent(), "file", fileName);
+
+        var response = await provider.PostAsync(
+            "/api/providers/me/verification-documents",
+            form);
+        response.EnsureSuccessStatusCode();
+        using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        return doc.RootElement.GetProperty("documents")[0].GetProperty("id").GetInt32();
+    }
+
+    public static async Task ApproveDocumentAsync(HttpClient admin, int documentId)
+    {
+        var response = await admin.PostAsJsonAsync(
+            $"/api/admin/verification-documents/{documentId}/review",
+            new { status = "Approved", note = (string?)null });
+        response.EnsureSuccessStatusCode();
+    }
+
+    public static async Task ApproveProviderViaApiAsync(HttpClient admin, int providerProfileId)
+    {
+        var response = await admin.PostAsJsonAsync(
+            $"/api/admin/providers/{providerProfileId}/verification",
+            new { status = "Approved" });
+        response.EnsureSuccessStatusCode();
+    }
+
+    public static async Task<int> GetProviderProfileIdAsync(
+        KhidmaApiFactory factory,
+        string userId)
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        return await db.ProviderProfiles
+            .Where(p => p.UserId == userId)
+            .Select(p => p.Id)
+            .SingleAsync();
     }
 }

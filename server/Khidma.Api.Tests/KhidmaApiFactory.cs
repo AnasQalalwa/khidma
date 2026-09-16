@@ -15,12 +15,17 @@ namespace Khidma.Api.Tests;
 public sealed class KhidmaApiFactory : WebApplicationFactory<Program>
 {
     private readonly SqliteConnection _connection = new("DataSource=:memory:");
+    private readonly string _documentRoot =
+        Path.Combine(Path.GetTempPath(), $"khidma-docs-{Guid.NewGuid():N}");
 
     public KhidmaApiFactory()
     {
         Environment.SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", "Testing");
         _connection.Open();
+        Directory.CreateDirectory(_documentRoot);
     }
+
+    public string DocumentRoot => _documentRoot;
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -108,6 +113,7 @@ public sealed class KhidmaApiFactory : WebApplicationFactory<Program>
         if (disposing)
         {
             _connection.Dispose();
+            TryDeleteDocuments();
         }
     }
 
@@ -115,11 +121,28 @@ public sealed class KhidmaApiFactory : WebApplicationFactory<Program>
     {
         await base.DisposeAsync();
         await _connection.DisposeAsync();
+        TryDeleteDocuments();
     }
 
-    private static Dictionary<string, string?> TestConfiguration() => new()
+    private void TryDeleteDocuments()
+    {
+        try
+        {
+            if (Directory.Exists(_documentRoot))
+            {
+                Directory.Delete(_documentRoot, recursive: true);
+            }
+        }
+        catch
+        {
+            // Temp cleanup is best-effort in tests.
+        }
+    }
+
+    private Dictionary<string, string?> TestConfiguration() => new()
     {
         ["Seed:AdminPassword"] = "Test_Admin_123!",
-        ["Seed:DemoPassword"] = "Test_Demo_123!"
+        ["Seed:DemoPassword"] = "Test_Demo_123!",
+        ["ProviderDocuments:RootPath"] = _documentRoot
     };
 }

@@ -41,14 +41,16 @@ public sealed class AdminTests : IClassFixture<KhidmaApiFactory>
         var (provider, _) = await TestHarness.RegisterAsync(_factory, "Provider", "Hebron");
         var me = await provider.GetFromJsonAsync<JsonElement>("/api/providers/me");
         var profileId = me.GetProperty("id").GetInt32();
+        var documentId = await TestHarness.UploadDocumentAsync(provider);
+        await TestHarness.ApproveDocumentAsync(admin, documentId);
 
         var response = await admin.PostAsJsonAsync(
-            $"/api/admin/providers/{profileId}/approval",
-            new { isApproved = true });
+            $"/api/admin/providers/{profileId}/verification",
+            new { status = "Approved" });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-        Assert.True(doc.RootElement.GetProperty("isApproved").GetBoolean());
+        Assert.Equal("Approved", doc.RootElement.GetProperty("verificationStatus").GetString());
     }
 
     [Fact]
