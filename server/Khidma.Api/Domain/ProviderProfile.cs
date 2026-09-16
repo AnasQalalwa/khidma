@@ -12,7 +12,7 @@ public class ProviderProfile
 
     public string? Bio { get; set; }
 
-    public bool IsApproved { get; set; } = true;
+    public bool IsApproved { get; set; }
 
     public decimal AverageRating { get; set; }
 

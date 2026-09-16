@@ -65,6 +65,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
                 {
                     property.SetColumnType("BLOB");
                     property.ValueGenerated = ValueGenerated.Never;
+                    property.IsNullable = true;
                 }
             }
 

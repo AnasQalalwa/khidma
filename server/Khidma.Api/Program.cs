@@ -68,6 +68,13 @@ builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddOpenApi();
 builder.Services.AddScoped<UserRegistrationService>();
+builder.Services.AddScoped<Khidma.Api.Services.ServiceRequests.IServiceRequestService, Khidma.Api.Services.ServiceRequests.ServiceRequestService>();
+builder.Services.AddScoped<Khidma.Api.Services.Offers.IOfferService, Khidma.Api.Services.Offers.OfferService>();
+builder.Services.AddScoped<Khidma.Api.Services.Bookings.IBookingService, Khidma.Api.Services.Bookings.BookingService>();
+builder.Services.AddScoped<Khidma.Api.Services.Reviews.IReviewService, Khidma.Api.Services.Reviews.ReviewService>();
+builder.Services.AddScoped<Khidma.Api.Services.Providers.IProviderProfileService, Khidma.Api.Services.Providers.ProviderProfileService>();
+builder.Services.AddScoped<Khidma.Api.Services.Admin.IAdminService, Khidma.Api.Services.Admin.AdminService>();
+builder.Services.AddScoped<Khidma.Api.Services.Dashboard.IDashboardService, Khidma.Api.Services.Dashboard.DashboardService>();
 
 var app = builder.Build();
 

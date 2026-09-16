@@ -96,7 +96,7 @@ public sealed class UserRegistrationService
                         Bio = string.IsNullOrWhiteSpace(request.Bio)
                             ? null
                             : request.Bio.Trim(),
-                        IsApproved = true,
+                        IsApproved = false,
                         AverageRating = 0,
                         ReviewCount = 0
                     });

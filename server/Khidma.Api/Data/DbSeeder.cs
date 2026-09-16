@@ -89,21 +89,24 @@ public static class DbSeeder
             providerOne.Id,
             "Ramallah",
             5,
-            "Home services provider");
+            "Home services provider",
+            isApproved: true);
 
         await EnsureProviderProfileAsync(
             db,
             providerTwo.Id,
             "Hebron",
             3,
-            "Technology services provider");
+            "Technology services provider",
+            isApproved: false);
 
         await EnsureProviderProfileAsync(
             db,
             providerThree.Id,
             "Bethlehem",
             7,
-            "Cleaning and tutoring provider");
+            "Cleaning and tutoring provider",
+            isApproved: true);
 
         await db.SaveChangesAsync();
 
@@ -253,10 +256,15 @@ public static class DbSeeder
         string userId,
         string city,
         int yearsOfExperience,
-        string bio)
+        string bio,
+        bool isApproved)
     {
-        if (await db.ProviderProfiles.AnyAsync(p => p.UserId == userId))
+        var existing = await db.ProviderProfiles
+            .SingleOrDefaultAsync(p => p.UserId == userId);
+
+        if (existing is not null)
         {
+            existing.IsApproved = isApproved;
             return;
         }
 
@@ -266,7 +274,7 @@ public static class DbSeeder
             City = city,
             YearsOfExperience = yearsOfExperience,
             Bio = bio,
-            IsApproved = true,
+            IsApproved = isApproved,
             AverageRating = 0,
             ReviewCount = 0
         });
