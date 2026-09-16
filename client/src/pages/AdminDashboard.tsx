@@ -1,27 +1,32 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   Activity,
-  Layers,
-  LayoutGrid,
-  Search,
-  Shield,
+  ClipboardCheck,
+  ShieldAlert,
+  ShieldCheck,
   Users,
 } from 'lucide-react'
-import { getAdminStats } from '../api/admin'
+import { getAdminAttention, getAdminStats } from '../api/admin'
+import { getAuditLogs } from '../api/audit'
 import { ApiError } from '../api/client'
-import type { AdminStats } from '../api/types'
+import type { AdminAttention, AdminStats, AuditLogItem } from '../api/types'
 import { useAuth } from '../auth/useAuth'
 import { Roles } from '../auth/roles'
 import { RoleBadge } from '../components/Badge'
 import { Button } from '../components/Button'
 import { DashboardPanel, DashboardShell } from '../components/DashboardShell'
 import { StatCard } from '../components/StatCard'
+import { StatusBadge } from '../components/StatusBadge'
 import { ErrorState, LoadingState } from '../components/States'
 import { WorkspaceLayout } from '../components/WorkspaceLayout'
+import { formatDate } from '../utils/format'
 
 export function AdminDashboard() {
   const { user } = useAuth()
   const [data, setData] = useState<AdminStats | null>(null)
+  const [attention, setAttention] = useState<AdminAttention | null>(null)
+  const [recent, setRecent] = useState<AuditLogItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -29,7 +34,14 @@ export function AdminDashboard() {
     setLoading(true)
     setError(null)
     try {
-      setData(await getAdminStats())
+      const [stats, queue, logs] = await Promise.all([
+        getAdminStats(),
+        getAdminAttention(),
+        getAuditLogs({ page: 1, pageSize: 10 }),
+      ])
+      setData(stats)
+      setAttention(queue)
+      setRecent(logs.items)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not load admin stats.')
     } finally {
@@ -46,32 +58,38 @@ export function AdminDashboard() {
       <DashboardShell
         variant="admin"
         badge={<RoleBadge role="Admin" />}
-        title="Platform Administration"
-        description={`${user?.fullName ?? 'Admin'} — approve providers, maintain the catalog, and monitor activity.`}
+        title="Platform monitoring"
+        description={`${user?.fullName ?? 'Admin'} — verification, moderation, and audit activity.`}
       >
-        {loading ? <LoadingState label="Loading admin stats" /> : null}
+        {loading ? <LoadingState label="Loading admin overview" /> : null}
         {error ? (
-          <ErrorState title="Unable to load stats" description={error} onRetry={() => void load()} />
+          <ErrorState title="Unable to load overview" description={error} onRetry={() => void load()} />
         ) : null}
         {!loading && !error && data ? (
           <>
             <div className="dash-grid">
-              <StatCard title="Customers" value={data.customers} icon={Users} accent="home" />
-              <StatCard title="Providers" value={data.providers} icon={Shield} accent="technology" />
+              <StatCard title="Total users" value={data.totalUsers} icon={Users} accent="home" />
+              <StatCard title="Customers" value={data.customers} icon={Users} accent="education" />
+              <StatCard title="Providers" value={data.providers} icon={ClipboardCheck} accent="technology" />
               <StatCard
-                title="Pending providers"
-                value={data.pendingProviders}
+                title="Pending verification"
+                value={data.pendingVerification}
                 icon={Activity}
                 accent="education"
               />
-              <StatCard title="Categories" value={data.categories} icon={Layers} accent="education" />
-              <StatCard title="Services" value={data.services} icon={LayoutGrid} accent="cleaning" />
               <StatCard
-                title="Open requests"
-                value={data.openRequests}
-                icon={Activity}
-                accent="service"
+                title="Approved providers"
+                value={data.approvedProviders}
+                icon={ShieldCheck}
+                accent="cleaning"
               />
+              <StatCard
+                title="Suspended providers"
+                value={data.suspendedProviders}
+                icon={ShieldAlert}
+                accent="home"
+              />
+              <StatCard title="Open requests" value={data.openRequests} icon={Activity} accent="service" />
               <StatCard
                 title="Active bookings"
                 value={data.activeBookings}
@@ -81,27 +99,69 @@ export function AdminDashboard() {
               <StatCard
                 title="Completed bookings"
                 value={data.completedBookings}
-                icon={Activity}
+                icon={ClipboardCheck}
                 accent="cleaning"
+              />
+              <StatCard
+                title="Audit events — last 24h"
+                value={data.auditEventsLast24h}
+                icon={Activity}
+                accent="technology"
               />
             </div>
             <div className="dashboard-actions">
-              <Button to="/admin/providers">Manage providers</Button>
-              <Button to="/admin/catalog" variant="secondary">
-                Manage catalog
+              <Button to="/admin/verifications">Review verifications</Button>
+              <Button to="/admin/users" variant="secondary">
+                Monitor users
               </Button>
-              <Button to="/catalog" variant="ghost" icon={Search}>
-                View catalog
+              <Button to="/admin/audit" variant="ghost">
+                View audit logs
               </Button>
             </div>
             <DashboardPanel
-              title="Provider management"
-              description="Approve providers before they can see matching customer requests."
-            />
-            <DashboardPanel
-              title="Catalog management"
-              description="Add, rename, or remove categories and services when they are not in use."
-            />
+              title="Needs attention"
+              description="Open verification, document, and moderation items."
+            >
+              {attention && attention.items.length > 0 ? (
+                <ul className="attention-list">
+                  {attention.items.map((item) => (
+                    <li key={item.kind}>
+                      <Link className="attention-link" to={item.href}>
+                        <strong>{item.title}</strong>
+                        <p className="muted">{item.detail}</p>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="muted">No items need attention right now.</p>
+              )}
+            </DashboardPanel>
+            <DashboardPanel title="Recent activity" description="Latest security and marketplace events.">
+              {recent.length === 0 ? (
+                <p className="muted">No audit events yet.</p>
+              ) : (
+                <ul className="plain-list">
+                  {recent.map((event) => (
+                    <li key={event.id} className="plain-row">
+                      <div>
+                        <strong>{event.action}</strong>
+                        <p className="muted">
+                          {formatDate(event.createdAt)} · {event.actorEmail ?? 'System'} ·{' '}
+                          {event.entityType ?? '—'}
+                        </p>
+                      </div>
+                      <StatusBadge status={event.outcome} />
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <div className="dashboard-actions">
+                <Button to="/admin/audit" variant="secondary">
+                  View all audit logs
+                </Button>
+              </div>
+            </DashboardPanel>
           </>
         ) : null}
       </DashboardShell>

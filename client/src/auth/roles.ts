@@ -34,7 +34,10 @@ export const PROVIDER_WORKSPACE_LINKS = [
 
 export const ADMIN_WORKSPACE_LINKS = [
   { to: '/admin', label: 'Overview', end: true },
+  { to: '/admin/users', label: 'Users' },
+  { to: '/admin/verifications', label: 'Provider Verification' },
   { to: '/admin/providers', label: 'Providers' },
+  { to: '/admin/audit', label: 'Audit Logs' },
   { to: '/admin/catalog', label: 'Catalog' },
 ] as const
 

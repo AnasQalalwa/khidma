@@ -71,9 +71,17 @@ export function futureDateTimeLocal(daysAhead = 7): string {
 }
 
 export function statusLabel(status: string): string {
-  if (status === 'InProgress') {
-    return 'In Progress'
+  return status.replace(/([a-z])([A-Z])/g, '$1 $2')
+}
+
+export function formatBytes(value: number): string {
+  if (value < 1024) {
+    return `${value} B`
   }
 
-  return status
+  if (value < 1024 * 1024) {
+    return `${(value / 1024).toFixed(1)} KB`
+  }
+
+  return `${(value / (1024 * 1024)).toFixed(1)} MB`
 }

@@ -6,12 +6,17 @@ const TONES: Record<string, string> = {
   Completed: 'success',
   Cancelled: 'danger',
   Pending: 'pending',
+  PendingReview: 'pending',
   Accepted: 'success',
   Rejected: 'danger',
   Withdrawn: 'muted',
   Scheduled: 'booked',
   InProgress: 'pending',
   Approved: 'success',
+  Suspended: 'danger',
+  Success: 'success',
+  Denied: 'danger',
+  Failed: 'warning',
 }
 
 export function StatusBadge({ status }: { status: string }) {

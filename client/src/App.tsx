@@ -3,8 +3,13 @@ import { RequireRole } from './auth/RequireRole'
 import { Roles } from './auth/roles'
 import { Layout } from './components/Layout'
 import { AdminDashboard } from './pages/AdminDashboard'
+import { AdminAuditPage } from './pages/admin/AdminAuditPage'
 import { AdminCatalogPage } from './pages/admin/AdminCatalogPage'
 import { AdminProvidersPage } from './pages/admin/AdminProvidersPage'
+import { AdminUserDetailPage } from './pages/admin/AdminUserDetailPage'
+import { AdminUsersPage } from './pages/admin/AdminUsersPage'
+import { AdminVerificationDetailPage } from './pages/admin/AdminVerificationDetailPage'
+import { AdminVerificationsPage } from './pages/admin/AdminVerificationsPage'
 import { CatalogPage } from './pages/CatalogPage'
 import { CustomerDashboard } from './pages/CustomerDashboard'
 import { CustomerEditRequestPage } from './pages/customer/CustomerEditRequestPage'
@@ -155,10 +160,50 @@ export default function App() {
           }
         />
         <Route
+          path="/admin/users"
+          element={
+            <RequireRole role={Roles.Admin}>
+              <AdminUsersPage />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/admin/users/:userId"
+          element={
+            <RequireRole role={Roles.Admin}>
+              <AdminUserDetailPage />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/admin/verifications"
+          element={
+            <RequireRole role={Roles.Admin}>
+              <AdminVerificationsPage />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/admin/verifications/:providerId"
+          element={
+            <RequireRole role={Roles.Admin}>
+              <AdminVerificationDetailPage />
+            </RequireRole>
+          }
+        />
+        <Route
           path="/admin/providers"
           element={
             <RequireRole role={Roles.Admin}>
               <AdminProvidersPage />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/admin/audit"
+          element={
+            <RequireRole role={Roles.Admin}>
+              <AdminAuditPage />
             </RequireRole>
           }
         />
