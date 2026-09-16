@@ -5,6 +5,7 @@ using Khidma.Api.Data;
 using Khidma.Api.Domain;
 using Khidma.Api.Domain.Enums;
 using Khidma.Api.Infrastructure;
+using Khidma.Api.Services.Audit;
 using Khidma.Api.Services.Bookings;
 using Khidma.Api.Services.ServiceRequests;
 using Microsoft.EntityFrameworkCore;
@@ -18,17 +19,20 @@ public sealed class OfferService : IOfferService
     private readonly IServiceRequestService _requests;
     private readonly IBookingService _bookings;
     private readonly ILogger<OfferService> _logger;
+    private readonly IAuditService _audit;
 
     public OfferService(
         AppDbContext db,
         IServiceRequestService requests,
         IBookingService bookings,
-        ILogger<OfferService> logger)
+        ILogger<OfferService> logger,
+        IAuditService audit)
     {
         _db = db;
         _requests = requests;
         _bookings = bookings;
         _logger = logger;
+        _audit = audit;
     }
 
     public async Task<ServiceResult<OfferSnapshotDto>> SubmitAsync(
@@ -57,6 +61,31 @@ public sealed class OfferService : IOfferService
         if (profile is null)
         {
             return ServiceResult<OfferSnapshotDto>.NotFound("Service request not found.");
+        }
+
+        if (!profile.CanReceiveWork)
+        {
+            await _audit.RecordAsync(new AuditEntry
+            {
+                Category = AuditCategories.Offer,
+                Action = AuditActions.OfferSubmitted,
+                Outcome = AuditOutcomes.Denied,
+                EntityType = nameof(ServiceRequest),
+                EntityId = serviceRequestId.ToString(),
+                Message = profile.IsSuspended
+                    ? "Suspended provider attempted to submit an offer."
+                    : "Unverified provider attempted to submit an offer.",
+                Details = new Dictionary<string, object?>
+                {
+                    ["verificationStatus"] = profile.VerificationStatus.ToString(),
+                    ["isSuspended"] = profile.IsSuspended
+                }
+            }, cancellationToken);
+
+            return ServiceResult<OfferSnapshotDto>.Forbidden(
+                profile.IsSuspended
+                    ? "Your provider account is currently suspended."
+                    : "Your professional verification must be approved before you can submit offers.");
         }
 
         var eligible = await _requests
@@ -109,6 +138,21 @@ public sealed class OfferService : IOfferService
             offer.Id,
             serviceRequestId);
 
+        await _audit.RecordAsync(new AuditEntry
+        {
+            Category = AuditCategories.Offer,
+            Action = AuditActions.OfferSubmitted,
+            Outcome = AuditOutcomes.Success,
+            EntityType = nameof(Offer),
+            EntityId = offer.Id.ToString(),
+            Message = "Provider submitted an offer.",
+            Details = new Dictionary<string, object?>
+            {
+                ["serviceRequestId"] = serviceRequestId,
+                ["price"] = offer.Price
+            }
+        }, cancellationToken);
+
         return ServiceResult<OfferSnapshotDto>.Success(ToSnapshot(offer));
     }
 
@@ -145,6 +189,16 @@ public sealed class OfferService : IOfferService
             "Provider {UserId} withdrew offer {OfferId}",
             providerUserId,
             offer.Id);
+
+        await _audit.RecordAsync(new AuditEntry
+        {
+            Category = AuditCategories.Offer,
+            Action = AuditActions.OfferWithdrawn,
+            Outcome = AuditOutcomes.Success,
+            EntityType = nameof(Offer),
+            EntityId = offer.Id.ToString(),
+            Message = "Provider withdrew an offer."
+        }, cancellationToken);
 
         return ServiceResult<OfferSnapshotDto>.Success(ToSnapshot(offer));
     }
@@ -313,6 +367,36 @@ public sealed class OfferService : IOfferService
                     offer.Id,
                     offer.ServiceRequestId,
                     booking.Id);
+
+                await _audit.RecordAsync(new AuditEntry
+                {
+                    Category = AuditCategories.Offer,
+                    Action = AuditActions.OfferAccepted,
+                    Outcome = AuditOutcomes.Success,
+                    EntityType = nameof(Offer),
+                    EntityId = offer.Id.ToString(),
+                    Message = "Customer accepted an offer.",
+                    Details = new Dictionary<string, object?>
+                    {
+                        ["serviceRequestId"] = offer.ServiceRequestId,
+                        ["bookingId"] = booking.Id
+                    }
+                }, cancellationToken);
+
+                await _audit.RecordAsync(new AuditEntry
+                {
+                    Category = AuditCategories.Booking,
+                    Action = AuditActions.BookingCreated,
+                    Outcome = AuditOutcomes.Success,
+                    EntityType = nameof(Booking),
+                    EntityId = booking.Id.ToString(),
+                    Message = "Booking created from accepted offer.",
+                    Details = new Dictionary<string, object?>
+                    {
+                        ["offerId"] = offer.Id,
+                        ["serviceRequestId"] = offer.ServiceRequestId
+                    }
+                }, cancellationToken);
 
                 return await _bookings.GetByIdAsync(
                     booking.Id,

@@ -195,7 +195,9 @@ public sealed class DashboardService : IDashboardService
 
         return ServiceResult<ProviderDashboardDto>.Success(new ProviderDashboardDto
         {
-            IsApproved = profile.IsApproved,
+            VerificationStatus = profile.VerificationStatus.ToString(),
+            IsSuspended = profile.IsSuspended,
+            SuspensionReason = profile.SuspensionReason,
             EligibleRequestCount = eligibleRequestCount,
             PendingOfferCount = pendingOfferCount,
             ActiveBookingCount = activeBookingCount,

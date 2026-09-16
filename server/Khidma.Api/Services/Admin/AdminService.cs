@@ -1,9 +1,13 @@
+using Khidma.Api.Auth;
 using Khidma.Api.Contracts.Admin;
+using Khidma.Api.Contracts.Audit;
 using Khidma.Api.Contracts.Catalog;
 using Khidma.Api.Contracts.Common;
 using Khidma.Api.Data;
 using Khidma.Api.Domain;
 using Khidma.Api.Domain.Enums;
+using Khidma.Api.Services.Audit;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 namespace Khidma.Api.Services.Admin;
@@ -11,22 +15,48 @@ namespace Khidma.Api.Services.Admin;
 public sealed class AdminService : IAdminService
 {
     private readonly AppDbContext _db;
+    private readonly UserManager<ApplicationUser> _userManager;
+    private readonly IAuditService _audit;
     private readonly ILogger<AdminService> _logger;
 
-    public AdminService(AppDbContext db, ILogger<AdminService> logger)
+    public AdminService(
+        AppDbContext db,
+        UserManager<ApplicationUser> userManager,
+        IAuditService audit,
+        ILogger<AdminService> logger)
     {
         _db = db;
+        _userManager = userManager;
+        _audit = audit;
         _logger = logger;
     }
 
     public async Task<AdminStatsDto> GetStatsAsync(CancellationToken cancellationToken)
     {
+        var since = DateTimeOffset.UtcNow.AddHours(-24);
         return new AdminStatsDto
         {
+            TotalUsers = await _db.Users.CountAsync(cancellationToken),
             Customers = await _db.CustomerProfiles.CountAsync(cancellationToken),
             Providers = await _db.ProviderProfiles.CountAsync(cancellationToken),
-            PendingProviders = await _db.ProviderProfiles
-                .CountAsync(p => !p.IsApproved, cancellationToken),
+            PendingVerification = await _db.ProviderProfiles.CountAsync(
+                p => p.VerificationStatus == ProviderVerificationStatus.PendingReview,
+                cancellationToken),
+            PendingProviders = await _db.ProviderProfiles.CountAsync(
+                p => p.VerificationStatus == ProviderVerificationStatus.PendingReview,
+                cancellationToken),
+            ApprovedProviders = await _db.ProviderProfiles.CountAsync(
+                p => p.VerificationStatus == ProviderVerificationStatus.Approved,
+                cancellationToken),
+            SuspendedProviders = await _db.ProviderProfiles.CountAsync(
+                p => p.IsSuspended,
+                cancellationToken),
+            PendingDocuments = await _db.ProviderVerificationDocuments.CountAsync(
+                d => d.ReviewStatus == VerificationDocumentStatus.Pending,
+                cancellationToken),
+            RejectedDocuments = await _db.ProviderVerificationDocuments.CountAsync(
+                d => d.ReviewStatus == VerificationDocumentStatus.Rejected,
+                cancellationToken),
             Categories = await _db.Categories.CountAsync(cancellationToken),
             Services = await _db.Services.CountAsync(cancellationToken),
             OpenRequests = await _db.ServiceRequests
@@ -36,24 +66,126 @@ public sealed class AdminService : IAdminService
                      b.Status == BookingStatus.InProgress,
                 cancellationToken),
             CompletedBookings = await _db.Bookings
-                .CountAsync(b => b.Status == BookingStatus.Completed, cancellationToken)
+                .CountAsync(b => b.Status == BookingStatus.Completed, cancellationToken),
+            AuditEventsLast24h = await _db.AuditLogs
+                .CountAsync(a => a.CreatedAt >= since, cancellationToken)
         };
     }
 
-    public async Task<ServiceResult<PagedResult<AdminProviderListItemDto>>> GetProvidersAsync(
-        PageQuery paging,
-        bool? approved,
-        CancellationToken cancellationToken)
+    public async Task<AdminAttentionDto> GetAttentionAsync(CancellationToken cancellationToken)
     {
-        var (page, pageSize) = paging.Normalize();
-        var query = _db.ProviderProfiles.AsNoTracking();
+        var items = new List<AdminAttentionItemDto>();
 
-        if (approved is not null)
+        var pendingReview = await _db.ProviderProfiles.CountAsync(
+            p => p.VerificationStatus == ProviderVerificationStatus.PendingReview,
+            cancellationToken);
+        if (pendingReview > 0)
         {
-            query = query.Where(p => p.IsApproved == approved);
+            items.Add(new AdminAttentionItemDto
+            {
+                Kind = "PendingVerification",
+                Title = "Providers waiting for review",
+                Detail = $"{pendingReview} provider{(pendingReview == 1 ? "" : "s")} awaiting professional verification.",
+                Href = "/admin/verifications?verificationStatus=PendingReview"
+            });
         }
 
-        var pageResult = await query
+        var pendingDocs = await _db.ProviderVerificationDocuments.CountAsync(
+            d => d.ReviewStatus == VerificationDocumentStatus.Pending,
+            cancellationToken);
+        if (pendingDocs > 0)
+        {
+            items.Add(new AdminAttentionItemDto
+            {
+                Kind = "PendingDocuments",
+                Title = "Documents waiting for review",
+                Detail = $"{pendingDocs} professional document{(pendingDocs == 1 ? "" : "s")} still pending.",
+                Href = "/admin/verifications?documentStatus=Pending"
+            });
+        }
+
+        var rejectedDocs = await _db.ProviderVerificationDocuments.CountAsync(
+            d => d.ReviewStatus == VerificationDocumentStatus.Rejected,
+            cancellationToken);
+        if (rejectedDocs > 0)
+        {
+            items.Add(new AdminAttentionItemDto
+            {
+                Kind = "RejectedDocuments",
+                Title = "Rejected documents",
+                Detail = $"{rejectedDocs} document{(rejectedDocs == 1 ? "" : "s")} were rejected and may need a resubmission.",
+                Href = "/admin/verifications?documentStatus=Rejected"
+            });
+        }
+
+        var suspended = await _db.ProviderProfiles.CountAsync(p => p.IsSuspended, cancellationToken);
+        if (suspended > 0)
+        {
+            items.Add(new AdminAttentionItemDto
+            {
+                Kind = "SuspendedProviders",
+                Title = "Suspended providers",
+                Detail = $"{suspended} provider{(suspended == 1 ? "" : "s")} cannot receive new work.",
+                Href = "/admin/providers?suspended=true"
+            });
+        }
+
+        var denied = await _db.AuditLogs.CountAsync(
+            a => a.Outcome == AuditOutcomes.Denied &&
+                 a.CreatedAt >= DateTimeOffset.UtcNow.AddHours(-24),
+            cancellationToken);
+        if (denied > 0)
+        {
+            items.Add(new AdminAttentionItemDto
+            {
+                Kind = "DeniedActions",
+                Title = "Denied actions in the last 24 hours",
+                Detail = $"{denied} security or policy denial{(denied == 1 ? "" : "s")} were recorded.",
+                Href = "/admin/audit?outcome=Denied"
+            });
+        }
+
+        return new AdminAttentionDto { Items = items };
+    }
+
+    public async Task<ServiceResult<PagedResult<AdminProviderListItemDto>>> GetProvidersAsync(
+        AdminProviderQuery query,
+        CancellationToken cancellationToken)
+    {
+        var (page, pageSize) = query.Normalize();
+        var providers = _db.ProviderProfiles.AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(query.VerificationStatus))
+        {
+            if (!Enum.TryParse<ProviderVerificationStatus>(
+                    query.VerificationStatus,
+                    ignoreCase: true,
+                    out var status) ||
+                !Enum.IsDefined(status))
+            {
+                return ServiceResult<PagedResult<AdminProviderListItemDto>>.Validation(
+                    "verificationStatus",
+                    "Verification status is not valid.");
+            }
+
+            providers = providers.Where(p => p.VerificationStatus == status);
+        }
+
+        if (query.Suspended is not null)
+        {
+            providers = providers.Where(p => p.IsSuspended == query.Suspended);
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.Search))
+        {
+            var term = query.Search.Trim().ToLower();
+            providers = providers.Where(p =>
+                p.User.FullName.ToLower().Contains(term) ||
+                (p.User.Email != null && p.User.Email.ToLower().Contains(term)) ||
+                p.City.ToLower().Contains(term));
+        }
+
+        var pageResult = await providers
             .OrderBy(p => p.User.FullName)
             .Select(p => new AdminProviderListItemDto
             {
@@ -62,9 +194,14 @@ public sealed class AdminService : IAdminService
                 FullName = p.User.FullName,
                 Email = p.User.Email ?? string.Empty,
                 City = p.City,
-                IsApproved = p.IsApproved,
+                VerificationStatus = p.VerificationStatus.ToString(),
+                IsSuspended = p.IsSuspended,
+                SuspensionReason = p.SuspensionReason,
                 AverageRating = p.AverageRating,
                 ReviewCount = p.ReviewCount,
+                DocumentCount = p.Documents.Count,
+                ApprovedDocumentCount = p.Documents.Count(
+                    d => d.ReviewStatus == VerificationDocumentStatus.Approved),
                 Services = p.ProviderServices
                     .OrderBy(ps => ps.Service.Name)
                     .Select(ps => ps.Service.Name)
@@ -75,47 +212,321 @@ public sealed class AdminService : IAdminService
         return ServiceResult<PagedResult<AdminProviderListItemDto>>.Success(pageResult);
     }
 
-    public async Task<ServiceResult<AdminProviderListItemDto>> SetApprovalAsync(
-        int providerProfileId,
-        bool isApproved,
-        string adminUserId,
+    public async Task<ServiceResult<PagedResult<AdminUserListItemDto>>> GetUsersAsync(
+        AdminUserQuery query,
         CancellationToken cancellationToken)
     {
-        var profile = await _db.ProviderProfiles
-            .Include(p => p.User)
-            .Include(p => p.ProviderServices)
-                .ThenInclude(ps => ps.Service)
-            .FirstOrDefaultAsync(p => p.Id == providerProfileId, cancellationToken);
+        var (page, pageSize) = query.Normalize();
+        var users = from user in _db.Users.AsNoTracking()
+                    join userRole in _db.UserRoles on user.Id equals userRole.UserId
+                    join role in _db.Roles on userRole.RoleId equals role.Id
+                    select new { user, Role = role.Name ?? string.Empty };
 
-        if (profile is null)
+        if (!string.IsNullOrWhiteSpace(query.Role))
         {
-            return ServiceResult<AdminProviderListItemDto>.NotFound("Provider not found.");
+            var role = query.Role.Trim();
+            users = users.Where(row => row.Role == role);
         }
 
-        profile.IsApproved = isApproved;
-        await _db.SaveChangesAsync(cancellationToken);
-
-        _logger.LogInformation(
-            "Admin {UserId} set provider {ProviderProfileId} approval to {IsApproved}",
-            adminUserId,
-            profile.Id,
-            isApproved);
-
-        return ServiceResult<AdminProviderListItemDto>.Success(new AdminProviderListItemDto
+        if (!string.IsNullOrWhiteSpace(query.Search))
         {
-            Id = profile.Id,
-            UserId = profile.UserId,
-            FullName = profile.User.FullName,
-            Email = profile.User.Email ?? string.Empty,
-            City = profile.City,
-            IsApproved = profile.IsApproved,
-            AverageRating = profile.AverageRating,
-            ReviewCount = profile.ReviewCount,
-            Services = profile.ProviderServices
+            var term = query.Search.Trim().ToLower();
+            users = users.Where(row =>
+                row.user.FullName.ToLower().Contains(term) ||
+                (row.user.Email != null && row.user.Email.ToLower().Contains(term)));
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.ProviderVerificationStatus) ||
+            query.Suspended is not null)
+        {
+            users = users.Where(row => row.user.ProviderProfile != null);
+            if (!string.IsNullOrWhiteSpace(query.ProviderVerificationStatus))
+            {
+                if (!Enum.TryParse<ProviderVerificationStatus>(
+                        query.ProviderVerificationStatus,
+                        ignoreCase: true,
+                        out var status) ||
+                    !Enum.IsDefined(status))
+                {
+                    return ServiceResult<PagedResult<AdminUserListItemDto>>.Validation(
+                        "providerVerificationStatus",
+                        "Verification status is not valid.");
+                }
+
+                users = users.Where(row =>
+                    row.user.ProviderProfile!.VerificationStatus == status);
+            }
+
+            if (query.Suspended is not null)
+            {
+                users = users.Where(row =>
+                    row.user.ProviderProfile!.IsSuspended == query.Suspended);
+            }
+        }
+
+        var pageResult = await users
+            .OrderByDescending(row => row.user.CreatedAt)
+            .Select(row => new AdminUserListItemDto
+            {
+                UserId = row.user.Id,
+                FullName = row.user.FullName,
+                Email = row.user.Email ?? string.Empty,
+                Role = row.Role,
+                CreatedAt = row.user.CreatedAt,
+                LastLoginAt = row.user.LastLoginAt,
+                ProviderProfileId = row.user.ProviderProfile == null
+                    ? null
+                    : row.user.ProviderProfile.Id,
+                VerificationStatus = row.user.ProviderProfile == null
+                    ? null
+                    : row.user.ProviderProfile.VerificationStatus.ToString(),
+                IsSuspended = row.user.ProviderProfile == null
+                    ? null
+                    : row.user.ProviderProfile.IsSuspended,
+                AverageRating = row.user.ProviderProfile == null
+                    ? null
+                    : row.user.ProviderProfile.AverageRating,
+                ReviewCount = row.user.ProviderProfile == null
+                    ? null
+                    : row.user.ProviderProfile.ReviewCount,
+                City = row.user.ProviderProfile != null
+                    ? row.user.ProviderProfile.City
+                    : row.user.CustomerProfile != null
+                        ? row.user.CustomerProfile.City
+                        : null
+            })
+            .ToPagedResultAsync(page, pageSize, cancellationToken);
+
+        return ServiceResult<PagedResult<AdminUserListItemDto>>.Success(pageResult);
+    }
+
+    public async Task<ServiceResult<AdminUserDetailDto>> GetUserAsync(
+        string userId,
+        CancellationToken cancellationToken)
+    {
+        var user = await _db.Users
+            .AsNoTracking()
+            .Include(u => u.CustomerProfile)
+            .Include(u => u.ProviderProfile)
+                .ThenInclude(p => p!.ProviderServices)
+                    .ThenInclude(ps => ps.Service)
+            .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
+
+        if (user is null)
+        {
+            return ServiceResult<AdminUserDetailDto>.NotFound("User not found.");
+        }
+
+        var roles = await _userManager.GetRolesAsync(user);
+        var role = roles.FirstOrDefault() ?? string.Empty;
+        var recentAudit = (await _db.AuditLogs
+            .AsNoTracking()
+            .Where(a => a.ActorUserId == user.Id)
+            .OrderByDescending(a => a.CreatedAt)
+            .Take(8)
+            .ToListAsync(cancellationToken))
+            .Select(ToAuditListItem)
+            .ToList();
+
+        var dto = new AdminUserDetailDto
+        {
+            UserId = user.Id,
+            FullName = user.FullName,
+            Email = user.Email ?? string.Empty,
+            Role = role,
+            CreatedAt = user.CreatedAt,
+            LastLoginAt = user.LastLoginAt,
+            City = user.ProviderProfile?.City ?? user.CustomerProfile?.City,
+            RecentAuditEvents = recentAudit
+        };
+
+        if (role == AppRoles.Customer)
+        {
+            dto.RequestCount = await _db.ServiceRequests.CountAsync(
+                r => r.CustomerId == user.Id,
+                cancellationToken);
+            dto.BookingCount = await _db.Bookings.CountAsync(
+                b => b.CustomerId == user.Id,
+                cancellationToken);
+            dto.ReviewCount = await _db.Reviews.CountAsync(
+                r => r.CustomerId == user.Id,
+                cancellationToken);
+        }
+        else if (role == AppRoles.Provider && user.ProviderProfile is not null)
+        {
+            var profile = user.ProviderProfile;
+            dto.ProviderProfileId = profile.Id;
+            dto.VerificationStatus = profile.VerificationStatus.ToString();
+            dto.IsSuspended = profile.IsSuspended;
+            dto.SuspensionReason = profile.SuspensionReason;
+            dto.AverageRating = profile.AverageRating;
+            dto.ReviewCount = profile.ReviewCount;
+            dto.OfferCount = await _db.Offers.CountAsync(
+                o => o.ProviderId == user.Id,
+                cancellationToken);
+            dto.ActiveBookingCount = await _db.Bookings.CountAsync(
+                b => b.ProviderId == user.Id &&
+                     (b.Status == BookingStatus.Scheduled ||
+                      b.Status == BookingStatus.InProgress),
+                cancellationToken);
+            dto.CompletedBookingCount = await _db.Bookings.CountAsync(
+                b => b.ProviderId == user.Id && b.Status == BookingStatus.Completed,
+                cancellationToken);
+            dto.BookingCount = dto.ActiveBookingCount + dto.CompletedBookingCount +
+                await _db.Bookings.CountAsync(
+                    b => b.ProviderId == user.Id && b.Status == BookingStatus.Cancelled,
+                    cancellationToken);
+            dto.Services = profile.ProviderServices
                 .OrderBy(ps => ps.Service.Name)
                 .Select(ps => ps.Service.Name)
-                .ToList()
+                .ToList();
+        }
+
+        return ServiceResult<AdminUserDetailDto>.Success(dto);
+    }
+
+    public async Task<ServiceResult<PagedResult<AuditLogListItemDto>>> GetAuditLogsAsync(
+        AuditLogQuery query,
+        CancellationToken cancellationToken)
+    {
+        var (page, pageSize) = query.Normalize(25, 100);
+        var logs = _db.AuditLogs.AsNoTracking();
+
+        if (query.From is not null)
+        {
+            logs = logs.Where(a => a.CreatedAt >= query.From);
+        }
+
+        if (query.To is not null)
+        {
+            logs = logs.Where(a => a.CreatedAt <= query.To);
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.ActorUserId))
+        {
+            logs = logs.Where(a => a.ActorUserId == query.ActorUserId);
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.ActorEmail))
+        {
+            var email = query.ActorEmail.Trim().ToLower();
+            logs = logs.Where(a => a.ActorEmail != null && a.ActorEmail.ToLower().Contains(email));
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.Category))
+        {
+            logs = logs.Where(a => a.Category == query.Category);
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.Action))
+        {
+            logs = logs.Where(a => a.Action == query.Action);
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.EntityType))
+        {
+            logs = logs.Where(a => a.EntityType == query.EntityType);
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.EntityId))
+        {
+            logs = logs.Where(a => a.EntityId == query.EntityId);
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.Outcome))
+        {
+            logs = logs.Where(a => a.Outcome == query.Outcome);
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.Search))
+        {
+            var term = query.Search.Trim().ToLower();
+            logs = logs.Where(a =>
+                a.Action.ToLower().Contains(term) ||
+                a.Category.ToLower().Contains(term) ||
+                (a.Message != null && a.Message.ToLower().Contains(term)) ||
+                (a.ActorEmail != null && a.ActorEmail.ToLower().Contains(term)) ||
+                (a.EntityType != null && a.EntityType.ToLower().Contains(term)) ||
+                (a.EntityId != null && a.EntityId.ToLower().Contains(term)));
+        }
+
+        var pageResult = await logs
+            .OrderByDescending(a => a.CreatedAt)
+            .ThenByDescending(a => a.Id)
+            .Select(a => new AuditLogListItemDto
+            {
+                Id = a.Id,
+                CreatedAt = a.CreatedAt,
+                ActorUserId = a.ActorUserId,
+                ActorEmail = a.ActorEmail,
+                ActorRole = a.ActorRole,
+                Category = a.Category,
+                Action = a.Action,
+                EntityType = a.EntityType,
+                EntityId = a.EntityId,
+                Outcome = a.Outcome,
+                Message = a.Message,
+                IpAddress = a.IpAddress
+            })
+            .ToPagedResultAsync(page, pageSize, cancellationToken);
+
+        return ServiceResult<PagedResult<AuditLogListItemDto>>.Success(pageResult);
+    }
+
+    public async Task<ServiceResult<AuditLogDetailDto>> GetAuditLogAsync(
+        long id,
+        CancellationToken cancellationToken)
+    {
+        var log = await _db.AuditLogs
+            .AsNoTracking()
+            .FirstOrDefaultAsync(a => a.Id == id, cancellationToken);
+
+        if (log is null)
+        {
+            return ServiceResult<AuditLogDetailDto>.NotFound("Audit log not found.");
+        }
+
+        return ServiceResult<AuditLogDetailDto>.Success(new AuditLogDetailDto
+        {
+            Id = log.Id,
+            CreatedAt = log.CreatedAt,
+            ActorUserId = log.ActorUserId,
+            ActorEmail = log.ActorEmail,
+            ActorRole = log.ActorRole,
+            Category = log.Category,
+            Action = log.Action,
+            EntityType = log.EntityType,
+            EntityId = log.EntityId,
+            Outcome = log.Outcome,
+            Message = log.Message,
+            DetailsJson = log.DetailsJson,
+            IpAddress = log.IpAddress,
+            UserAgent = log.UserAgent,
+            CorrelationId = log.CorrelationId
         });
+    }
+
+    public async Task<AuditSummaryDto> GetAuditSummaryAsync(CancellationToken cancellationToken)
+    {
+        var startOfDay = DateTimeOffset.UtcNow.Date;
+        return new AuditSummaryDto
+        {
+            EventsToday = await _db.AuditLogs.CountAsync(
+                a => a.CreatedAt >= startOfDay,
+                cancellationToken),
+            DeniedActions = await _db.AuditLogs.CountAsync(
+                a => a.Outcome == AuditOutcomes.Denied,
+                cancellationToken),
+            AdminActions = await _db.AuditLogs.CountAsync(
+                a => a.Category == AuditCategories.Admin,
+                cancellationToken),
+            ProviderVerificationEvents = await _db.AuditLogs.CountAsync(
+                a => a.Action.StartsWith("Admin.Provider") ||
+                     a.Action.StartsWith("Provider.Document") ||
+                     a.Action == AuditActions.AdminDocumentReviewed ||
+                     a.Action == AuditActions.AdminDocumentViewed,
+                cancellationToken)
+        };
     }
 
     public async Task<ServiceResult<CategoryDto>> CreateCategoryAsync(
@@ -132,6 +543,12 @@ public sealed class AdminService : IAdminService
         var category = new Category { Name = name };
         _db.Categories.Add(category);
         await _db.SaveChangesAsync(cancellationToken);
+        await RecordCatalogAsync(
+            AuditActions.CategoryCreated,
+            nameof(Category),
+            category.Id.ToString(),
+            "Admin created a category.",
+            cancellationToken);
         return ServiceResult<CategoryDto>.Success(new CategoryDto
         {
             Id = category.Id,
@@ -161,6 +578,12 @@ public sealed class AdminService : IAdminService
 
         category.Name = name;
         await _db.SaveChangesAsync(cancellationToken);
+        await RecordCatalogAsync(
+            AuditActions.CategoryUpdated,
+            nameof(Category),
+            category.Id.ToString(),
+            "Admin updated a category.",
+            cancellationToken);
         return ServiceResult<CategoryDto>.Success(new CategoryDto
         {
             Id = category.Id,
@@ -189,6 +612,12 @@ public sealed class AdminService : IAdminService
 
         _db.Categories.Remove(category);
         await _db.SaveChangesAsync(cancellationToken);
+        await RecordCatalogAsync(
+            AuditActions.CategoryDeleted,
+            nameof(Category),
+            id.ToString(),
+            "Admin deleted a category.",
+            cancellationToken);
         return ServiceResult<bool>.Success(true);
     }
 
@@ -220,6 +649,12 @@ public sealed class AdminService : IAdminService
         };
         _db.Services.Add(service);
         await _db.SaveChangesAsync(cancellationToken);
+        await RecordCatalogAsync(
+            AuditActions.ServiceCreated,
+            nameof(Domain.Service),
+            service.Id.ToString(),
+            "Admin created a service.",
+            cancellationToken);
 
         return ServiceResult<ServiceDto>.Success(new ServiceDto
         {
@@ -263,6 +698,12 @@ public sealed class AdminService : IAdminService
         service.Name = name;
         service.CategoryId = request.CategoryId;
         await _db.SaveChangesAsync(cancellationToken);
+        await RecordCatalogAsync(
+            AuditActions.ServiceUpdated,
+            nameof(Domain.Service),
+            service.Id.ToString(),
+            "Admin updated a service.",
+            cancellationToken);
 
         return ServiceResult<ServiceDto>.Success(new ServiceDto
         {
@@ -295,8 +736,46 @@ public sealed class AdminService : IAdminService
 
         _db.Services.Remove(service);
         await _db.SaveChangesAsync(cancellationToken);
+        await RecordCatalogAsync(
+            AuditActions.ServiceDeleted,
+            nameof(Domain.Service),
+            id.ToString(),
+            "Admin deleted a service.",
+            cancellationToken);
         return ServiceResult<bool>.Success(true);
     }
+
+    private Task RecordCatalogAsync(
+        string action,
+        string entityType,
+        string entityId,
+        string message,
+        CancellationToken cancellationToken) =>
+        _audit.RecordAsync(new AuditEntry
+        {
+            Category = AuditCategories.Admin,
+            Action = action,
+            Outcome = AuditOutcomes.Success,
+            EntityType = entityType,
+            EntityId = entityId,
+            Message = message
+        }, cancellationToken);
+
+    private static AuditLogListItemDto ToAuditListItem(AuditLog log) => new()
+    {
+        Id = log.Id,
+        CreatedAt = log.CreatedAt,
+        ActorUserId = log.ActorUserId,
+        ActorEmail = log.ActorEmail,
+        ActorRole = log.ActorRole,
+        Category = log.Category,
+        Action = log.Action,
+        EntityType = log.EntityType,
+        EntityId = log.EntityId,
+        Outcome = log.Outcome,
+        Message = log.Message,
+        IpAddress = log.IpAddress
+    };
 
     private Task<bool> NameTakenAsync(
         string name,

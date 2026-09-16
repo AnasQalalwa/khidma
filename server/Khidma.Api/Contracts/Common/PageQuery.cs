@@ -1,6 +1,6 @@
 namespace Khidma.Api.Contracts.Common;
 
-public sealed class PageQuery
+public class PageQuery
 {
     public const int DefaultPageSize = 20;
 
@@ -12,12 +12,15 @@ public sealed class PageQuery
 
     public string? Status { get; set; }
 
-    public (int Page, int PageSize) Normalize()
+    public (int Page, int PageSize) Normalize() =>
+        Normalize(DefaultPageSize, MaxPageSize);
+
+    public (int Page, int PageSize) Normalize(int defaultPageSize, int maxPageSize)
     {
         var page = Page < 1 ? 1 : Page;
         var pageSize = PageSize < 1
-            ? DefaultPageSize
-            : Math.Min(PageSize, MaxPageSize);
+            ? defaultPageSize
+            : Math.Min(PageSize, maxPageSize);
         return (page, pageSize);
     }
 }

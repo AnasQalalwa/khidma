@@ -1,4 +1,5 @@
 using Khidma.Api.Contracts.Admin;
+using Khidma.Api.Contracts.Audit;
 using Khidma.Api.Contracts.Catalog;
 using Khidma.Api.Contracts.Common;
 
@@ -8,16 +9,29 @@ public interface IAdminService
 {
     Task<AdminStatsDto> GetStatsAsync(CancellationToken cancellationToken);
 
+    Task<AdminAttentionDto> GetAttentionAsync(CancellationToken cancellationToken);
+
     Task<ServiceResult<PagedResult<AdminProviderListItemDto>>> GetProvidersAsync(
-        PageQuery paging,
-        bool? approved,
+        AdminProviderQuery query,
         CancellationToken cancellationToken);
 
-    Task<ServiceResult<AdminProviderListItemDto>> SetApprovalAsync(
-        int providerProfileId,
-        bool isApproved,
-        string adminUserId,
+    Task<ServiceResult<PagedResult<AdminUserListItemDto>>> GetUsersAsync(
+        AdminUserQuery query,
         CancellationToken cancellationToken);
+
+    Task<ServiceResult<AdminUserDetailDto>> GetUserAsync(
+        string userId,
+        CancellationToken cancellationToken);
+
+    Task<ServiceResult<PagedResult<AuditLogListItemDto>>> GetAuditLogsAsync(
+        AuditLogQuery query,
+        CancellationToken cancellationToken);
+
+    Task<ServiceResult<AuditLogDetailDto>> GetAuditLogAsync(
+        long id,
+        CancellationToken cancellationToken);
+
+    Task<AuditSummaryDto> GetAuditSummaryAsync(CancellationToken cancellationToken);
 
     Task<ServiceResult<CategoryDto>> CreateCategoryAsync(
         SaveCategoryRequest request,

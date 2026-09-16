@@ -2,6 +2,7 @@ using Khidma.Api.Domain;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace Khidma.Api.Data;
 
@@ -30,6 +31,11 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
 
     public DbSet<Review> Reviews => Set<Review>();
 
+    public DbSet<ProviderVerificationDocument> ProviderVerificationDocuments =>
+        Set<ProviderVerificationDocument>();
+
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -55,6 +61,15 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
     /// </summary>
     private static void ApplySqliteTestCompatibility(ModelBuilder builder)
     {
+        var dateTimeOffsetConverter = new ValueConverter<DateTimeOffset, long>(
+            value => value.UtcTicks,
+            value => new DateTimeOffset(value, TimeSpan.Zero));
+        var nullableDateTimeOffsetConverter = new ValueConverter<DateTimeOffset?, long?>(
+            value => value.HasValue ? value.Value.UtcTicks : null,
+            value => value.HasValue
+                ? new DateTimeOffset(value.Value, TimeSpan.Zero)
+                : null);
+
         foreach (var entityType in builder.Model.GetEntityTypes())
         {
             foreach (var property in entityType.GetProperties())
@@ -66,6 +81,17 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
                     property.SetColumnType("BLOB");
                     property.ValueGenerated = ValueGenerated.Never;
                     property.IsNullable = true;
+                }
+
+                if (property.ClrType == typeof(DateTimeOffset))
+                {
+                    property.SetValueConverter(dateTimeOffsetConverter);
+                    property.SetColumnType("INTEGER");
+                }
+                else if (property.ClrType == typeof(DateTimeOffset?))
+                {
+                    property.SetValueConverter(nullableDateTimeOffsetConverter);
+                    property.SetColumnType("INTEGER");
                 }
             }
 

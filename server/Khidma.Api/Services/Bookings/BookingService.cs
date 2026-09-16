@@ -5,6 +5,7 @@ using Khidma.Api.Contracts.Reviews;
 using Khidma.Api.Data;
 using Khidma.Api.Domain;
 using Khidma.Api.Domain.Enums;
+using Khidma.Api.Services.Audit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 
@@ -14,11 +15,13 @@ public sealed class BookingService : IBookingService
 {
     private readonly AppDbContext _db;
     private readonly ILogger<BookingService> _logger;
+    private readonly IAuditService _audit;
 
-    public BookingService(AppDbContext db, ILogger<BookingService> logger)
+    public BookingService(AppDbContext db, ILogger<BookingService> logger, IAuditService audit)
     {
         _db = db;
         _logger = logger;
+        _audit = audit;
     }
 
     public async Task<ServiceResult<PagedResult<BookingSummaryDto>>> GetMineAsync(
@@ -133,6 +136,16 @@ public sealed class BookingService : IBookingService
             providerUserId,
             booking.Id);
 
+        await _audit.RecordAsync(new AuditEntry
+        {
+            Category = AuditCategories.Booking,
+            Action = AuditActions.BookingStarted,
+            Outcome = AuditOutcomes.Success,
+            EntityType = nameof(Booking),
+            EntityId = booking.Id.ToString(),
+            Message = "Provider started a booking."
+        }, cancellationToken);
+
         return await GetByIdAsync(booking.Id, providerUserId, isAdmin: false, cancellationToken);
     }
 
@@ -201,6 +214,20 @@ public sealed class BookingService : IBookingService
                     providerUserId,
                     booking.Id,
                     request.Id);
+
+                await _audit.RecordAsync(new AuditEntry
+                {
+                    Category = AuditCategories.Booking,
+                    Action = AuditActions.BookingCompleted,
+                    Outcome = AuditOutcomes.Success,
+                    EntityType = nameof(Booking),
+                    EntityId = booking.Id.ToString(),
+                    Message = "Provider completed a booking.",
+                    Details = new Dictionary<string, object?>
+                    {
+                        ["serviceRequestId"] = request.Id
+                    }
+                }, cancellationToken);
 
                 return await GetByIdAsync(
                     booking.Id,
@@ -301,6 +328,20 @@ public sealed class BookingService : IBookingService
                     userId,
                     booking.Id,
                     request.Id);
+
+                await _audit.RecordAsync(new AuditEntry
+                {
+                    Category = AuditCategories.Booking,
+                    Action = AuditActions.BookingCancelled,
+                    Outcome = AuditOutcomes.Success,
+                    EntityType = nameof(Booking),
+                    EntityId = booking.Id.ToString(),
+                    Message = "Booking cancelled.",
+                    Details = new Dictionary<string, object?>
+                    {
+                        ["serviceRequestId"] = request.Id
+                    }
+                }, cancellationToken);
 
                 return await GetByIdAsync(booking.Id, userId, isAdmin: false, cancellationToken);
             }

@@ -3,6 +3,8 @@ using Khidma.Api.Contracts.Providers;
 using Khidma.Api.Contracts.Reviews;
 using Khidma.Api.Data;
 using Khidma.Api.Domain;
+using Khidma.Api.Domain.Enums;
+using Khidma.Api.Services.Audit;
 using Khidma.Api.Services.ServiceRequests;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,10 +13,12 @@ namespace Khidma.Api.Services.Providers;
 public sealed class ProviderProfileService : IProviderProfileService
 {
     private readonly AppDbContext _db;
+    private readonly IAuditService _audit;
 
-    public ProviderProfileService(AppDbContext db)
+    public ProviderProfileService(AppDbContext db, IAuditService audit)
     {
         _db = db;
+        _audit = audit;
     }
 
     public async Task<ServiceResult<ProviderMeDto>> GetMeAsync(
@@ -45,6 +49,20 @@ public sealed class ProviderProfileService : IProviderProfileService
         profile.Bio = string.IsNullOrWhiteSpace(request.Bio) ? null : request.Bio.Trim();
 
         await _db.SaveChangesAsync(cancellationToken);
+        await _audit.RecordAsync(new AuditEntry
+        {
+            Category = AuditCategories.Provider,
+            Action = AuditActions.ProviderProfileUpdated,
+            Outcome = AuditOutcomes.Success,
+            EntityType = nameof(ProviderProfile),
+            EntityId = profile.Id.ToString(),
+            Message = "Provider updated their profile.",
+            Details = new Dictionary<string, object?>
+            {
+                ["city"] = profile.City,
+                ["yearsOfExperience"] = profile.YearsOfExperience
+            }
+        }, cancellationToken);
         return await GetMeAsync(userId, cancellationToken);
     }
 
@@ -84,6 +102,19 @@ public sealed class ProviderProfileService : IProviderProfileService
         }
 
         await _db.SaveChangesAsync(cancellationToken);
+        await _audit.RecordAsync(new AuditEntry
+        {
+            Category = AuditCategories.Provider,
+            Action = AuditActions.ProviderServicesUpdated,
+            Outcome = AuditOutcomes.Success,
+            EntityType = nameof(ProviderProfile),
+            EntityId = profile.Id.ToString(),
+            Message = "Provider updated offered services.",
+            Details = new Dictionary<string, object?>
+            {
+                ["serviceCount"] = serviceIds.Count
+            }
+        }, cancellationToken);
         return await GetMeAsync(userId, cancellationToken);
     }
 
@@ -125,7 +156,7 @@ public sealed class ProviderProfileService : IProviderProfileService
             City = profile.City,
             YearsOfExperience = profile.YearsOfExperience,
             Bio = profile.Bio,
-            IsApproved = profile.IsApproved,
+            IsVerified = profile.VerificationStatus == ProviderVerificationStatus.Approved,
             AverageRating = profile.AverageRating,
             ReviewCount = profile.ReviewCount,
             Services = profile.ProviderServices
@@ -177,7 +208,10 @@ public sealed class ProviderProfileService : IProviderProfileService
             City = profile.City,
             YearsOfExperience = profile.YearsOfExperience,
             Bio = profile.Bio,
-            IsApproved = profile.IsApproved,
+            VerificationStatus = profile.VerificationStatus.ToString(),
+            IsSuspended = profile.IsSuspended,
+            SuspensionReason = profile.SuspensionReason,
+            VerificationRejectionReason = profile.VerificationRejectionReason,
             AverageRating = profile.AverageRating,
             ReviewCount = profile.ReviewCount,
             Services = profile.ProviderServices

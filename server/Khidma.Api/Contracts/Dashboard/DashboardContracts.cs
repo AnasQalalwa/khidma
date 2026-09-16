@@ -21,7 +21,11 @@ public sealed class CustomerDashboardDto
 
 public sealed class ProviderDashboardDto
 {
-    public required bool IsApproved { get; init; }
+    public required string VerificationStatus { get; init; }
+
+    public required bool IsSuspended { get; init; }
+
+    public string? SuspensionReason { get; init; }
 
     public required int EligibleRequestCount { get; init; }
 

@@ -64,6 +64,12 @@ server/Khidma.Api/wwwroot/
 *.db-wal
 
 # =========================
+# Private provider documents
+# =========================
+App_Data/
+*.uploaded-document
+
+# =========================
 # Archives
 # =========================
 *.zip

@@ -1,5 +1,6 @@
 using Khidma.Api.Auth;
 using Khidma.Api.Domain;
+using Khidma.Api.Domain.Enums;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -90,7 +91,7 @@ public static class DbSeeder
             "Ramallah",
             5,
             "Home services provider",
-            isApproved: true);
+            approved: true);
 
         await EnsureProviderProfileAsync(
             db,
@@ -98,7 +99,7 @@ public static class DbSeeder
             "Hebron",
             3,
             "Technology services provider",
-            isApproved: false);
+            approved: false);
 
         await EnsureProviderProfileAsync(
             db,
@@ -106,7 +107,7 @@ public static class DbSeeder
             "Bethlehem",
             7,
             "Cleaning and tutoring provider",
-            isApproved: true);
+            approved: true);
 
         await db.SaveChangesAsync();
 
@@ -257,14 +258,18 @@ public static class DbSeeder
         string city,
         int yearsOfExperience,
         string bio,
-        bool isApproved)
+        bool approved)
     {
+        var status = approved
+            ? ProviderVerificationStatus.Approved
+            : ProviderVerificationStatus.PendingReview;
+
         var existing = await db.ProviderProfiles
             .SingleOrDefaultAsync(p => p.UserId == userId);
 
         if (existing is not null)
         {
-            existing.IsApproved = isApproved;
+            existing.VerificationStatus = status;
             return;
         }
 
@@ -274,7 +279,7 @@ public static class DbSeeder
             City = city,
             YearsOfExperience = yearsOfExperience,
             Bio = bio,
-            IsApproved = isApproved,
+            VerificationStatus = status,
             AverageRating = 0,
             ReviewCount = 0
         });

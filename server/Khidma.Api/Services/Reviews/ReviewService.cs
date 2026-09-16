@@ -3,6 +3,7 @@ using Khidma.Api.Data;
 using Khidma.Api.Domain;
 using Khidma.Api.Domain.Enums;
 using Khidma.Api.Infrastructure;
+using Khidma.Api.Services.Audit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 
@@ -12,11 +13,13 @@ public sealed class ReviewService : IReviewService
 {
     private readonly AppDbContext _db;
     private readonly ILogger<ReviewService> _logger;
+    private readonly IAuditService _audit;
 
-    public ReviewService(AppDbContext db, ILogger<ReviewService> logger)
+    public ReviewService(AppDbContext db, ILogger<ReviewService> logger, IAuditService audit)
     {
         _db = db;
         _logger = logger;
+        _audit = audit;
     }
 
     public async Task<ServiceResult<ReviewDto>> CreateAsync(
@@ -132,6 +135,21 @@ public sealed class ReviewService : IReviewService
                     customerId,
                     booking.Id,
                     booking.ProviderId);
+
+                await _audit.RecordAsync(new AuditEntry
+                {
+                    Category = AuditCategories.Review,
+                    Action = AuditActions.ReviewCreated,
+                    Outcome = AuditOutcomes.Success,
+                    EntityType = nameof(Review),
+                    EntityId = review.Id.ToString(),
+                    Message = "Customer created a review.",
+                    Details = new Dictionary<string, object?>
+                    {
+                        ["bookingId"] = booking.Id,
+                        ["rating"] = review.Rating
+                    }
+                }, cancellationToken);
 
                 return ServiceResult<ReviewDto>.Success(new ReviewDto
                 {

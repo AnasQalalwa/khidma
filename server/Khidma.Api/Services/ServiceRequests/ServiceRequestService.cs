@@ -5,6 +5,7 @@ using Khidma.Api.Contracts.ServiceRequests;
 using Khidma.Api.Data;
 using Khidma.Api.Domain;
 using Khidma.Api.Domain.Enums;
+using Khidma.Api.Services.Audit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 
@@ -14,19 +15,22 @@ public sealed class ServiceRequestService : IServiceRequestService
 {
     private readonly AppDbContext _db;
     private readonly ILogger<ServiceRequestService> _logger;
+    private readonly IAuditService _audit;
 
     public ServiceRequestService(
         AppDbContext db,
-        ILogger<ServiceRequestService> logger)
+        ILogger<ServiceRequestService> logger,
+        IAuditService audit)
     {
         _db = db;
         _logger = logger;
+        _audit = audit;
     }
 
     public IQueryable<ServiceRequest> EligibleOpenRequestsForProvider(
         ProviderProfile provider)
     {
-        if (!provider.IsApproved)
+        if (!provider.CanReceiveWork)
         {
             return _db.ServiceRequests.Where(_ => false);
         }
@@ -93,6 +97,21 @@ public sealed class ServiceRequestService : IServiceRequestService
             "Customer {UserId} created service request {ServiceRequestId}",
             customerId,
             entity.Id);
+
+        await _audit.RecordAsync(new AuditEntry
+        {
+            Category = AuditCategories.Request,
+            Action = AuditActions.RequestCreated,
+            Outcome = AuditOutcomes.Success,
+            EntityType = nameof(ServiceRequest),
+            EntityId = entity.Id.ToString(),
+            Message = "Customer created a service request.",
+            Details = new Dictionary<string, object?>
+            {
+                ["serviceId"] = entity.ServiceId,
+                ["city"] = entity.City
+            }
+        }, cancellationToken);
 
         return await GetCustomerDetailAsync(entity.Id, customerId, cancellationToken);
     }
@@ -256,6 +275,16 @@ public sealed class ServiceRequestService : IServiceRequestService
             customerId,
             entity.Id);
 
+        await _audit.RecordAsync(new AuditEntry
+        {
+            Category = AuditCategories.Request,
+            Action = AuditActions.RequestUpdated,
+            Outcome = AuditOutcomes.Success,
+            EntityType = nameof(ServiceRequest),
+            EntityId = entity.Id.ToString(),
+            Message = "Customer updated a service request."
+        }, cancellationToken);
+
         return await GetCustomerDetailAsync(entity.Id, customerId, cancellationToken);
     }
 
@@ -322,6 +351,16 @@ public sealed class ServiceRequestService : IServiceRequestService
                     "Customer {UserId} cancelled service request {ServiceRequestId}",
                     customerId,
                     entity.Id);
+
+                await _audit.RecordAsync(new AuditEntry
+                {
+                    Category = AuditCategories.Request,
+                    Action = AuditActions.RequestCancelled,
+                    Outcome = AuditOutcomes.Success,
+                    EntityType = nameof(ServiceRequest),
+                    EntityId = entity.Id.ToString(),
+                    Message = "Customer cancelled a service request."
+                }, cancellationToken);
 
                 return await GetCustomerDetailAsync(entity.Id, customerId, cancellationToken);
             }
