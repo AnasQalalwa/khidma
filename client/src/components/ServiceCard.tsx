@@ -1,5 +1,7 @@
-import { ArrowRight } from 'lucide-react'
-import { Icon, IconTile, categoryVisual } from './icons'
+import { ArrowRight, Clock3 } from 'lucide-react'
+import { Icon } from './icons'
+import { getCategoryBadgeTone } from '../utils/catalogVisuals'
+import { getServiceVisual } from '../utils/serviceVisuals'
 
 export function ServiceCard({
   name,
@@ -8,17 +10,28 @@ export function ServiceCard({
   name: string
   categoryName: string
 }) {
-  const visual = categoryVisual(name)
+  const visual = getServiceVisual(name)
+  const tone = getCategoryBadgeTone(categoryName)
 
   return (
-    <article className="service-card">
-      <div className="service-card-top">
-        <IconTile icon={visual.icon} accent={visual.accent} />
-        <Icon icon={ArrowRight} size={16} className="card-arrow" />
+    <article className="catalog-card">
+      <div className="catalog-card-media">
+        <img src={visual.image} alt={visual.alt} loading="lazy" />
       </div>
-      <p className="meta">{categoryName}</p>
-      <h3>{name}</h3>
-      <p className="coming-soon">Coming in next phase</p>
+      <div className="catalog-card-body">
+        <span className={`catalog-badge catalog-badge-${tone}`}>{categoryName}</span>
+        <h3>{name}</h3>
+        <p>{visual.description}</p>
+        <div className="catalog-card-foot">
+          <span className="catalog-card-status">
+            <Icon icon={Clock3} size={16} />
+            Coming in next phase
+          </span>
+          <span className="catalog-card-arrow" aria-hidden="true">
+            <Icon icon={ArrowRight} size={16} />
+          </span>
+        </div>
+      </div>
     </article>
   )
 }
