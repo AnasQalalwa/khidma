@@ -1,73 +1,65 @@
 # Khidma
 
-Khidma is a service booking marketplace where customers create service requests, eligible providers submit offers, customers accept one offer, and the resulting booking is managed through completion and review.
+Khidma is a local service marketplace. Customers publish service requests, eligible providers submit offers, the customer accepts exactly one offer, and the resulting booking is started, completed, and reviewed.
 
-## Project Goal
+## Workflow
 
-Build a complete service marketplace workflow while applying professional software engineering practices including:
+```text
+Customer creates ServiceRequest (Open)
+        │
+        ▼
+Eligible provider sees it (approved + matching service + same city)
+        │
+        ▼
+Provider submits Offer (Pending)
+        │
+        ▼
+Customer accepts one offer (transaction)
+        │  siblings → Rejected, request → Booked, Booking → Scheduled
+        ▼
+Provider starts (InProgress) then completes (Completed + request Completed)
+        │
+        ▼
+Customer leaves one review (rating 1–5)
+        │
+        ▼
+ProviderProfile.AverageRating / ReviewCount recomputed in the same transaction
+```
 
-- ASP.NET Core Web API
-- Entity Framework Core
-- SQL Server
-- React
-- TypeScript
-- Authentication and authorization
-- Business-rule enforcement
-- Automated testing
-- Git and GitHub workflow
-- CI/CD fundamentals
+Roles: **Customer**, **Provider**, **Admin**. New providers register as pending until an admin approves them.
 
-## Technology Stack
+Out of scope: payments, chat, JWT, maps, notifications, and multi-offer acceptance.
 
-### Backend
-- C#
-- .NET 10
-- ASP.NET Core Web API
-- Entity Framework Core
-- SQL Server
-- ASP.NET Core Identity (cookie authentication, not JWT)
+## Technology stack
 
-### Frontend
-- React 19
-- TypeScript
-- Vite
-- React Router
-- CSS
+| Layer | Stack |
+| --- | --- |
+| API | ASP.NET Core 10, EF Core 10, SQL Server, Identity cookie auth + CSRF |
+| Client | React 19, TypeScript, Vite, React Router |
+| Tests | xUnit + WebApplicationFactory (SQLite in-memory); Vitest + Testing Library |
+| CI | GitHub Actions (`.github/workflows/ci.yml`) |
 
-### Testing
-- xUnit
-- WebApplicationFactory
-
-### Development
-- Git
-- GitHub
-- GitHub Actions
-
-## Repository Structure
+## Repository layout
 
 ```text
 khidma/
-├── client/
+├── client/                 React app
 ├── server/
-│   ├── Khidma.Api/
+│   ├── Khidma.Api/         Web API + SPA host (wwwroot)
 │   └── Khidma.Api.Tests/
-├── docs/
-├── .github/
-│   └── workflows/
-├── .gitignore
-├── README.md
-└── Khidma.sln
+├── docs/                   ADRs, security matrix, checklists
+├── .config/dotnet-tools.json
+├── Khidma.sln
+└── README.md
 ```
 
 ## User secrets
 
-Do not commit passwords or connection strings. `appsettings.json` does not include `ConnectionStrings`. Set these keys with `dotnet user-secrets` on `server/Khidma.Api`:
+Do not commit passwords or connection strings. `appsettings.json` has no `ConnectionStrings`. Set these on `server/Khidma.Api`:
 
 - `ConnectionStrings:Default`
 - `Seed:AdminPassword`
 - `Seed:DemoPassword`
-
-Example (replace the values locally; never commit them):
 
 ```bash
 dotnet user-secrets set "ConnectionStrings:Default" "<sql-server-connection-string>" --project server/Khidma.Api
@@ -75,30 +67,36 @@ dotnet user-secrets set "Seed:AdminPassword" "<admin-password>" --project server
 dotnet user-secrets set "Seed:DemoPassword" "<demo-password>" --project server/Khidma.Api
 ```
 
-A typical local SQL Server LocalDB connection string looks like:
+Typical LocalDB:
 
 `Server=(localdb)\\mssqllocaldb;Database=Khidma;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True`
 
-Seeded development accounts (passwords come from user-secrets, not from source):
+### Seeded accounts (emails only)
 
-- Admin: `admin@khidma.local`
-- Customers: `customer@khidma.local`, `customer2@khidma.local`
-- Providers: `provider1@khidma.local`, `provider2@khidma.local`, `provider3@khidma.local`
+Passwords come from `Seed:*` secrets, never from source.
+
+| Email | Role | Notes |
+| --- | --- | --- |
+| `admin@khidma.local` | Admin | Catalog + provider approval |
+| `customer@khidma.local` | Customer | Ramallah — full-flow pair with provider 1 |
+| `customer2@khidma.local` | Customer | Nablus |
+| `provider1@khidma.local` | Provider | Ramallah, approved, Home Services |
+| `provider2@khidma.local` | Provider | Hebron, **pending approval** |
+| `provider3@khidma.local` | Provider | Bethlehem, approved |
 
 ## Development
 
-Use two terminals. The React dev server proxies `/api` to `https://localhost:5001`.
+Two terminals. Vite proxies `/api` to `https://localhost:5001`.
 
 ### API
 
 ```bash
 dotnet restore
+dotnet tool restore
 dotnet run --project server/Khidma.Api --launch-profile https
 ```
 
-The API listens on `https://localhost:5001` (and `http://localhost:5000`). Development startup applies EF migrations and runs the idempotent seeder.
-
-Trust the ASP.NET HTTPS development certificate if the browser or Vite proxy warns about it:
+Development startup applies EF migrations and the idempotent seeder. Trust the HTTPS certificate if asked:
 
 ```bash
 dotnet dev-certs https --trust
@@ -112,13 +110,9 @@ npm ci
 npm run dev
 ```
 
-On Windows PowerShell, if `npm` is blocked by the execution policy, use `npm.cmd` instead.
+On Windows PowerShell, if `npm` is blocked, use `npm.cmd`. Open the Vite URL (typically `http://localhost:5173`).
 
-Open the Vite URL (typically `http://localhost:5173`). The browser should talk to `/api` on the same origin; Vite forwards those calls to the API.
-
-## Production-style local test
-
-Build the React app into `server/Khidma.Api/wwwroot`, then run only the API (do not start Vite):
+### Production-style local host
 
 ```bash
 cd client
@@ -128,11 +122,53 @@ cd ..
 dotnet run --project server/Khidma.Api --launch-profile https
 ```
 
-Browse `https://localhost:5001`. Routes such as `/`, `/login`, `/register`, `/catalog`, and the role dashboards are served by ASP.NET Core with SPA fallback. Refreshing those URLs must still return the React app. API routes remain under `/api`.
+Browse `https://localhost:5001`. ASP.NET Core serves the SPA from `wwwroot` with fallback to `index.html`. `/api/*` misses return Problem Details 404, not the SPA.
 
-## Authentication notes
+## Commands
 
-- Identity cookies are HttpOnly. React never reads an authentication token from storage.
-- React restores the session with `GET /api/auth/me`.
-- Unsafe requests send `X-XSRF-TOKEN` after `GET /api/antiforgery/token`.
-- Public registration allows only Customer and Provider. Admin is seeded, not publicly registered.
+```bash
+# Backend
+dotnet restore
+dotnet build -c Release
+dotnet test -c Release
+
+# Frontend (from client/)
+npm ci
+npm run lint
+npx tsc -b
+npm run test
+npm run build
+
+# EF (after dotnet tool restore)
+dotnet ef migrations has-pending-model-changes --project server/Khidma.Api
+dotnet ef migrations script --idempotent --project server/Khidma.Api --output khidma.sql
+```
+
+Production does **not** auto-migrate. Apply the idempotent script (or `dotnet ef database update`) as a deploy step.
+
+There is one schema migration (`InitialCreate`). Weeks 2–3 added no new migrations.
+
+## Architecture notes
+
+- Thin controllers → services → EF. Responses are DTOs only.
+- `ServiceResult<T>` maps to 400 / 401 / 403 / 404 / 409 Problem Details.
+- Lists are paged (`page`, `pageSize`, max 50).
+- Eligibility is one query reused by available-list and provider detail.
+- Accept-offer is transactional with state checks, rowversion, and a filtered unique index.
+- Identity user id vs `ProviderProfile.Id`: see `docs/decisions.md` ADR 11.
+
+## Limitations
+
+- City match is exact (case-insensitive), not geographic.
+- SQLite tests cannot `ORDER BY DateTimeOffset`; lists sort by `Id`.
+- SQLite filtered indexes are not SQL Server. Concurrent-accept proof on SQL Server is still a manual check.
+- No payments, messaging, file uploads, or email sending.
+- Rating aggregates are stored; they are recomputed only when a review is created (reviews are immutable after insert).
+
+## Docs
+
+- `docs/decisions.md` — ADRs
+- `docs/security-matrix.md`
+- `docs/final-test-checklist.md`
+- `docs/demo-script.md`
+- `FINAL_IMPLEMENTATION_REPORT.md`
