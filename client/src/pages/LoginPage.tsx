@@ -56,6 +56,7 @@ export function LoginPage() {
 
   return (
     <AuthShell
+      variant="login"
       eyebrow="Welcome back"
       title={
         <>

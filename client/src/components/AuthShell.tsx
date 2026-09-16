@@ -14,16 +14,18 @@ export function AuthShell({
   title,
   description,
   benefits,
+  variant = 'login',
   children,
 }: {
   eyebrow: string
   title: ReactNode
   description: string
   benefits: AuthBenefit[]
+  variant?: 'login' | 'register'
   children: ReactNode
 }) {
   return (
-    <div className="auth-shell">
+    <div className={`auth-shell auth-shell-${variant}`}>
       <aside className="auth-visual">
         <div className="auth-copy">
           <span className="eyebrow">{eyebrow}</span>
@@ -51,7 +53,7 @@ export function AuthShell({
         <AuthVisual />
       </aside>
       <div className="auth-panel">
-        <section className="auth-card">{children}</section>
+        <section className={`auth-card auth-card-${variant}`}>{children}</section>
       </div>
     </div>
   )

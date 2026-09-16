@@ -76,6 +76,7 @@ export function RegisterPage() {
 
   return (
     <AuthShell
+      variant="register"
       eyebrow="Get started"
       title={
         <>
