@@ -1,8 +1,7 @@
 import {
+  Bar,
+  BarChart,
   CartesianGrid,
-  Legend,
-  Line,
-  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -26,7 +25,7 @@ export function BookingsChart({ series }: { series: BookingsSeriesPoint[] }) {
     <div className="chart-frame" role="img" aria-label="Bookings created, completed, and cancelled over time">
       <title>Bookings over time</title>
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={series} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+        <BarChart data={series} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barGap={2} barCategoryGap="22%">
           <CartesianGrid stroke={colors.border} vertical={false} />
           <XAxis
             dataKey="date"
@@ -41,12 +40,14 @@ export function BookingsChart({ series }: { series: BookingsSeriesPoint[] }) {
             tickLine={false}
             width={28}
           />
-          <Tooltip labelFormatter={(label) => tickLabel(String(label))} />
-          <Legend />
-          <Line type="monotone" dataKey="created" name="Created" stroke={colors.primary} strokeWidth={2} dot={false} isAnimationActive={false} />
-          <Line type="monotone" dataKey="completed" name="Completed" stroke={colors.heading} strokeWidth={2} dot={false} isAnimationActive={false} />
-          <Line type="monotone" dataKey="cancelled" name="Cancelled" stroke={colors.danger} strokeWidth={2} dot={false} isAnimationActive={false} />
-        </LineChart>
+          <Tooltip
+            cursor={{ fill: 'rgba(18, 32, 58, 0.04)' }}
+            labelFormatter={(label) => tickLabel(String(label))}
+          />
+          <Bar dataKey="created" name="Created" fill={colors.primary} radius={[3, 3, 0, 0]} isAnimationActive={false} />
+          <Bar dataKey="completed" name="Completed" fill={colors.heading} radius={[3, 3, 0, 0]} isAnimationActive={false} />
+          <Bar dataKey="cancelled" name="Cancelled" fill={colors.danger} radius={[3, 3, 0, 0]} isAnimationActive={false} />
+        </BarChart>
       </ResponsiveContainer>
     </div>
   )
