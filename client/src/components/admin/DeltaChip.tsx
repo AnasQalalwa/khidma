@@ -1,4 +1,5 @@
 import { Minus, TrendingDown, TrendingUp } from 'lucide-react'
+import { formatDelta, type DeltaKind } from '../../utils/format'
 
 export type DeltaTone = 'up' | 'down' | 'neutral'
 
@@ -13,11 +14,11 @@ function deltaTone(value: number, previous: number | null): DeltaTone {
 export function DeltaChip({
   value,
   previous,
-  format,
+  kind,
 }: {
   value: number
   previous: number | null
-  format: (amount: number) => string
+  kind: DeltaKind
 }) {
   const tone = deltaTone(value, previous)
   const Icon = tone === 'up' ? TrendingUp : tone === 'down' ? TrendingDown : Minus
@@ -26,7 +27,7 @@ export function DeltaChip({
       ? 'No comparison'
       : value === previous
         ? 'No change'
-        : `${value >= previous ? '+' : '−'}${format(Math.abs(value - previous))}`
+        : formatDelta(value - previous, kind)
   const direction =
     tone === 'up' ? 'increased' : tone === 'down' ? 'decreased' : 'unchanged'
 

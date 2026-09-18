@@ -96,24 +96,28 @@ export function AdminOverviewPage() {
               label="Booking value"
               kpi={data.kpis.bookingValue}
               format={formatMoney}
+              deltaKind="currency"
               sparkLabel="Booking value over the selected range"
             />
             <KpiCard
               label="Active bookings"
               kpi={data.kpis.bookingsActive}
               format={formatCount}
+              deltaKind="count"
               sparkLabel="Active bookings scheduled in the selected range"
             />
             <KpiCard
               label="Completed bookings"
               kpi={data.kpis.bookingsCompleted}
               format={formatCount}
+              deltaKind="count"
               sparkLabel="Completed bookings over the selected range"
             />
             <KpiCard
               label="Conversion rate"
               kpi={data.kpis.conversionRate}
               format={formatPercent}
+              deltaKind="pts"
               sparkLabel="Request conversion over the selected range"
             />
           </>

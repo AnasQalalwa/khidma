@@ -127,6 +127,7 @@ describe('AdminOverviewPage', () => {
     expect(screen.getByText('Completed bookings')).toBeInTheDocument()
     expect(screen.getByText('Conversion rate')).toBeInTheDocument()
     expect(screen.getByText('40%')).toBeInTheDocument()
+    expect(screen.getByText('+15 pts')).toBeInTheDocument()
     expect(screen.getByText('Pending verifications')).toBeInTheDocument()
     expect(screen.getByText('No coverage')).toBeInTheDocument()
     expect(screen.getByText('Admin rejected provider Demo Provider Two')).toBeInTheDocument()
