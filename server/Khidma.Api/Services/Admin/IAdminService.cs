@@ -9,6 +9,10 @@ public interface IAdminService
 {
     Task<AdminStatsDto> GetStatsAsync(CancellationToken cancellationToken);
 
+    Task<ServiceResult<AdminOverviewDto>> GetOverviewAsync(
+        string? range,
+        CancellationToken cancellationToken);
+
     Task<AdminAttentionDto> GetAttentionAsync(CancellationToken cancellationToken);
 
     Task<ServiceResult<PagedResult<AdminProviderListItemDto>>> GetProvidersAsync(

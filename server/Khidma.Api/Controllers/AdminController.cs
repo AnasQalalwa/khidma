@@ -31,6 +31,14 @@ public sealed class AdminController : ApiControllerBase
         return Ok(await _admin.GetStatsAsync(cancellationToken));
     }
 
+    [HttpGet("stats/overview")]
+    public async Task<IActionResult> StatsOverview(
+        [FromQuery] string? range,
+        CancellationToken cancellationToken)
+    {
+        return FromResult(await _admin.GetOverviewAsync(range, cancellationToken));
+    }
+
     [HttpGet("attention")]
     public async Task<IActionResult> Attention(CancellationToken cancellationToken)
     {

@@ -198,4 +198,27 @@ Live `Executed DbCommand` capture against SQL Server was not repeated in Phase 9
 
 **Decision.** Treat the LocalDB crash on this Windows 11 NVMe host as an environment defect, not a Khidma schema or EF bug. `error.log` showed `256 misaligned log IOs` on `master.mdf`, then exception `0xC00000FD` (stack overflow) and `Hit Fatal Error: Server is terminating`. The host was recovered with `ForcedPhysicalSectorSizeInBytes="* 4095"` plus a full **Restart** (not Shut down, because Fast Startup keeps stornvme state). The workaround, undo `REG DELETE`, and log symptoms are in the README Prerequisites. After the restart, both migrations applied, the seeder ran, `scripts/verify-schema.sql` matched §5.3, and the live accept-race plus opt-in SQL Server tests passed.
 
+## ADR 23 — Admin overview endpoint query budget
+
+**Decision.** `GET /api/admin/stats/overview?range=today|7d|30d` is computed in `AdminService.GetOverviewAsync` with projection queries (no entity graphs, no per-row round trips). Daily/hourly series are bucketed in memory after a bounded projection so the LINQ stays portable across SQLite tests and SQL Server (no `DATEPART` / `DateDiff` in queries). CSRF failures stay HTTP 400 (ADR 17) and are recorded as `Auth.CsrfRejected` with outcome `Denied` by `AntiforgeryAuditMiddleware` after the endpoint returns 400 with an invalid antiforgery token.
+
+| Query | Round trips |
+| --- | --- |
+| Bookings projection (`[previousStart, now)` ∪ currently active) | 1 — booking value, completed, active, overdue, series |
+| Requests projection + `HasOffer` | 1 — funnel, conversion rate, series |
+| Reviews projection | 1 — average rating + series |
+| `Count` pending verifications | 1 |
+| `Count` stale open requests (Open, older than 48h, zero non-withdrawn offers) | 1 |
+| `Count` suspended providers | 1 |
+| Open request `(city, service)` pairs | 1 — grouped in memory to top 8 |
+| Eligible providers `(city, serviceId)` for those pairs | 0–1 (skipped when there are no open pairs) |
+| Top 5 providers (rating, then completed count) | 1 correlated subquery, not N+1 |
+| Audit logs last 24h conditional aggregate | 1 — failed logins, denied actions, CSRF rejections |
+
+**Total.** 9–10 round trips. Invalid or missing `range` is 400; non-admins are 403. Empty marketplace returns zeros and empty lists, not errors.
+
+**Why.** The previous `GET /api/admin/stats` counters cannot drive sparklines, funnels, or supply/demand. One overview DTO keeps the admin UI to a single fetch per range change.
+
+**Tests.** `AdminOverviewTests` (role gate, range validation, conversion math, stale/overdue, supply/demand eligibility, empty database, CSRF counted).
+
 

@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Khidma.Api.Services.Admin;
 
-public sealed class AdminService : IAdminService
+public sealed partial class AdminService : IAdminService
 {
     private readonly AppDbContext _db;
     private readonly UserManager<ApplicationUser> _userManager;
