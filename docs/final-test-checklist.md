@@ -41,7 +41,7 @@ Manual (SQL Server / browser) — not replaced by SQLite tests:
 
 - [ ] Full UI pass of admin Overview, Users, Verification, Providers, Audit Logs at 360 / 430 / 768 / 1024 / 1280 / 1440.
 - [ ] Confirm cookie + CSRF through the Vite proxy (`http://localhost:5173` → `https://localhost:5001`).
-- [ ] Confirm SPA fallback: refresh `/customer/requests/1` on the API host still serves the React app.
+- [x] Confirm SPA fallback: refresh `/customer/requests/1` on the API host still serves the React app. (Automated: `SpaFallbackTests`. Re-check in the browser after SQL Server is up.)
 - [ ] Concurrent accept against SQL Server (`scripts/concurrency-check.ps1`).
 - [ ] Live smoke against LocalDB (`scripts/smoke-test.ps1`).
 - [ ] Upload a real PDF in the provider profile and download it as admin.

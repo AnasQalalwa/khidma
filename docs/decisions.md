@@ -73,7 +73,7 @@ Migrations: `InitialCreate`, then `AddProviderVerificationAuditAndSuspension`.
 
 **Decision.** New provider registration sets `ProviderProfile.VerificationStatus = PendingReview` (replacing the old `IsApproved` flag). Unverified providers cannot receive new work. Admin approval requires at least one **Approved** professional document; otherwise the decision API returns 409. Rejection requires a reason.
 
-The seeder keeps `provider1` and `provider3` as `Approved` and `provider2` as `PendingReview`.
+The seeder keeps `provider1`, `provider3`, and `provider4` as `Approved` and `provider2` as `PendingReview`. `provider4` is Ramallah + Plumbing so the demo can show two offers on one request.
 
 **Why.** Professional proof is the trust gate. A boolean approval toggle let an admin mark a provider live with no documents on file.
 

@@ -27,7 +27,7 @@ Statuses:
 | Pagination cap (max 50; audit max 100) | IMPLEMENTED | `PageQuery.Normalize`. Audit uses 25/100. `PaginationTests`. |
 | SPA fallback does not swallow `/api/*` 404s | IMPLEMENTED | `MapFallback("/api/{**slug}")` returns Problem Details 404. |
 | No auto-migrate / seed in Production | IMPLEMENTED | Guarded by `IsDevelopment()`. |
-| Global exception handler does not leak exception text | IMPLEMENTED | Generic 500 title; no `exception.Message` in the body. |
+| Global exception handler does not leak exception text | IMPLEMENTED | Generic 500 title; `ProductionExceptionTests` asserts no stack / exception text. |
 | Passwords and connection strings not in source | IMPLEMENTED | User secrets for `ConnectionStrings:Default`, `Seed:AdminPassword`, `Seed:DemoPassword`. |
 | Professional document type/size/magic-byte validation | IMPLEMENTED | PDF/JPEG/PNG only, 10 MB, magic bytes. `VerificationDocumentTests`. |
 | Documents stored privately, GUID names, authorized download only | IMPLEMENTED | `LocalProviderDocumentStorage` under `App_Data/`; not `wwwroot`. |
@@ -38,10 +38,12 @@ Statuses:
 | Audit details exclude passwords, cookies, tokens, binaries | IMPLEMENTED | Explicit details dictionary only. |
 | LastLoginAt set on successful login only | IMPLEMENTED | `AdminUserMonitoringTests`. |
 | Concurrent accept under SQL Server | FAILED | LocalDB 17.0.4025.3 crashes on start: `256 misaligned log IOs` on `master.mdf` (NVMe 32K physical sectors). Recreate (`sqllocaldb delete`/`create -s`) did not help. Live scripts and `KHIDMA_SQLSERVER_TESTS=1` are blocked until the host SQL instance starts. Code path unified to `Another offer was accepted first.` Opt-in tests: `SqlServerIntegrationTests`. |
-| HTTPS cookie Secure in production hosting | TO VERIFY | Still `CookieSecurePolicy.SameAsRequest` until Phase 6 sets `Always` outside Development. |
+| HTTPS cookie Secure in production hosting | IMPLEMENTED | `CookieSecurePolicy.Always` for Identity and antiforgery cookies when not Development and not Testing. Readable `XSRF-TOKEN` is Secure in that same case. `UseHsts()` outside Development. App Service HTTPS Only is in `deploy/AZURE_DEPLOY.md` (not applied on this machine). |
 | SQL injection via city/status filters | VERIFIED | All list filters go through EF parameterized LINQ (`ServiceRequestService`, `AdminService`). No string-concatenated SQL. |
 | XSS in request title/offer message/review comment | VERIFIED | No `dangerouslySetInnerHTML` under `client/src`. React text interpolation only. |
-| Admin suspend of a live provider | TO VERIFY | Covered by `SuspensionTests` against SQLite. Live UI confirm blocked on SQL Server. |
+| Admin suspend of a live provider | IMPLEMENTED | `SuspensionTests` (SQLite). Live UI confirm still blocked on SQL Server. |
+| SPA deep link vs `/api` 404 | IMPLEMENTED | `SpaFallbackTests`: `/customer/requests/1` → HTML; `/api/nope` → JSON 404. |
+| Generic 500 in Production | IMPLEMENTED | `ProductionExceptionTests` — no exception type, message, or stack in the body. |
 
 ## Schema verification (SQL Server)
 
@@ -119,5 +121,12 @@ Command: `git log -p` filtered for `password|connectionstring|secret` (18 Septem
 | CSRF `XSRF-TOKEN` | Expected anti-forgery wiring. |
 
 If a reviewer finds a real credential in history that this pass missed, stop and rotate; do not rewrite history without an explicit decision.
+
+## Admin trust layer (folded from the old security review report)
+
+Verification (`PendingReview` / `Approved` / `Rejected`) is not the same as suspension (`IsSuspended` + reason). Admin cannot approve a provider without an approved document (409). Rejecting a provider or document requires a stored reason. Document downloads are owner-or-admin `File()` results. Audit has no FK and no update/delete API.
+
+Residual (unchanged): uploads are not malware-scanned; audit has no retention job; LocalDB on this NVMe host still needs the sector workaround before live SQL proofs.
+
 
 

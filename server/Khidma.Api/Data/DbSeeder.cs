@@ -75,6 +75,13 @@ public static class DbSeeder
             AppRoles.Provider,
             demoPassword);
 
+        var providerFour = await EnsureUserAsync(
+            userManager,
+            "provider4@khidma.local",
+            "Demo Provider Four",
+            AppRoles.Provider,
+            demoPassword);
+
         await EnsureCustomerProfileAsync(
             db,
             customerOne.Id,
@@ -109,6 +116,14 @@ public static class DbSeeder
             "Cleaning and tutoring provider",
             approved: true);
 
+        await EnsureProviderProfileAsync(
+            db,
+            providerFour.Id,
+            "Ramallah",
+            4,
+            "Plumbing provider",
+            approved: true);
+
         await db.SaveChangesAsync();
 
         var homeServices = await EnsureCategoryAsync(db, "Home Services");
@@ -141,6 +156,9 @@ public static class DbSeeder
         var providerThreeProfile =
             await db.ProviderProfiles.SingleAsync(p => p.UserId == providerThree.Id);
 
+        var providerFourProfile =
+            await db.ProviderProfiles.SingleAsync(p => p.UserId == providerFour.Id);
+
         await EnsureProviderServiceAsync(db, providerOneProfile.Id, plumbing.Id);
         await EnsureProviderServiceAsync(db, providerOneProfile.Id, electrical.Id);
         await EnsureProviderServiceAsync(db, providerOneProfile.Id, painting.Id);
@@ -155,6 +173,8 @@ public static class DbSeeder
         await EnsureProviderServiceAsync(db, providerThreeProfile.Id, windowCleaning.Id);
         await EnsureProviderServiceAsync(db, providerThreeProfile.Id, mathTutoring.Id);
         await EnsureProviderServiceAsync(db, providerThreeProfile.Id, englishTutoring.Id);
+
+        await EnsureProviderServiceAsync(db, providerFourProfile.Id, plumbing.Id);
 
         await db.SaveChangesAsync();
     }

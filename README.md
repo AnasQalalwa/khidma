@@ -1,202 +1,177 @@
 # Khidma
 
-Khidma is a local service marketplace. Customers publish service requests, eligible providers submit offers, the customer accepts exactly one offer, and the resulting booking is started, completed, and reviewed.
+Khidma is a local service marketplace. Customers publish requests, eligible providers submit offers, the customer accepts exactly one offer, and the booking is started, completed, and reviewed.
 
-## Workflow
+**Deployed URL:** _TBD after Azure deploy_ — see `deploy/AZURE_DEPLOY.md`.
 
-```text
-Customer creates ServiceRequest (Open)
-        │
-        ▼
-Eligible provider sees it (verified + not suspended + matching service + same city)
-        │
-        ▼
-Provider submits Offer (Pending)
-        │
-        ▼
-Customer accepts one offer (transaction)
-        │  siblings → Rejected, request → Booked, Booking → Scheduled
-        ▼
-Provider starts (InProgress) then completes (Completed + request Completed)
-        │
-        ▼
-Customer leaves one review (rating 1–5)
-        │
-        ▼
-ProviderProfile.AverageRating / ReviewCount recomputed in the same transaction
+## Screenshots
+
+Responsive captures (360 / 768 / 1280) belong in `docs/screenshots/`. Live PNGs are blocked until SQL Server starts (the SPA waits on `/api/auth/me`). Checklist: `docs/screenshots/README.md`.
+
+## Stack
+
+| Layer | Stack |
+| --- | --- |
+| API | ASP.NET Core 10, EF Core 10, SQL Server, Identity cookie auth + CSRF (`X-XSRF-TOKEN`) |
+| Client | React 19, TypeScript (strict), Vite, React Router |
+| Tests | xUnit + `WebApplicationFactory` (SQLite in-memory); opt-in SQL Server tests; Vitest + Testing Library |
+| CI | GitHub Actions — jobs **Backend** and **Frontend** (`.github/workflows/ci.yml`) |
+
+## Prerequisites (clean Windows)
+
+- [.NET 10 SDK](https://dotnet.microsoft.com/download)
+- Node.js 22 LTS and npm
+- Git
+- SQL Server LocalDB **or** SQL Server 2022 Developer/Express
+- PowerShell 7 (`pwsh`) for smoke scripts (Windows PowerShell 5.1 also runs most of them)
+
+If LocalDB fails with `256 misaligned log IOs` on NVMe, apply the sector registry workaround in `docs/security-matrix.md` and reboot, or install SQL Server 2022 after that reboot.
+
+## Run on a clean Windows machine
+
+```powershell
+git clone https://github.com/AnasQalalwa/khidma.git
+cd khidma
+git checkout feature/full-project-development   # or main after merge
+
+dotnet restore
+dotnet tool restore
+
+dotnet user-secrets set "ConnectionStrings:Default" "Server=(localdb)\mssqllocaldb;Database=Khidma;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True" --project server/Khidma.Api
+dotnet user-secrets set "Seed:AdminPassword" "<admin-password>" --project server/Khidma.Api
+dotnet user-secrets set "Seed:DemoPassword" "<demo-password>" --project server/Khidma.Api
+
+dotnet ef database update --project server/Khidma.Api
+dotnet dev-certs https --trust
+
+cd client
+npm ci
+cd ..
 ```
 
-Roles: **Customer**, **Provider**, **Admin**. New providers register as `PendingReview`. They become eligible only after an admin approves at least one professional document and the provider account, and only while the account is not suspended.
+Two terminals:
 
-Out of scope: payments, chat, JWT, maps, notifications, and multi-offer acceptance.
+```powershell
+dotnet run --project server/Khidma.Api --launch-profile https
+```
+
+```powershell
+cd client
+npm run dev
+```
+
+Open the Vite URL (typically `http://localhost:5173`). The Vite proxy forwards `/api` to `https://localhost:5001`.
+
+Production-style single host (API serves `wwwroot`):
+
+```powershell
+cd client
+npm run build
+cd ..
+dotnet run --project server/Khidma.Api --launch-profile https
+```
+
+Browse `https://localhost:5001`. Deep links such as `/customer/requests/1` return `index.html`. `/api/*` misses return Problem Details 404.
+
+Development startup applies migrations and the idempotent seeder. Production does **not** auto-migrate: multiple instances would race, a failed migration is hard to reverse, and there is no review step. Apply `deploy/migrate.sql` instead.
+
+## Demo credentials
+
+Passwords come from `Seed:*` user secrets, never from git.
+
+| Email | Role | Notes |
+| --- | --- | --- |
+| `admin@khidma.local` | Admin | Catalog, verification, suspension, users, audit |
+| `customer@khidma.local` | Customer | Ramallah — demo pair with `provider1` / `provider4` |
+| `customer2@khidma.local` | Customer | Nablus |
+| `provider1@khidma.local` | Provider A | Ramallah, **Approved**, Home Services (Plumbing) |
+| `provider2@khidma.local` | Provider | Hebron, **PendingReview** |
+| `provider3@khidma.local` | Provider B | Bethlehem, **Approved** — ineligible for Ramallah Plumbing (direct URL **404**) |
+| `provider4@khidma.local` | Provider C | Ramallah, **Approved**, Plumbing — second offer on the demo request |
+
+## Architecture
+
+```mermaid
+flowchart LR
+  spa[React SPA] -->|cookie + X-XSRF-TOKEN| api[ASP.NET Core API]
+  api --> identity[ASP.NET Identity]
+  api --> services[Services]
+  services --> ef[EF Core]
+  ef --> sql[(SQL Server)]
+  services --> files[App_Data documents]
+  api --> spaHost[wwwroot SPA]
+```
+
+```mermaid
+erDiagram
+  ApplicationUser ||--o| CustomerProfile : has
+  ApplicationUser ||--o| ProviderProfile : has
+  ProviderProfile ||--o{ ProviderService : offers
+  ProviderProfile ||--o{ ProviderVerificationDocument : uploads
+  Category ||--o{ Service : contains
+  Service ||--o{ ServiceRequest : requested
+  ServiceRequest ||--o{ Offer : receives
+  Offer ||--o| Booking : accepted
+  Booking ||--o| Review : rated
+  ApplicationUser ||--o{ AuditLog : actor
+```
+
+Thin controllers parse the caller, call one service, and map `ServiceResult` to Problem Details. Eligibility is one query: `Approved` + not suspended + matching service + exact city + `Open` request.
+
+## Tests
+
+```powershell
+dotnet build -c Release -warnaserror
+dotnet test -c Release
+cd client
+npm run lint
+npx tsc -b
+npm run test
+npm run build
+```
+
+SQL Server opt-in (Windows LocalDB on the machine, not the Ubuntu CI runner):
+
+```powershell
+$env:KHIDMA_SQLSERVER_TESTS = "1"
+# optional: $env:KHIDMA_SQLSERVER_CONNECTION = "Server=(localdb)\mssqllocaldb;Database=Khidma_Tests;Trusted_Connection=True;TrustServerCertificate=True"
+dotnet test -c Release --filter FullyQualifiedName~SqlServerIntegrationTests
+```
+
+CI stays on `ubuntu-latest` (no LocalDB). A Windows SQL job is not wired until a runner with a healthy SQL Server exists.
+
+Current automated counts: **117** backend passed, **2** SQL Server skipped by default, **29** frontend passed. See `docs/TEST_RESULTS.md`.
 
 ## Deviations from plan v2
 
-Plan v2 (`docs/plan-v2.md` after the Week 4 docs pass; currently `Service_Booking_Platform_Capstone_Plan_v2.md` at the repo root) is the product of record. These extras shipped because the core workflow is not safe without them:
+Plan of record: [`docs/plan-v2.md`](docs/plan-v2.md).
 
 | Added | Why |
 | --- | --- |
 | Professional verification **uploads** | Trust gate before `Approved` (ADR 19). Not request photos. |
 | Provider **suspension** | Admin kill switch without a complaints domain (ADR 20). |
 | **Audit** logging | Traceability for auth and admin trust actions (ADR 21). |
-| Role **dashboard** endpoints | One round-trip for the home counters (ADR 10). |
+| Role **dashboard** endpoints | One round-trip for home counters (ADR 10). |
 
-Cuts that stay cut: payments, chat, notifications, maps, request photo uploads, JWT, Docker/Redis, favorites, portfolios.
+Unchanged cuts: payments, chat, notifications, maps, request photo uploads, JWT, Docker/Redis, favorites, portfolios.
 
-CSRF failures stay **400** (ADR 17). Ineligible provider direct URLs stay **404**, not the §15 403. Demo cities stay the seeded Palestinian set (Ramallah, Nablus, Bethlehem, Hebron).
+CSRF failures stay **400** (ADR 17). Ineligible provider direct URLs stay **404**, not §15's 403. Demo cities stay the seeded Palestinian set.
 
-## Technology stack
+## Known limitations
 
-| Layer | Stack |
-| --- | --- |
-| API | ASP.NET Core 10, EF Core 10, SQL Server, Identity cookie auth + CSRF |
-| Client | React 19, TypeScript, Vite, React Router |
-| Tests | xUnit + WebApplicationFactory (SQLite in-memory); Vitest + Testing Library |
-| CI | GitHub Actions (`.github/workflows/ci.yml`) |
-
-## Repository layout
-
-```text
-khidma/
-├── client/                 React app
-├── server/
-│   ├── Khidma.Api/         Web API + SPA host (wwwroot)
-│   └── Khidma.Api.Tests/
-├── docs/                   ADRs, security matrix, checklists
-├── .config/dotnet-tools.json
-├── Khidma.sln
-└── README.md
-```
-
-## User secrets
-
-Do not commit passwords or connection strings. `appsettings.json` has no `ConnectionStrings`. Set these on `server/Khidma.Api`:
-
-- `ConnectionStrings:Default`
-- `Seed:AdminPassword`
-- `Seed:DemoPassword`
-
-```bash
-dotnet user-secrets set "ConnectionStrings:Default" "<sql-server-connection-string>" --project server/Khidma.Api
-dotnet user-secrets set "Seed:AdminPassword" "<admin-password>" --project server/Khidma.Api
-dotnet user-secrets set "Seed:DemoPassword" "<demo-password>" --project server/Khidma.Api
-```
-
-Typical LocalDB:
-
-`Server=(localdb)\\mssqllocaldb;Database=Khidma;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True`
-
-### Seeded accounts (emails only)
-
-Passwords come from `Seed:*` secrets, never from source.
-
-| Email | Role | Notes |
-| --- | --- | --- |
-| `admin@khidma.local` | Admin | Catalog, verification, suspension, users, audit |
-| `customer@khidma.local` | Customer | Ramallah — full-flow pair with provider 1 |
-| `customer2@khidma.local` | Customer | Nablus |
-| `provider1@khidma.local` | Provider | Ramallah, **Approved**, Home Services |
-| `provider2@khidma.local` | Provider | Hebron, **PendingReview** |
-| `provider3@khidma.local` | Provider | Bethlehem, **Approved** |
-
-## Development
-
-Two terminals. Vite proxies `/api` to `https://localhost:5001`.
-
-### API
-
-```bash
-dotnet restore
-dotnet tool restore
-dotnet run --project server/Khidma.Api --launch-profile https
-```
-
-Development startup applies EF migrations and the idempotent seeder. Trust the HTTPS certificate if asked:
-
-```bash
-dotnet dev-certs https --trust
-```
-
-### React
-
-```bash
-cd client
-npm ci
-npm run dev
-```
-
-On Windows PowerShell, if `npm` is blocked, use `npm.cmd`. Open the Vite URL (typically `http://localhost:5173`).
-
-### Production-style local host
-
-```bash
-cd client
-npm ci
-npm run build
-cd ..
-dotnet run --project server/Khidma.Api --launch-profile https
-```
-
-Browse `https://localhost:5001`. ASP.NET Core serves the SPA from `wwwroot` with fallback to `index.html`. `/api/*` misses return Problem Details 404, not the SPA.
-
-## Commands
-
-```bash
-# Backend
-dotnet restore
-dotnet build -c Release
-dotnet test -c Release
-
-# Frontend (from client/)
-npm ci
-npm run lint
-npx tsc -b
-npm run test
-npm run build
-
-# EF (after dotnet tool restore)
-dotnet ef migrations list --project server/Khidma.Api
-dotnet ef migrations has-pending-model-changes --project server/Khidma.Api
-dotnet ef database update --project server/Khidma.Api
-dotnet ef migrations script --idempotent --project server/Khidma.Api --output deploy/migrate.sql
-
-# Live API checks (never print secrets; passwords from env or SecureString prompts)
-pwsh -File scripts/smoke-test.ps1
-pwsh -File scripts/concurrency-check.ps1
-```
-
-Production does **not** auto-migrate. Multiple instances would race, a failed migration is hard to reverse, and there is no review step. Apply `deploy/migrate.sql` (idempotent) with `sqlcmd` or the Azure SQL Query editor, then start the app. Development still calls `Database.MigrateAsync()` plus the seeder.
-
-Migrations: `InitialCreate`, then `AddProviderVerificationAuditAndSuspension` (converts `IsApproved` to `VerificationStatus`, adds documents, suspension, audit logs, and `LastLoginAt`).
-
-## Architecture notes
-
-- Thin controllers → services → EF. Responses are DTOs only.
-- `ServiceResult<T>` maps to 400 / 401 / 403 / 404 / 409 Problem Details.
-- Lists are paged (`page`, `pageSize`, max 50).
-- Eligibility is one query reused by available-list and provider detail: `VerificationStatus == Approved && !IsSuspended`, plus matching service and exact city.
-- Unverified or suspended providers get **200 empty** on `GET /api/service-requests/available` and **403** on `POST .../offers`.
-- Professional verification documents (PDF/JPEG/PNG, 10 MB, magic-byte check) are stored outside `wwwroot` under `App_Data/provider-documents`.
-- Admin workspace: Overview, Users, Provider Verification, Providers (suspend/reactivate), Audit Logs, Catalog.
-- Audit logs are append-only. There is no update or delete API.
-- Accept-offer is transactional with state checks, rowversion, and a filtered unique index.
-- Identity user id vs `ProviderProfile.Id`: see `docs/decisions.md` ADR 11.
-
-## Limitations
-
-- City match is exact (case-insensitive), not geographic.
 - SQLite tests cannot `ORDER BY DateTimeOffset`; lists sort by `Id`.
-- SQLite filtered indexes are not SQL Server. Concurrent-accept proof on SQL Server is still a manual check.
-- No payments, messaging, or email sending. File uploads are limited to private professional verification documents.
-- Rating aggregates are stored; they are recomputed only when a review is created (reviews are immutable after insert).
+- SQLite filtered indexes are not SQL Server. Concurrent-accept proof needs LocalDB (`scripts/concurrency-check.ps1` / `KHIDMA_SQLSERVER_TESTS=1`).
+- City match is exact (case-insensitive), not geographic.
+- Verification files live on local disk (`App_Data`); not multi-instance. Successor: Blob Storage.
+- No payments, messaging, email, or maps.
 
 ## Docs
 
-- `docs/decisions.md` — ADRs
-- `docs/security-matrix.md`
-- `docs/final-test-checklist.md`
-- `docs/demo-script.md`
-- `docs/TEST_RESULTS.md`
-- `docs/ADMIN_SECURITY_REVIEW_REPORT.md`
-- `FINAL_IMPLEMENTATION_REPORT.md`
-- `deploy/AZURE_DEPLOY.md` — App Service + Azure SQL runbook (cloud steps are yours)
+- [`docs/plan-v2.md`](docs/plan-v2.md) — product spec
+- [`docs/decisions.md`](docs/decisions.md) — ADRs
+- [`docs/security-matrix.md`](docs/security-matrix.md)
+- [`docs/demo-script.md`](docs/demo-script.md)
+- [`docs/TEST_RESULTS.md`](docs/TEST_RESULTS.md)
+- [`docs/final-test-checklist.md`](docs/final-test-checklist.md)
+- [`docs/history.md`](docs/history.md)
+- [`deploy/AZURE_DEPLOY.md`](deploy/AZURE_DEPLOY.md)

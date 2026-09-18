@@ -103,3 +103,12 @@ ADRs 19–21 (verification documents, suspension, audit) and README “Deviation
 | `dotnet ef migrations script --idempotent` | Wrote `deploy/migrate.sql`. |
 
 Production: `CookieSecurePolicy.Always` and `UseHsts()` outside Development/Testing (HSTS also outside Development). `GlobalExceptionHandler` returns a generic 500 with no exception text (`ProductionExceptionTests`). SPA deep link `/customer/requests/1` → `index.html`; `/api/nope` → JSON 404. Azure runbook: `deploy/AZURE_DEPLOY.md`. Cloud create/deploy steps are stopped for you.
+
+## Phase 7 — Docs cleanup (18 September 2026)
+
+Deleted `REVIEW_HANDOFF.md`, `WEEK1_COMPLETION_REPORT.md`, `FINAL_IMPLEMENTATION_REPORT.md`, `docs/ADMIN_SECURITY_REVIEW_REPORT.md`. Folded into `docs/history.md` and `docs/security-matrix.md`. Plan of record: `docs/plan-v2.md`. Seeder adds `provider4@khidma.local` (Ramallah, Approved, Plumbing). Demo script matches §15 with Palestinian cities and 404 for ineligible URLs.
+
+| Command | Result |
+| --- | --- |
+| `dotnet test -c Release` | **117 passed**, 0 failed, 2 skipped (seeder is Development-only; tests use their own fixtures). |
+| Frontend | **29 passed** (unchanged). |
