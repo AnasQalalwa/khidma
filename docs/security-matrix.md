@@ -9,7 +9,7 @@ Statuses:
 | --- | --- | --- |
 | Cookie auth, HttpOnly, no JWT in browser storage | IMPLEMENTED | Identity cookie; React uses `credentials: 'include'` only. |
 | Anonymous `/api/auth/me` returns JSON 401, not HTML | IMPLEMENTED | Cookie events write Problem Details. `AuthEndpointsTests`. |
-| CSRF on unsafe methods | IMPLEMENTED | `AutoValidateAntiforgeryToken`; client sends `X-XSRF-TOKEN`. |
+| CSRF on unsafe methods | IMPLEMENTED | `AutoValidateAntiforgeryToken`; missing token → **400** (ADR 17). `CsrfMutationTests`. |
 | Role gates on controllers | IMPLEMENTED | `[Authorize(Roles=...)]` on customer/provider/admin actions. `AuthorizationMatrixTests`. |
 | Ownership on request edit/cancel/detail | IMPLEMENTED | Non-owner customer → 403; missing → 404. |
 | Provider eligibility hides ineligible detail | IMPLEMENTED | Ineligible → 404. Same query as `/available`. |
@@ -40,7 +40,7 @@ Statuses:
 | Concurrent accept under SQL Server | FAILED | LocalDB 17.0.4025.3 crashes on start: `256 misaligned log IOs` on `master.mdf` (NVMe 32K physical sectors). Recreate (`sqllocaldb delete`/`create -s`) did not help. Live scripts and `KHIDMA_SQLSERVER_TESTS=1` are blocked until the host SQL instance starts. Code path unified to `Another offer was accepted first.` Opt-in tests: `SqlServerIntegrationTests`. |
 | HTTPS cookie Secure in production hosting | TO VERIFY | Still `CookieSecurePolicy.SameAsRequest` until Phase 6 sets `Always` outside Development. |
 | SQL injection via city/status filters | TO VERIFY | EF parameterized queries; SQL logs deferred to Phase 3 (needs a running API). |
-| XSS in request title/offer message/review comment | TO VERIFY | React text interpolation; confirm no `dangerouslySetInnerHTML` in Phase 4. |
+| XSS in request title/offer message/review comment | VERIFIED | No `dangerouslySetInnerHTML` under `client/src`. React text interpolation only. |
 | Admin suspend of a live provider | TO VERIFY | Covered by `SuspensionTests` against SQLite. Live UI confirm blocked on SQL Server. |
 
 ## Schema verification (SQL Server)
@@ -79,4 +79,45 @@ dotnet test -c Release --filter FullyQualifiedName~SqlServerIntegrationTests
 ```
 
 If you would rather install a full instance after the registry fix: SQL Server 2022 Developer, mixed mode or Windows auth, enable TCP, then put that connection string in user-secrets instead of LocalDB.
+
+## HTTP walk (§8.4, Week 4 Day 1)
+
+Live script: `scripts/security-matrix.ps1` plus `server/Khidma.Api/Khidma.Api.http`. Direct-URL ineligible provider is **404** (ADR 2), never 200. CSRF missing token is **400** (ADR 17).
+
+| Check | Expected | Automated evidence | Live SQL Server |
+| --- | --- | --- | --- |
+| Provider B on Provider A's offer | 403/404 | `AuthorizationMatrixTests.ProviderB_CannotWithdrawProviderAOffer` | Blocked (LocalDB down) |
+| Provider B on Provider A's booking | 403/404 | `BookingTests` ownership + script | Blocked |
+| Provider B on ineligible request (list) | 200 empty | `EligibilityTests.WrongCity_DoesNotSeeRequest` | Blocked |
+| Provider B on ineligible request (URL) | 404 | `EligibilityTests.IneligibleProvider_DetailIsHidden` | Blocked |
+| Unapproved / suspended offer | 403 | `OfferTests` / `SuspensionTests` | Blocked |
+| No customer contact pre-accept | omitted from JSON | `EligibilityTests.Provider_CannotSeeCustomerContactBeforeAcceptance` | Blocked |
+| Register `Admin` / `admin` / ` Admin ` | 400 | `AuthEndpointsTests.Register_Admin_IsRejected` | Blocked |
+| Mutation without `X-XSRF-TOKEN` | 400 | `CsrfMutationTests` | Blocked |
+| Complete Scheduled booking | 409 | `BookingTests.Scheduled_ToCompleted_IsIllegal` | Blocked |
+| Accept on Booked request | 409 | `AcceptOfferTests.SecondAcceptance_IsRejected` | Blocked |
+| Second review | 409 | `ReviewTests.SecondReview_IsRejected` | Blocked |
+| Path traversal filename | 400 | `VerificationDocumentTests.PathTraversalFileName_IsRejected` | Blocked |
+| Wrong magic bytes | 400 | `VerificationDocumentTests.FakeMimeSignature_IsRejected` | Blocked |
+| Oversize (>10 MB) | 400 | `VerificationDocumentTests.FileOver10Mb_IsRejected` | Blocked |
+| Other provider downloads document | 403 | `VerificationDocumentTests.AnotherProvider_CannotReadOrDeleteDocument` | Blocked |
+
+XSS: no `dangerouslySetInnerHTML` in `client/src`. Titles, messages, and review comments are React text nodes.
+
+## Git history secret scan
+
+Command: `git log -p` filtered for `password|connectionstring|secret` (18 September 2026). Unique added/removed lines were classified. No live production password or Azure connection string appeared.
+
+| Hit class | Verdict |
+| --- | --- |
+| `appsettings.json` `ConnectionStrings` | Current file has **no** connection string. Historical diffs showed the key / LocalDB-style `Trusted_Connection` design-time fallback in `AppDbContextFactory`, not a SQL login password. |
+| `["Seed:AdminPassword"] = "Test_Admin_123!"` / `Test_Demo_123!` | Test-only values in `KhidmaApiFactory`. Not production secrets. |
+| `password = "ValidPass1!"` | xUnit fixtures. |
+| Identity `PasswordHash` columns in migrations | Schema only. |
+| UI `type="password"`, `autoComplete`, show/hide labels | Expected. |
+| Scripts reading `KHIDMA_*_PASSWORD` | Env / `Read-Host -AsSecureString`; they do not print the value. |
+| CSRF `XSRF-TOKEN` | Expected anti-forgery wiring. |
+
+If a reviewer finds a real credential in history that this pass missed, stop and rotate; do not rewrite history without an explicit decision.
+
 

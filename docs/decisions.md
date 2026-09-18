@@ -8,7 +8,7 @@ These ADRs record the choices that shape Khidma’s Weeks 2–3 marketplace. Wee
 
 **Why.** Same-origin hosting (`wwwroot` in production-style runs, Vite `/api` proxy in development) makes a cookie the simplest CSRF-aware session. JWT would add token storage, refresh, and XSS surface without helping this product.
 
-**CSRF.** `GET /api/antiforgery/token` sets a readable `XSRF-TOKEN` cookie. Unsafe methods send `X-XSRF-TOKEN`. Controllers use `AutoValidateAntiforgeryToken`.
+**CSRF.** `GET /api/antiforgery/token` sets a readable `XSRF-TOKEN` cookie. Unsafe methods send `X-XSRF-TOKEN`. Controllers use `AutoValidateAntiforgeryToken`. A missing or invalid token returns **400 Bad Request** (framework default). See ADR 17.
 
 ## ADR 2 — Exact-city eligibility
 
@@ -132,3 +132,12 @@ DTOs that link to a public profile include both `providerId` and `providerProfil
 **Decision.** Providers upload PDF/JPEG/PNG files (1 byte–10 MB) with matching extension, content type, and magic bytes. Storage is `IProviderDocumentStorage` rooted at `ProviderDocuments:RootPath` (default `{ContentRoot}/App_Data/provider-documents`). Stored names are GUIDs. Downloads go through authorized `File()` results, never static files.
 
 **Why.** These files are identity evidence, not a public portfolio. `wwwroot` would make them anonymously fetchable.
+
+## ADR 17 — CSRF failure is 400
+
+**Decision.** Keep ASP.NET Core's default for `AutoValidateAntiforgeryToken`: a missing or invalid `X-XSRF-TOKEN` is **400 Bad Request**, not 403. Plan v2 § Week 4 Day 1 said 403; the framework default is 400 (`AntiforgeryValidationFailedResult`). Tests (`CsrfMutationTests`, `AuthEndpointsTests.PostWithoutAntiforgery_IsRejected`), `scripts/smoke-test.ps1`, and `scripts/security-matrix.ps1` all assert 400.
+
+**Why.** Overriding the filter to 403 would be a custom convention with no security gain. Reviewers and the client already treat any non-2xx as failure. One number everywhere beats a 400/403 split.
+
+**Rejected alternative.** Map antiforgery failures to 403 Forbidden so the status matches "you are not allowed." That confuses CSRF (the request is malformed) with authorization (the user is the wrong principal).
+

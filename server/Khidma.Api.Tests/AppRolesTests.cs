@@ -20,6 +20,7 @@ public sealed class AppRolesTests
     [Theory]
     [InlineData("Admin")]
     [InlineData("admin")]
+    [InlineData(" Admin ")]
     [InlineData("")]
     [InlineData(null)]
     public void TryNormalizePublicRole_RejectsAdminAndUnknown(string? input)
@@ -34,6 +35,7 @@ public sealed class AppRolesTests
     {
         Assert.True(AppRoles.IsAdminRole("Admin"));
         Assert.True(AppRoles.IsAdminRole("admin"));
+        Assert.True(AppRoles.IsAdminRole(" Admin "));
         Assert.False(AppRoles.IsAdminRole("Customer"));
     }
 }

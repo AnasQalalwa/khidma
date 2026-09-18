@@ -55,3 +55,12 @@ Code shipped so the live proof is ready the moment SQL Server starts:
 - `scripts/concurrency-check.ps1` asserts the 409 body and optional sibling `Rejected`
 
 Unblock steps are in `docs/security-matrix.md`.
+
+## Phase 2 — Security matrix (18 September 2026)
+
+| Command | Result |
+| --- | --- |
+| `dotnet test -c Release` | **113 passed**, 0 failed, 2 skipped (SQL Server opt-in). |
+| Live `scripts/security-matrix.ps1` | Not executed (no SQL Server). Cases covered by xUnit; script is ready. |
+
+Added: admin registration variants (`Admin`/`admin`/` Admin `), path-traversal upload 400, CSRF documented as 400 (ADR 17).

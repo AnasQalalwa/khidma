@@ -157,8 +157,11 @@ public sealed class AuthEndpointsTests : IClassFixture<KhidmaApiFactory>
         Assert.False(await db.CustomerProfiles.AnyAsync(p => p.UserId == persisted.Id));
     }
 
-    [Fact]
-    public async Task Register_Admin_IsRejected()
+    [Theory]
+    [InlineData("Admin")]
+    [InlineData("admin")]
+    [InlineData(" Admin ")]
+    public async Task Register_Admin_IsRejected(string role)
     {
         var client = CreateClient();
         await AntiforgeryTestHelper.AttachTokenAsync(client);
@@ -168,7 +171,7 @@ public sealed class AuthEndpointsTests : IClassFixture<KhidmaApiFactory>
             fullName = "Hacker",
             email = UniqueEmail("admin"),
             password = "ValidPass1!",
-            role = "Admin",
+            role,
             city = "Ramallah"
         });
 

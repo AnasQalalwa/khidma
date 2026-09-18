@@ -46,6 +46,18 @@ public sealed class VerificationDocumentTests : IClassFixture<KhidmaApiFactory>
     }
 
     [Fact]
+    public async Task PathTraversalFileName_IsRejected()
+    {
+        var (provider, _) = await TestHarness.RegisterAsync(_factory, "Provider", "Ramallah");
+        var response = await PostFileAsync(
+            provider,
+            "%PDF-1.4\n"u8.ToArray(),
+            @"..\..\secret.pdf",
+            "application/pdf");
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Exe_IsRejected()
     {
         var (provider, _) = await TestHarness.RegisterAsync(_factory, "Provider", "Ramallah");

@@ -81,9 +81,11 @@ public static class DocumentFileValidator
         }
 
         var originalName = Path.GetFileName(fileName ?? string.Empty);
-        if (string.IsNullOrWhiteSpace(originalName))
+        if (string.IsNullOrWhiteSpace(originalName) ||
+            !string.Equals(originalName, fileName, StringComparison.Ordinal) ||
+            originalName.Contains("..", StringComparison.Ordinal))
         {
-            return DocumentValidationResult.Fail("The original file name is required.");
+            return DocumentValidationResult.Fail("The original file name is invalid.");
         }
 
         var extension = Path.GetExtension(originalName).ToLowerInvariant();
