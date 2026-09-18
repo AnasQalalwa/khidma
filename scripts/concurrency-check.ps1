@@ -6,6 +6,7 @@
 #   KHIDMA_BASE_URL
 #   KHIDMA_CUSTOMER_EMAIL / KHIDMA_CUSTOMER_PASSWORD
 #   KHIDMA_PROVIDER_EMAIL / KHIDMA_PROVIDER_PASSWORD
+#   KHIDMA_PROVIDER2_EMAIL / KHIDMA_PROVIDER2_PASSWORD  (optional; sibling Rejected check)
 
 [CmdletBinding()]
 param()
@@ -159,17 +160,74 @@ $cookieHeader = ($customer.Session.Cookies.GetCookies($BaseUrl) | ForEach-Object
 
 $jobScript = {
     param($Uri, $CookieHeader, $Token, $SkipCert)
-    if ($SkipCert -and $PSVersionTable.PSVersion.Major -ge 6) {
-        return Invoke-WebRequest -Method POST -Uri $Uri -Headers @{
+
+    $params = @{
+        Method          = 'POST'
+        Uri             = $Uri
+        Headers         = @{
             'X-XSRF-TOKEN' = $Token
             Cookie         = $CookieHeader
-        } -Body '{}' -ContentType 'application/json' -SkipCertificateCheck -UseBasicParsing
+        }
+        Body            = '{}'
+        ContentType     = 'application/json'
+        UseBasicParsing = $true
     }
 
-    return Invoke-WebRequest -Method POST -Uri $Uri -Headers @{
-        'X-XSRF-TOKEN' = $Token
-        Cookie         = $CookieHeader
-    } -Body '{}' -ContentType 'application/json' -UseBasicParsing
+    if ($SkipCert -and $PSVersionTable.PSVersion.Major -ge 6) {
+        $params.SkipCertificateCheck = $true
+    }
+
+    try {
+        $response = Invoke-WebRequest @params
+        return @{
+            Status = [int]$response.StatusCode
+            Body   = [string]$response.Content
+        }
+    }
+    catch {
+        $web = $_.Exception.Response
+        if (-not $web) {
+            throw
+        }
+
+        $status = [int]$web.StatusCode
+        $body = ''
+        try {
+            $stream = $web.GetResponseStream()
+            if ($stream) {
+                $reader = New-Object System.IO.StreamReader($stream)
+                $body = $reader.ReadToEnd()
+                $reader.Dispose()
+            }
+        }
+        catch {
+            $body = $_.Exception.Message
+        }
+
+        return @{
+            Status = $status
+            Body   = $body
+        }
+    }
+}
+
+$provider2Email = [Environment]::GetEnvironmentVariable('KHIDMA_PROVIDER2_EMAIL')
+$provider2Password = [Environment]::GetEnvironmentVariable('KHIDMA_PROVIDER2_PASSWORD')
+$siblingOfferId = $null
+if (-not [string]::IsNullOrWhiteSpace($provider2Email) -and -not [string]::IsNullOrWhiteSpace($provider2Password)) {
+    $provider2 = Connect-KhidmaUser -Email $provider2Email -Password $provider2Password
+    $sibling = Invoke-KhidmaRequest -Method POST -Path "/api/service-requests/$requestId/offers" -Session $provider2.Session -Headers @{
+        'X-XSRF-TOKEN' = $provider2.Token
+    } -Body (@{
+            price         = 80
+            message       = 'Concurrency sibling offer.'
+            estimatedDate = $preferredDate
+        } | ConvertTo-Json)
+    if ($sibling.StatusCode -ne 200) {
+        throw "Sibling offer submit failed with $($sibling.StatusCode). Provider 2 must be approved, not suspended, same city/service."
+    }
+
+    $siblingOfferId = ($sibling.Content | ConvertFrom-Json).id
 }
 
 $skipCert = $PSVersionTable.PSVersion.Major -ge 6
@@ -178,27 +236,25 @@ $job2 = Start-Job -ScriptBlock $jobScript -ArgumentList $acceptUri, $cookieHeade
 $results = $job1, $job2 | Wait-Job | Receive-Job
 $job1, $job2 | Remove-Job -Force
 
-$statuses = @()
+$payloads = @()
 foreach ($result in $results) {
     if ($result -is [System.Management.Automation.ErrorRecord]) {
-        $response = $result.Exception.Response
-        if ($response) {
-            $statuses += [int]$response.StatusCode
-        }
-        else {
-            throw $result
-        }
+        throw $result
     }
-    else {
-        $statuses += [int]$result.StatusCode
-    }
+
+    $payloads += $result
 }
 
-$statuses = $statuses | Sort-Object
+$statuses = @($payloads | ForEach-Object { [int]$_.Status } | Sort-Object)
 Write-Host ("Accept statuses: " + ($statuses -join ', '))
 
 if ($statuses -notcontains 200 -or $statuses -notcontains 409) {
     throw "Expected 200 and 409, got $($statuses -join ', ')."
+}
+
+$loser = $payloads | Where-Object { [int]$_.Status -eq 409 } | Select-Object -First 1
+if ($loser.Body -notmatch 'Another offer was accepted first') {
+    throw "409 body did not contain the accept-first message. Body: $($loser.Body)"
 }
 
 $bookings = (Invoke-KhidmaRequest -Method GET -Path '/api/bookings/mine' -Session $customer.Session).Content | ConvertFrom-Json
@@ -207,4 +263,18 @@ if ($matches.Count -ne 1) {
     throw "Expected exactly one booking for the request, found $($matches.Count)."
 }
 
-Write-Host 'PASS  Concurrent accept produced 200 + 409 and a single booking.'
+if ($siblingOfferId) {
+    $offers = (Invoke-KhidmaRequest -Method GET -Path "/api/service-requests/$requestId/offers" -Session $customer.Session).Content | ConvertFrom-Json
+    $siblingRow = @($offers) | Where-Object { $_.id -eq $siblingOfferId } | Select-Object -First 1
+    if (-not $siblingRow) {
+        throw "Sibling offer $siblingOfferId was not returned."
+    }
+    if ($siblingRow.status -ne 'Rejected') {
+        throw "Expected sibling offer to be Rejected, got $($siblingRow.status)."
+    }
+}
+
+Write-Host 'PASS  Concurrent accept produced 200 + 409, the accept-first message, and a single booking.'
+if ($siblingOfferId) {
+    Write-Host 'PASS  Sibling offer flipped to Rejected.'
+}

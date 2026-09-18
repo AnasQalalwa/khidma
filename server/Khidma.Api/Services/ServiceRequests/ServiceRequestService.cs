@@ -5,6 +5,7 @@ using Khidma.Api.Contracts.ServiceRequests;
 using Khidma.Api.Data;
 using Khidma.Api.Domain;
 using Khidma.Api.Domain.Enums;
+using Khidma.Api.Infrastructure;
 using Khidma.Api.Services.Audit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -86,9 +87,13 @@ public sealed class ServiceRequestService : IServiceRequestService
             BudgetMin = request.BudgetMin,
             BudgetMax = request.BudgetMax,
             Status = ServiceRequestStatus.Open,
-            CreatedAt = DateTimeOffset.UtcNow,
-            RowVersion = [0]
+            CreatedAt = DateTimeOffset.UtcNow
         };
+
+        if (SqliteProvider.IsSqlite(_db))
+        {
+            entity.RowVersion = [0];
+        }
 
         _db.ServiceRequests.Add(entity);
         await _db.SaveChangesAsync(cancellationToken);

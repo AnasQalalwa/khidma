@@ -58,6 +58,11 @@ public sealed class AcceptOfferTests : IClassFixture<KhidmaApiFactory>
             $"/api/offers/{scenario.OfferId}/accept",
             null);
         Assert.Equal(HttpStatusCode.Conflict, second.StatusCode);
+        var body = await second.Content.ReadAsStringAsync();
+        Assert.Contains(
+            "Another offer was accepted first.",
+            body,
+            StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

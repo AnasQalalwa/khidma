@@ -37,8 +37,46 @@ Statuses:
 | Append-only audit log, no delete/update API | IMPLEMENTED | `AuditLogTests`. Failure to write audit does not fail the request. |
 | Audit details exclude passwords, cookies, tokens, binaries | IMPLEMENTED | Explicit details dictionary only. |
 | LastLoginAt set on successful login only | IMPLEMENTED | `AdminUserMonitoringTests`. |
-| Concurrent accept under SQL Server | TO VERIFY | SQLite cannot fully emulate the filtered unique index; run `scripts/concurrency-check.ps1` against LocalDB. |
-| HTTPS cookie Secure in production hosting | TO VERIFY | `CookieSecurePolicy.SameAsRequest`; confirm behind a TLS terminator. |
-| SQL injection via city/status filters | TO VERIFY | EF parameterized queries; spot-check SQL logs on a real request. |
-| XSS in request title/offer message/review comment | TO VERIFY | React text interpolation; confirm no `dangerouslySetInnerHTML`. |
-| Admin suspend of a live provider | TO VERIFY | New offers stop; existing bookings remain. Confirm in the admin Providers UI. |
+| Concurrent accept under SQL Server | FAILED | LocalDB 17.0.4025.3 crashes on start: `256 misaligned log IOs` on `master.mdf` (NVMe 32K physical sectors). Recreate (`sqllocaldb delete`/`create -s`) did not help. Live scripts and `KHIDMA_SQLSERVER_TESTS=1` are blocked until the host SQL instance starts. Code path unified to `Another offer was accepted first.` Opt-in tests: `SqlServerIntegrationTests`. |
+| HTTPS cookie Secure in production hosting | TO VERIFY | Still `CookieSecurePolicy.SameAsRequest` until Phase 6 sets `Always` outside Development. |
+| SQL injection via city/status filters | TO VERIFY | EF parameterized queries; SQL logs deferred to Phase 3 (needs a running API). |
+| XSS in request title/offer message/review comment | TO VERIFY | React text interpolation; confirm no `dangerouslySetInnerHTML` in Phase 4. |
+| Admin suspend of a live provider | TO VERIFY | Covered by `SuspensionTests` against SQLite. Live UI confirm blocked on SQL Server. |
+
+## Schema verification (SQL Server)
+
+Query: [`scripts/verify-schema.sql`](../scripts/verify-schema.sql). Expected objects: `UX_Offer_OneAcceptedPerRequest` (`[Status] = 'Accepted'`), `IX_Offers_ServiceRequestId_ProviderId` (`[Status] <> 'Withdrawn'`), unique `IX_Reviews_BookingId`, unique `IX_Bookings_OfferId`, unique `IX_ProviderServices_ProviderProfileId_ServiceId`, `CK_Review_Rating`, `rowversion` on `ServiceRequests` and `Bookings`, `decimal(18,2)` money columns, `nvarchar` status enums.
+
+**Output (18 September 2026):** not executed. `sqllocaldb start MSSQLLocalDB` failed after stop/delete/create. `error.log`:
+
+```text
+There have been 256 misaligned log IOs which required falling back to synchronous IO.
+The current IO is on file ...\MSSQLLocalDB\master.mdf.
+Hit Fatal Error: Server is terminating
+```
+
+This is the SQL Server 2022+ NVMe 32 KB physical-sector issue, not a Khidma schema bug. Installing SQL Server 2022 Developer/Express on the same disk will hit the same crash unless the sector workaround is applied first.
+
+### Unblock SQL Server on this machine
+
+1. In an elevated Command Prompt:
+
+```bat
+REG ADD "HKLM\SYSTEM\CurrentControlSet\Services\stornvme\Parameters\Device" /v ForcedPhysicalSectorSizeInBytes /t REG_MULTI_SZ /d "* 4095" /f
+```
+
+2. Reboot.
+3. `sqllocaldb start MSSQLLocalDB`
+4. Confirm: `sqlcmd -S "(localdb)\MSSQLLocalDB" -Q "SELECT @@VERSION" -C`
+5. Then:
+
+```bat
+dotnet user-secrets set "ConnectionStrings:Default" "Server=(localdb)\mssqllocaldb;Database=Khidma;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True" --project server/Khidma.Api
+dotnet ef database update --project server/Khidma.Api
+sqlcmd -S "(localdb)\MSSQLLocalDB" -d Khidma -C -i scripts/verify-schema.sql
+set KHIDMA_SQLSERVER_TESTS=1
+dotnet test -c Release --filter FullyQualifiedName~SqlServerIntegrationTests
+```
+
+If you would rather install a full instance after the registry fix: SQL Server 2022 Developer, mixed mode or Windows auth, enable TCP, then put that connection string in user-secrets instead of LocalDB.
+

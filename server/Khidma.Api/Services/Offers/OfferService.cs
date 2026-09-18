@@ -15,6 +15,8 @@ namespace Khidma.Api.Services.Offers;
 
 public sealed class OfferService : IOfferService
 {
+    public const string AnotherOfferAcceptedFirst = "Another offer was accepted first.";
+
     private readonly AppDbContext _db;
     private readonly IServiceRequestService _requests;
     private readonly IBookingService _bookings;
@@ -318,10 +320,16 @@ public sealed class OfferService : IOfferService
                 if (offer.Status != OfferStatus.Pending ||
                     offer.ServiceRequest.Status != ServiceRequestStatus.Open)
                 {
+                    var alreadyTaken =
+                        offer.Status == OfferStatus.Accepted ||
+                        offer.ServiceRequest.Status == ServiceRequestStatus.Booked;
+
                     return await Abort(
                         transaction,
                         ServiceResult<BookingDetailDto>.Conflict(
-                            "This offer cannot be accepted in its current state."),
+                            alreadyTaken
+                                ? AnotherOfferAcceptedFirst
+                                : "This offer cannot be accepted in its current state."),
                         cancellationToken);
                 }
 
@@ -349,9 +357,13 @@ public sealed class OfferService : IOfferService
                     ScheduledDate = offer.EstimatedDate,
                     FinalPrice = offer.Price,
                     Status = BookingStatus.Scheduled,
-                    CreatedAt = DateTimeOffset.UtcNow,
-                    RowVersion = [0]
+                    CreatedAt = DateTimeOffset.UtcNow
                 };
+
+                if (SqliteProvider.IsSqlite(_db))
+                {
+                    booking.RowVersion = [0];
+                }
 
                 _db.Bookings.Add(booking);
                 await _db.SaveChangesAsync(cancellationToken);
@@ -411,8 +423,7 @@ public sealed class OfferService : IOfferService
                     await transaction.RollbackAsync(cancellationToken);
                 }
 
-                return ServiceResult<BookingDetailDto>.Conflict(
-                    "The request was updated by another operation. Refresh and try again.");
+                return ServiceResult<BookingDetailDto>.Conflict(AnotherOfferAcceptedFirst);
             }
             catch (DbUpdateException ex) when (DbExceptionClassifier.IsUniqueConstraintViolation(ex))
             {
@@ -421,8 +432,7 @@ public sealed class OfferService : IOfferService
                     await transaction.RollbackAsync(cancellationToken);
                 }
 
-                return ServiceResult<BookingDetailDto>.Conflict(
-                    "An offer has already been accepted for this request.");
+                return ServiceResult<BookingDetailDto>.Conflict(AnotherOfferAcceptedFirst);
             }
             finally
             {

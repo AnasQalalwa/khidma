@@ -20,7 +20,7 @@ internal static class TestHarness
         PropertyNameCaseInsensitive = true
     };
 
-    public static HttpClient CreateClient(KhidmaApiFactory factory)
+    public static HttpClient CreateClient(WebApplicationFactory<Program> factory)
     {
         var client = factory.CreateClient(new WebApplicationFactoryClientOptions
         {
@@ -39,7 +39,7 @@ internal static class TestHarness
     public static DateTimeOffset FutureDate() => DateTimeOffset.UtcNow.AddDays(7);
 
     public static async Task<(HttpClient Client, CurrentUserDto User)> RegisterAsync(
-        KhidmaApiFactory factory,
+        WebApplicationFactory<Program> factory,
         string role,
         string city)
     {
@@ -65,7 +65,7 @@ internal static class TestHarness
     }
 
     public static async Task<(HttpClient Client, CurrentUserDto User)> CreateAdminAsync(
-        KhidmaApiFactory factory)
+        WebApplicationFactory<Program> factory)
     {
         var email = UniqueEmail("admin");
         using (var scope = factory.Services.CreateScope())
@@ -107,7 +107,7 @@ internal static class TestHarness
     }
 
     public static async Task<int> GetServiceIdAsync(
-        KhidmaApiFactory factory,
+        WebApplicationFactory<Program> factory,
         string name = "Plumbing")
     {
         using var scope = factory.Services.CreateScope();
@@ -119,7 +119,7 @@ internal static class TestHarness
     }
 
     public static async Task ApproveProviderAsync(
-        KhidmaApiFactory factory,
+        WebApplicationFactory<Program> factory,
         string userId,
         string? city = null,
         params int[] serviceIds)
@@ -157,7 +157,7 @@ internal static class TestHarness
     }
 
     public static async Task SetApprovedAsync(
-        KhidmaApiFactory factory,
+        WebApplicationFactory<Program> factory,
         string userId,
         bool isApproved)
     {
@@ -276,7 +276,7 @@ internal static class TestHarness
     }
 
     public static async Task<int> GetProviderProfileIdAsync(
-        KhidmaApiFactory factory,
+        WebApplicationFactory<Program> factory,
         string userId)
     {
         using var scope = factory.Services.CreateScope();

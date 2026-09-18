@@ -35,3 +35,23 @@ Commands were run as-is. **No failures.** Nothing was changed to make the suite 
 ### Failures before touching code
 
 None. The gate is green. Subsequent phases must keep it green and must not delete or weaken these tests.
+
+## Phase 1 — Real SQL Server (18 September 2026)
+
+| Check | Result |
+| --- | --- |
+| Repair LocalDB (`stop`/`delete`/`create -s`) | Instance recreated. Start still fails. |
+| Root cause | `error.log`: `256 misaligned log IOs` on `master.mdf` (SQL Server 2025 LocalDB 17.0.4025.3 + NVMe 32K sectors). |
+| `dotnet ef database update` | Not applied. |
+| `scripts/verify-schema.sql` | Not executed. |
+| `scripts/smoke-test.ps1` / `concurrency-check.ps1` | Not executed (no API against SQL Server). |
+| `KHIDMA_SQLSERVER_TESTS=1` | Cannot run until LocalDB starts. Tests are skipped by default. |
+
+Code shipped so the live proof is ready the moment SQL Server starts:
+
+- Accept-race 409 title unified to `Another offer was accepted first.`
+- SQLite-only `RowVersion = [0]` stamps so SQL Server can generate `rowversion`
+- `SqlServerIntegrationTests` (concurrent accept + filtered unique index)
+- `scripts/concurrency-check.ps1` asserts the 409 body and optional sibling `Rejected`
+
+Unblock steps are in `docs/security-matrix.md`.
