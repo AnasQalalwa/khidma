@@ -2,6 +2,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  align-self: auto;
+  height: auto;
   gap: 0.45rem;
   border: 0;
   border-radius: var(--radius-pill);
@@ -1089,6 +1091,7 @@ textarea:focus {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--space-4);
+  align-items: start;
 }
 
 .chip-list {
