@@ -1,5 +1,6 @@
 using Khidma.Api.Auth;
 using Khidma.Api.Domain;
+using Khidma.Api.Domain.Enums;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -74,6 +75,13 @@ public static class DbSeeder
             AppRoles.Provider,
             demoPassword);
 
+        var providerFour = await EnsureUserAsync(
+            userManager,
+            "provider4@khidma.local",
+            "Demo Provider Four",
+            AppRoles.Provider,
+            demoPassword);
+
         await EnsureCustomerProfileAsync(
             db,
             customerOne.Id,
@@ -89,21 +97,32 @@ public static class DbSeeder
             providerOne.Id,
             "Ramallah",
             5,
-            "Home services provider");
+            "Home services provider",
+            approved: true);
 
         await EnsureProviderProfileAsync(
             db,
             providerTwo.Id,
             "Hebron",
             3,
-            "Technology services provider");
+            "Technology services provider",
+            approved: false);
 
         await EnsureProviderProfileAsync(
             db,
             providerThree.Id,
             "Bethlehem",
             7,
-            "Cleaning and tutoring provider");
+            "Cleaning and tutoring provider",
+            approved: true);
+
+        await EnsureProviderProfileAsync(
+            db,
+            providerFour.Id,
+            "Ramallah",
+            4,
+            "Plumbing provider",
+            approved: true);
 
         await db.SaveChangesAsync();
 
@@ -137,6 +156,9 @@ public static class DbSeeder
         var providerThreeProfile =
             await db.ProviderProfiles.SingleAsync(p => p.UserId == providerThree.Id);
 
+        var providerFourProfile =
+            await db.ProviderProfiles.SingleAsync(p => p.UserId == providerFour.Id);
+
         await EnsureProviderServiceAsync(db, providerOneProfile.Id, plumbing.Id);
         await EnsureProviderServiceAsync(db, providerOneProfile.Id, electrical.Id);
         await EnsureProviderServiceAsync(db, providerOneProfile.Id, painting.Id);
@@ -151,6 +173,8 @@ public static class DbSeeder
         await EnsureProviderServiceAsync(db, providerThreeProfile.Id, windowCleaning.Id);
         await EnsureProviderServiceAsync(db, providerThreeProfile.Id, mathTutoring.Id);
         await EnsureProviderServiceAsync(db, providerThreeProfile.Id, englishTutoring.Id);
+
+        await EnsureProviderServiceAsync(db, providerFourProfile.Id, plumbing.Id);
 
         await db.SaveChangesAsync();
     }
@@ -253,10 +277,19 @@ public static class DbSeeder
         string userId,
         string city,
         int yearsOfExperience,
-        string bio)
+        string bio,
+        bool approved)
     {
-        if (await db.ProviderProfiles.AnyAsync(p => p.UserId == userId))
+        var status = approved
+            ? ProviderVerificationStatus.Approved
+            : ProviderVerificationStatus.PendingReview;
+
+        var existing = await db.ProviderProfiles
+            .SingleOrDefaultAsync(p => p.UserId == userId);
+
+        if (existing is not null)
         {
+            existing.VerificationStatus = status;
             return;
         }
 
@@ -266,7 +299,7 @@ public static class DbSeeder
             City = city,
             YearsOfExperience = yearsOfExperience,
             Bio = bio,
-            IsApproved = true,
+            VerificationStatus = status,
             AverageRating = 0,
             ReviewCount = 0
         });

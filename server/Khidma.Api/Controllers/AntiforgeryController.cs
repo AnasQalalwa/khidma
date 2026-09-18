@@ -9,10 +9,12 @@ namespace Khidma.Api.Controllers;
 public sealed class AntiforgeryController : ControllerBase
 {
     private readonly IAntiforgery _antiforgery;
+    private readonly IHostEnvironment _environment;
 
-    public AntiforgeryController(IAntiforgery antiforgery)
+    public AntiforgeryController(IAntiforgery antiforgery, IHostEnvironment environment)
     {
         _antiforgery = antiforgery;
+        _environment = environment;
     }
 
     [HttpGet("token")]
@@ -20,6 +22,8 @@ public sealed class AntiforgeryController : ControllerBase
     public IActionResult GetToken()
     {
         var tokens = _antiforgery.GetAndStoreTokens(HttpContext);
+        var secure = Request.IsHttps ||
+            (!_environment.IsDevelopment() && !_environment.IsEnvironment("Testing"));
 
         Response.Cookies.Append(
             "XSRF-TOKEN",
@@ -27,7 +31,7 @@ public sealed class AntiforgeryController : ControllerBase
             new CookieOptions
             {
                 HttpOnly = false,
-                Secure = Request.IsHttps,
+                Secure = secure,
                 SameSite = SameSiteMode.Lax,
                 Path = "/",
                 IsEssential = true

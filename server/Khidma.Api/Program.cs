@@ -2,13 +2,17 @@ using Khidma.Api.Auth;
 using Khidma.Api.Data;
 using Khidma.Api.Domain;
 using Khidma.Api.Infrastructure;
+using Khidma.Api.Services.Audit;
+using Khidma.Api.Services.Documents;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-if (!builder.Environment.IsEnvironment("Testing"))
+if (!builder.Environment.IsEnvironment("Testing") &&
+    !builder.Configuration.GetValue("Tests:SkipConfiguredSqlServer", false))
 {
     var connectionString =
         builder.Configuration.GetConnectionString("Default")
@@ -18,6 +22,10 @@ if (!builder.Environment.IsEnvironment("Testing"))
     builder.Services.AddDbContext<AppDbContext>(options =>
     {
         options.UseSqlServer(connectionString);
+        if (builder.Environment.IsDevelopment())
+        {
+            options.EnableSensitiveDataLogging();
+        }
     });
 }
 
@@ -30,11 +38,16 @@ builder.Services
     .AddEntityFrameworkStores<AppDbContext>()
     .AddDefaultTokenProviders();
 
+var cookieSecurePolicy = builder.Environment.IsDevelopment() ||
+    builder.Environment.IsEnvironment("Testing")
+    ? CookieSecurePolicy.SameAsRequest
+    : CookieSecurePolicy.Always;
+
 builder.Services.ConfigureApplicationCookie(options =>
 {
     options.Cookie.HttpOnly = true;
     options.Cookie.SameSite = SameSiteMode.Lax;
-    options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+    options.Cookie.SecurePolicy = cookieSecurePolicy;
     options.ExpireTimeSpan = TimeSpan.FromDays(7);
     options.SlidingExpiration = true;
 
@@ -56,7 +69,7 @@ builder.Services.AddAntiforgery(options =>
     options.HeaderName = "X-XSRF-TOKEN";
     options.Cookie.HttpOnly = true;
     options.Cookie.SameSite = SameSiteMode.Lax;
-    options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+    options.Cookie.SecurePolicy = cookieSecurePolicy;
 });
 
 builder.Services.AddControllersWithViews(options =>
@@ -67,7 +80,26 @@ builder.Services.AddControllersWithViews(options =>
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddOpenApi();
+builder.Services.AddHttpContextAccessor();
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = DocumentFileValidator.MaxFileSizeBytes + 256 * 1024;
+});
+builder.Services.Configure<ProviderDocumentStorageOptions>(
+    builder.Configuration.GetSection("ProviderDocuments"));
+builder.Services.AddSingleton<IProviderDocumentStorage, LocalProviderDocumentStorage>();
+builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<UserRegistrationService>();
+builder.Services.AddScoped<Khidma.Api.Services.Auth.IAuthService, Khidma.Api.Services.Auth.AuthService>();
+builder.Services.AddScoped<Khidma.Api.Services.Catalog.ICatalogService, Khidma.Api.Services.Catalog.CatalogService>();
+builder.Services.AddScoped<Khidma.Api.Services.ServiceRequests.IServiceRequestService, Khidma.Api.Services.ServiceRequests.ServiceRequestService>();
+builder.Services.AddScoped<Khidma.Api.Services.Offers.IOfferService, Khidma.Api.Services.Offers.OfferService>();
+builder.Services.AddScoped<Khidma.Api.Services.Bookings.IBookingService, Khidma.Api.Services.Bookings.BookingService>();
+builder.Services.AddScoped<Khidma.Api.Services.Reviews.IReviewService, Khidma.Api.Services.Reviews.ReviewService>();
+builder.Services.AddScoped<Khidma.Api.Services.Providers.IProviderProfileService, Khidma.Api.Services.Providers.ProviderProfileService>();
+builder.Services.AddScoped<Khidma.Api.Services.Admin.IAdminService, Khidma.Api.Services.Admin.AdminService>();
+builder.Services.AddScoped<Khidma.Api.Services.Dashboard.IDashboardService, Khidma.Api.Services.Dashboard.DashboardService>();
+builder.Services.AddScoped<Khidma.Api.Services.Verification.IProviderVerificationService, Khidma.Api.Services.Verification.ProviderVerificationService>();
 
 var app = builder.Build();
 
@@ -83,6 +115,11 @@ if (app.Environment.IsDevelopment())
     await db.Database.MigrateAsync();
 
     await DbSeeder.SeedAsync(app.Services, app.Configuration);
+}
+
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHsts();
 }
 
 if (!app.Environment.IsEnvironment("Testing"))

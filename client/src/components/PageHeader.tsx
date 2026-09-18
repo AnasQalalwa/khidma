@@ -24,3 +24,28 @@ export function PageHeader({
     </header>
   )
 }
+
+export function SectionHeader({
+  eyebrow,
+  title,
+  description,
+  action,
+}: {
+  eyebrow?: string
+  title: string
+  description?: string
+  action?: ReactNode
+}) {
+  return (
+    <div className="section-header">
+      {eyebrow ? <span className="eyebrow">{eyebrow}</span> : null}
+      <div className="section-header-row">
+        <div>
+          <h2>{title}</h2>
+          {description ? <p className="muted">{description}</p> : null}
+        </div>
+        {action}
+      </div>
+    </div>
+  )
+}

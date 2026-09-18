@@ -57,6 +57,24 @@ server/Khidma.Api/wwwroot/
 *.key
 
 # =========================
+# Local databases
+# =========================
+*.db
+*.db-shm
+*.db-wal
+
+# =========================
+# Private provider documents
+# =========================
+App_Data/
+*.uploaded-document
+
+# =========================
+# Archives
+# =========================
+*.zip
+
+# =========================
 # Misc
 # =========================
 *.log

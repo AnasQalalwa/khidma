@@ -1,145 +1,51 @@
-using Khidma.Api.Auth;
 using Khidma.Api.Contracts.Auth;
-using Khidma.Api.Domain;
+using Khidma.Api.Services.Auth;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Khidma.Api.Controllers;
 
 [ApiController]
 [Route("api/auth")]
-public sealed class AuthController : ControllerBase
+public sealed class AuthController : ApiControllerBase
 {
-    private readonly UserRegistrationService _registrationService;
-    private readonly SignInManager<ApplicationUser> _signInManager;
-    private readonly UserManager<ApplicationUser> _userManager;
+    private readonly IAuthService _auth;
 
-    public AuthController(
-        UserRegistrationService registrationService,
-        SignInManager<ApplicationUser> signInManager,
-        UserManager<ApplicationUser> userManager)
+    public AuthController(IAuthService auth)
     {
-        _registrationService = registrationService;
-        _signInManager = signInManager;
-        _userManager = userManager;
+        _auth = auth;
     }
 
     [HttpPost("register")]
     [AllowAnonymous]
-    public async Task<ActionResult<CurrentUserDto>> Register(
+    public async Task<IActionResult> Register(
         [FromBody] RegisterRequest request,
         CancellationToken cancellationToken)
     {
-        if (AppRoles.IsAdminRole(request.Role))
-        {
-            return BadRequest(new ProblemDetails
-            {
-                Status = StatusCodes.Status400BadRequest,
-                Title = "Admin accounts cannot be registered publicly.",
-                Detail = "Public registration is limited to Customer and Provider roles."
-            });
-        }
-
-        if (!AppRoles.TryNormalizePublicRole(request.Role, out var role))
-        {
-            ModelState.AddModelError(
-                nameof(request.Role),
-                "Role must be Customer or Provider.");
-            return ValidationProblem(ModelState);
-        }
-
-        var result = await _registrationService.RegisterAsync(
-            request,
-            role,
-            cancellationToken);
-
-        if (!result.Succeeded)
-        {
-            if (result.StatusCode == StatusCodes.Status409Conflict)
-            {
-                return Conflict(new ProblemDetails
-                {
-                    Status = StatusCodes.Status409Conflict,
-                    Title = result.Title,
-                    Detail = result.Errors.SelectMany(e => e.Value)
-                        .FirstOrDefault()
-                });
-            }
-
-            foreach (var (key, messages) in result.Errors)
-            {
-                foreach (var message in messages)
-                {
-                    ModelState.AddModelError(key, message);
-                }
-            }
-
-            return ValidationProblem(ModelState);
-        }
-
-        return Ok(result.User);
+        return FromResult(await _auth.RegisterAsync(request, cancellationToken));
     }
 
     [HttpPost("login")]
     [AllowAnonymous]
-    public async Task<ActionResult<CurrentUserDto>> Login(
+    public async Task<IActionResult> Login(
         [FromBody] LoginRequest request,
         CancellationToken cancellationToken)
     {
-        var result = await _signInManager.PasswordSignInAsync(
-            request.Email.Trim(),
-            request.Password,
-            isPersistent: true,
-            lockoutOnFailure: false);
-
-        if (!result.Succeeded)
-        {
-            return Unauthorized(new ProblemDetails
-            {
-                Status = StatusCodes.Status401Unauthorized,
-                Title = "Invalid email or password."
-            });
-        }
-
-        var user = await _userManager.FindByEmailAsync(request.Email.Trim());
-        if (user is null)
-        {
-            return Unauthorized(new ProblemDetails
-            {
-                Status = StatusCodes.Status401Unauthorized,
-                Title = "Invalid email or password."
-            });
-        }
-
-        cancellationToken.ThrowIfCancellationRequested();
-        var dto = await CurrentUserMapper.ToDtoAsync(_userManager, user);
-        return Ok(dto);
+        return FromResult(await _auth.LoginAsync(request, cancellationToken));
     }
 
     [HttpPost("logout")]
     [Authorize]
-    public async Task<IActionResult> Logout()
+    public async Task<IActionResult> Logout(CancellationToken cancellationToken)
     {
-        await _signInManager.SignOutAsync();
+        await _auth.LogoutAsync(cancellationToken);
         return NoContent();
     }
 
     [HttpGet("me")]
     [Authorize]
-    public async Task<ActionResult<CurrentUserDto>> Me()
+    public async Task<IActionResult> Me(CancellationToken cancellationToken)
     {
-        var user = await _userManager.GetUserAsync(User);
-        if (user is null)
-        {
-            return Unauthorized(new ProblemDetails
-            {
-                Status = StatusCodes.Status401Unauthorized,
-                Title = "Unauthorized"
-            });
-        }
-
-        var dto = await CurrentUserMapper.ToDtoAsync(_userManager, user);
-        return Ok(dto);
+        return FromResult(await _auth.GetMeAsync(RequireUserId(), cancellationToken));
     }
 }

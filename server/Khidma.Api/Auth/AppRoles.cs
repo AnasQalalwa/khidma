@@ -34,5 +34,5 @@ public static class AppRoles
     }
 
     public static bool IsAdminRole(string? role) =>
-        string.Equals(role, Admin, StringComparison.OrdinalIgnoreCase);
+        string.Equals(role?.Trim(), Admin, StringComparison.OrdinalIgnoreCase);
 }

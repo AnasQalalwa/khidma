@@ -8,6 +8,8 @@ public class ApplicationUser : IdentityUser
 
     public DateTimeOffset CreatedAt { get; set; }
 
+    public DateTimeOffset? LastLoginAt { get; set; }
+
     public CustomerProfile? CustomerProfile { get; set; }
 
     public ProviderProfile? ProviderProfile { get; set; }

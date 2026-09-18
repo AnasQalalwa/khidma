@@ -1,6 +1,7 @@
 using Khidma.Api.Contracts.Auth;
 using Khidma.Api.Data;
 using Khidma.Api.Domain;
+using Khidma.Api.Domain.Enums;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -96,7 +97,7 @@ public sealed class UserRegistrationService
                         Bio = string.IsNullOrWhiteSpace(request.Bio)
                             ? null
                             : request.Bio.Trim(),
-                        IsApproved = true,
+                        VerificationStatus = ProviderVerificationStatus.PendingReview,
                         AverageRating = 0,
                         ReviewCount = 0
                     });

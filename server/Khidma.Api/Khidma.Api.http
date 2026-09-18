@@ -1,6 +1,80 @@
-@Khidma.Api_HostAddress = http://localhost:5093
+@baseUrl = https://localhost:5001
+@customerEmail = customer@khidma.local
+@providerAEmail = provider1@khidma.local
+@providerBEmail = provider3@khidma.local
+@adminEmail = admin@khidma.local
+# Passwords: set in REST Client env or replace locally. Never commit secrets.
 
-GET {{Khidma.Api_HostAddress}}/weatherforecast/
-Accept: application/json
+### Get antiforgery (anonymous)
+# @name xsrfAnon
+GET {{baseUrl}}/api/antiforgery/token
 
-###
+### Register as Admin must fail
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+X-XSRF-TOKEN: {{xsrfAnon.response.headers.Set-Cookie}}
+
+{
+  "fullName": "Nope",
+  "email": "evil@khidma.local",
+  "password": "ValidPass1!",
+  "role": "Admin",
+  "city": "Ramallah"
+}
+
+### Customer login
+# @name customerLogin
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+X-XSRF-TOKEN: {{xsrfAnon.response.headers.Set-Cookie}}
+
+{
+  "email": "{{customerEmail}}",
+  "password": "{{customerPassword}}"
+}
+
+### Provider A login
+# @name providerALogin
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+X-XSRF-TOKEN: {{xsrfAnon.response.headers.Set-Cookie}}
+
+{
+  "email": "{{providerAEmail}}",
+  "password": "{{providerPassword}}"
+}
+
+### Provider B login (ineligible city)
+# @name providerBLogin
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+X-XSRF-TOKEN: {{xsrfAnon.response.headers.Set-Cookie}}
+
+{
+  "email": "{{providerBEmail}}",
+  "password": "{{providerPassword}}"
+}
+
+### Mutation without X-XSRF-TOKEN must be 400
+POST {{baseUrl}}/api/auth/logout
+Content-Type: application/json
+
+{}
+
+### Available requests as Provider B (expect empty, never another customer's contact)
+GET {{baseUrl}}/api/service-requests/available
+Cookie: {{providerBLogin.response.headers.Set-Cookie}}
+
+### Direct URL to a request Provider B cannot see (expect 404)
+GET {{baseUrl}}/api/service-requests/{{requestId}}
+Cookie: {{providerBLogin.response.headers.Set-Cookie}}
+
+### Provider B on Provider A's offer (expect 403)
+POST {{baseUrl}}/api/offers/{{offerId}}/withdraw
+Cookie: {{providerBLogin.response.headers.Set-Cookie}}
+X-XSRF-TOKEN: {{xsrf}}
+
+### Complete a Scheduled booking (expect 409)
+POST {{baseUrl}}/api/bookings/{{bookingId}}/complete
+Cookie: {{providerALogin.response.headers.Set-Cookie}}
+X-XSRF-TOKEN: {{xsrf}}

@@ -107,7 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   if (bootError) {
     return (
-      <div className="app-boot">
+      <div className="app-boot app-boot-error">
         <div className="boot-mark" aria-hidden="true" />
         <p>
           Unable to reach the API. Confirm the backend is running on

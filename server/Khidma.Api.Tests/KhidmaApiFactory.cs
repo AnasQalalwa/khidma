@@ -15,16 +15,28 @@ namespace Khidma.Api.Tests;
 public sealed class KhidmaApiFactory : WebApplicationFactory<Program>
 {
     private readonly SqliteConnection _connection = new("DataSource=:memory:");
+    private readonly string _documentRoot =
+        Path.Combine(Path.GetTempPath(), $"khidma-docs-{Guid.NewGuid():N}");
+    private readonly string _webRoot =
+        Path.Combine(Path.GetTempPath(), $"khidma-www-{Guid.NewGuid():N}");
 
     public KhidmaApiFactory()
     {
         Environment.SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", "Testing");
         _connection.Open();
+        Directory.CreateDirectory(_documentRoot);
+        Directory.CreateDirectory(_webRoot);
+        File.WriteAllText(
+            Path.Combine(_webRoot, "index.html"),
+            """<!doctype html><html><body><div id="root">Khidma SPA</div></body></html>""");
     }
+
+    public string DocumentRoot => _documentRoot;
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
+        builder.UseWebRoot(_webRoot);
 
         builder.ConfigureAppConfiguration((_, config) =>
         {
@@ -108,6 +120,7 @@ public sealed class KhidmaApiFactory : WebApplicationFactory<Program>
         if (disposing)
         {
             _connection.Dispose();
+            TryDeleteDocuments();
         }
     }
 
@@ -115,11 +128,37 @@ public sealed class KhidmaApiFactory : WebApplicationFactory<Program>
     {
         await base.DisposeAsync();
         await _connection.DisposeAsync();
+        TryDeleteDocuments();
     }
 
-    private static Dictionary<string, string?> TestConfiguration() => new()
+    private void TryDeleteDocuments()
+    {
+        try
+        {
+            if (Directory.Exists(_documentRoot))
+            {
+                Directory.Delete(_documentRoot, recursive: true);
+            }
+
+            if (Directory.Exists(_webRoot))
+            {
+                Directory.Delete(_webRoot, recursive: true);
+            }
+        }
+        catch (IOException)
+        {
+            Console.Error.WriteLine($"Could not delete test documents at {_documentRoot}.");
+        }
+        catch (UnauthorizedAccessException)
+        {
+            Console.Error.WriteLine($"Could not delete test documents at {_documentRoot}.");
+        }
+    }
+
+    private Dictionary<string, string?> TestConfiguration() => new()
     {
         ["Seed:AdminPassword"] = "Test_Admin_123!",
-        ["Seed:DemoPassword"] = "Test_Demo_123!"
+        ["Seed:DemoPassword"] = "Test_Demo_123!",
+        ["ProviderDocuments:RootPath"] = _documentRoot
     };
 }
