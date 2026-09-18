@@ -90,3 +90,16 @@ UI: EmptyState on admin dashboard / user audit / public provider services / docu
 A11y: labels, `:focus-visible`, `StatusBadge` text, and `aria-invalid` on mapped field errors. No `dangerouslySetInnerHTML`.
 
 Responsive: `.table-wrap` and `overflow-x: clip` are in place. Live 360/768/1280 screenshots are blocked until SQL Server starts (SPA bootstrap requires `/api/auth/me`). Capture checklist: `docs/screenshots/README.md`. Playwright was not added.
+
+## Phase 5 — Scope justification (18 September 2026)
+
+ADRs 19–21 (verification documents, suspension, audit) and README “Deviations from plan v2”. No product code.
+
+## Phase 6 — Deploy prep (18 September 2026)
+
+| Command | Result |
+| --- | --- |
+| `dotnet test -c Release` | **117 passed**, 0 failed, 2 skipped. |
+| `dotnet ef migrations script --idempotent` | Wrote `deploy/migrate.sql`. |
+
+Production: `CookieSecurePolicy.Always` and `UseHsts()` outside Development/Testing (HSTS also outside Development). `GlobalExceptionHandler` returns a generic 500 with no exception text (`ProductionExceptionTests`). SPA deep link `/customer/requests/1` → `index.html`; `/api/nope` → JSON 404. Azure runbook: `deploy/AZURE_DEPLOY.md`. Cloud create/deploy steps are stopped for you.

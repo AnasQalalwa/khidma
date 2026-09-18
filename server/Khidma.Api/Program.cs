@@ -11,7 +11,8 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-if (!builder.Environment.IsEnvironment("Testing"))
+if (!builder.Environment.IsEnvironment("Testing") &&
+    !builder.Configuration.GetValue("Tests:SkipConfiguredSqlServer", false))
 {
     var connectionString =
         builder.Configuration.GetConnectionString("Default")
@@ -37,11 +38,16 @@ builder.Services
     .AddEntityFrameworkStores<AppDbContext>()
     .AddDefaultTokenProviders();
 
+var cookieSecurePolicy = builder.Environment.IsDevelopment() ||
+    builder.Environment.IsEnvironment("Testing")
+    ? CookieSecurePolicy.SameAsRequest
+    : CookieSecurePolicy.Always;
+
 builder.Services.ConfigureApplicationCookie(options =>
 {
     options.Cookie.HttpOnly = true;
     options.Cookie.SameSite = SameSiteMode.Lax;
-    options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+    options.Cookie.SecurePolicy = cookieSecurePolicy;
     options.ExpireTimeSpan = TimeSpan.FromDays(7);
     options.SlidingExpiration = true;
 
@@ -63,7 +69,7 @@ builder.Services.AddAntiforgery(options =>
     options.HeaderName = "X-XSRF-TOKEN";
     options.Cookie.HttpOnly = true;
     options.Cookie.SameSite = SameSiteMode.Lax;
-    options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+    options.Cookie.SecurePolicy = cookieSecurePolicy;
 });
 
 builder.Services.AddControllersWithViews(options =>
@@ -109,6 +115,11 @@ if (app.Environment.IsDevelopment())
     await db.Database.MigrateAsync();
 
     await DbSeeder.SeedAsync(app.Services, app.Configuration);
+}
+
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHsts();
 }
 
 if (!app.Environment.IsEnvironment("Testing"))

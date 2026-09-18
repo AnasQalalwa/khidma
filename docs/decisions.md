@@ -63,7 +63,9 @@ Sibling `Pending` offers become `Rejected`. The request becomes `Booked`. One `B
 
 ## ADR 8 — No auto-migrate in Production
 
-**Decision.** `Database.MigrateAsync()` and the idempotent seeder run only when `Environment.IsDevelopment()`. Production must apply `dotnet ef migrations script --idempotent` (or an equivalent deploy step). There is still a single InitialCreate migration; Weeks 2–3 added no schema migrations.
+**Decision.** `Database.MigrateAsync()` and the idempotent seeder run only when `Environment.IsDevelopment()`. Production applies `deploy/migrate.sql` (generated with `dotnet ef migrations script --idempotent`) as a reviewed deploy step. Auto-migrate is never enabled in Production: multiple App Service instances would race, a failed half-migration is hard to unwind, and there is no DBA review.
+
+Migrations: `InitialCreate`, then `AddProviderVerificationAuditAndSuspension`.
 
 **Why.** Auto-migrate in production races with multiple instances and hides DBA review.
 

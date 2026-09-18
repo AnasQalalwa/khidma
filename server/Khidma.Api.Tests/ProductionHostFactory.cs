@@ -1,6 +1,9 @@
 using Khidma.Api.Auth;
+using Khidma.Api.Contracts.Catalog;
 using Khidma.Api.Data;
 using Khidma.Api.Domain;
+using Khidma.Api.Services;
+using Khidma.Api.Services.Catalog;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -12,17 +15,18 @@ using Microsoft.Extensions.Hosting;
 
 namespace Khidma.Api.Tests;
 
-public sealed class KhidmaApiFactory : WebApplicationFactory<Program>
+public sealed class ProductionHostFactory : WebApplicationFactory<Program>
 {
+    public const string ExceptionMarker = "SECRET_STACK_TRACE_LEAK";
+
     private readonly SqliteConnection _connection = new("DataSource=:memory:");
     private readonly string _documentRoot =
-        Path.Combine(Path.GetTempPath(), $"khidma-docs-{Guid.NewGuid():N}");
+        Path.Combine(Path.GetTempPath(), $"khidma-prod-docs-{Guid.NewGuid():N}");
     private readonly string _webRoot =
-        Path.Combine(Path.GetTempPath(), $"khidma-www-{Guid.NewGuid():N}");
+        Path.Combine(Path.GetTempPath(), $"khidma-prod-www-{Guid.NewGuid():N}");
 
-    public KhidmaApiFactory()
+    public ProductionHostFactory()
     {
-        Environment.SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", "Testing");
         _connection.Open();
         Directory.CreateDirectory(_documentRoot);
         Directory.CreateDirectory(_webRoot);
@@ -31,16 +35,15 @@ public sealed class KhidmaApiFactory : WebApplicationFactory<Program>
             """<!doctype html><html><body><div id="root">Khidma SPA</div></body></html>""");
     }
 
-    public string DocumentRoot => _documentRoot;
-
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.UseEnvironment("Testing");
+        builder.UseEnvironment("Production");
         builder.UseWebRoot(_webRoot);
+        builder.UseSetting("Tests:SkipConfiguredSqlServer", "true");
 
         builder.ConfigureAppConfiguration((_, config) =>
         {
-            config.AddInMemoryCollection(TestConfiguration());
+            config.AddInMemoryCollection(Configuration());
         });
 
         builder.ConfigureServices(services =>
@@ -49,7 +52,8 @@ public sealed class KhidmaApiFactory : WebApplicationFactory<Program>
                 .Where(d =>
                     d.ServiceType == typeof(AppDbContext) ||
                     d.ServiceType == typeof(DbContextOptions) ||
-                    d.ServiceType == typeof(DbContextOptions<AppDbContext>))
+                    d.ServiceType == typeof(DbContextOptions<AppDbContext>) ||
+                    d.ServiceType == typeof(ICatalogService))
                 .ToList();
 
             foreach (var descriptor in descriptors)
@@ -61,15 +65,16 @@ public sealed class KhidmaApiFactory : WebApplicationFactory<Program>
             {
                 options.UseSqlite(_connection);
             });
+            services.AddScoped<ICatalogService, ThrowingCatalogService>();
         });
     }
 
     protected override IHost CreateHost(IHostBuilder builder)
     {
-        builder.UseEnvironment("Testing");
+        builder.UseEnvironment("Production");
         builder.ConfigureHostConfiguration(config =>
         {
-            config.AddInMemoryCollection(TestConfiguration());
+            config.AddInMemoryCollection(Configuration());
         });
 
         var host = base.CreateHost(builder);
@@ -78,37 +83,13 @@ public sealed class KhidmaApiFactory : WebApplicationFactory<Program>
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         db.Database.EnsureCreated();
 
-        var roleManager = scope.ServiceProvider
-            .GetRequiredService<RoleManager<IdentityRole>>();
-
+        var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
         foreach (var roleName in AppRoles.All)
         {
             if (!roleManager.RoleExistsAsync(roleName).GetAwaiter().GetResult())
             {
-                var created = roleManager.CreateAsync(new IdentityRole(roleName))
-                    .GetAwaiter()
-                    .GetResult();
-
-                if (!created.Succeeded)
-                {
-                    throw new InvalidOperationException(
-                        "Failed to seed test roles: " +
-                        string.Join("; ", created.Errors.Select(e => e.Description)));
-                }
+                roleManager.CreateAsync(new IdentityRole(roleName)).GetAwaiter().GetResult();
             }
-        }
-
-        if (!db.Categories.Any())
-        {
-            db.Categories.Add(new Category { Name = "Home Services" });
-            db.SaveChanges();
-            var category = db.Categories.Single();
-            db.Services.Add(new Service
-            {
-                Name = "Plumbing",
-                CategoryId = category.Id
-            });
-            db.SaveChanges();
         }
 
         return host;
@@ -120,7 +101,7 @@ public sealed class KhidmaApiFactory : WebApplicationFactory<Program>
         if (disposing)
         {
             _connection.Dispose();
-            TryDeleteDocuments();
+            TryDeleteScratch();
         }
     }
 
@@ -128,10 +109,10 @@ public sealed class KhidmaApiFactory : WebApplicationFactory<Program>
     {
         await base.DisposeAsync();
         await _connection.DisposeAsync();
-        TryDeleteDocuments();
+        TryDeleteScratch();
     }
 
-    private void TryDeleteDocuments()
+    private void TryDeleteScratch()
     {
         try
         {
@@ -145,20 +126,37 @@ public sealed class KhidmaApiFactory : WebApplicationFactory<Program>
                 Directory.Delete(_webRoot, recursive: true);
             }
         }
-        catch (IOException)
+        catch (IOException ex)
         {
-            Console.Error.WriteLine($"Could not delete test documents at {_documentRoot}.");
+            Console.Error.WriteLine($"Could not delete production-host scratch files: {ex.Message}");
         }
-        catch (UnauthorizedAccessException)
+        catch (UnauthorizedAccessException ex)
         {
-            Console.Error.WriteLine($"Could not delete test documents at {_documentRoot}.");
+            Console.Error.WriteLine($"Could not delete production-host scratch files: {ex.Message}");
         }
     }
 
-    private Dictionary<string, string?> TestConfiguration() => new()
+    private Dictionary<string, string?> Configuration() => new()
     {
+        ["ConnectionStrings:Default"] =
+            "Server=(localdb)\\mssqllocaldb;Database=Khidma_Unused;Trusted_Connection=True;TrustServerCertificate=True",
         ["Seed:AdminPassword"] = "Test_Admin_123!",
         ["Seed:DemoPassword"] = "Test_Demo_123!",
-        ["ProviderDocuments:RootPath"] = _documentRoot
+        ["ProviderDocuments:RootPath"] = _documentRoot,
+        ["Tests:SkipConfiguredSqlServer"] = "true"
     };
+
+    private sealed class ThrowingCatalogService : ICatalogService
+    {
+        public Task<IReadOnlyList<CategoryDto>> GetCategoriesAsync(CancellationToken cancellationToken) =>
+            throw new InvalidOperationException(ExceptionMarker);
+
+        public Task<IReadOnlyList<ServiceDto>> GetServicesAsync(CancellationToken cancellationToken) =>
+            throw new InvalidOperationException(ExceptionMarker);
+
+        public Task<ServiceResult<IReadOnlyList<ServiceDto>>> GetServicesByCategoryAsync(
+            int categoryId,
+            CancellationToken cancellationToken) =>
+            throw new InvalidOperationException(ExceptionMarker);
+    }
 }

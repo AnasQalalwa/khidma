@@ -158,14 +158,14 @@ npm run build
 dotnet ef migrations list --project server/Khidma.Api
 dotnet ef migrations has-pending-model-changes --project server/Khidma.Api
 dotnet ef database update --project server/Khidma.Api
-dotnet ef migrations script --idempotent --project server/Khidma.Api --output khidma.sql
+dotnet ef migrations script --idempotent --project server/Khidma.Api --output deploy/migrate.sql
 
 # Live API checks (never print secrets; passwords from env or SecureString prompts)
 pwsh -File scripts/smoke-test.ps1
 pwsh -File scripts/concurrency-check.ps1
 ```
 
-Production does **not** auto-migrate. Apply the idempotent script (or `dotnet ef database update`) as a deploy step.
+Production does **not** auto-migrate. Multiple instances would race, a failed migration is hard to reverse, and there is no review step. Apply `deploy/migrate.sql` (idempotent) with `sqlcmd` or the Azure SQL Query editor, then start the app. Development still calls `Database.MigrateAsync()` plus the seeder.
 
 Migrations: `InitialCreate`, then `AddProviderVerificationAuditAndSuspension` (converts `IsApproved` to `VerificationStatus`, adds documents, suspension, audit logs, and `LastLoginAt`).
 
@@ -199,3 +199,4 @@ Migrations: `InitialCreate`, then `AddProviderVerificationAuditAndSuspension` (c
 - `docs/TEST_RESULTS.md`
 - `docs/ADMIN_SECURITY_REVIEW_REPORT.md`
 - `FINAL_IMPLEMENTATION_REPORT.md`
+- `deploy/AZURE_DEPLOY.md` — App Service + Azure SQL runbook (cloud steps are yours)
