@@ -374,6 +374,7 @@ export type AuditLogItem = {
   entityId: string | null
   outcome: AuditOutcome
   message: string | null
+  summary: string
   ipAddress: string | null
 }
 
@@ -388,6 +389,78 @@ export type AuditSummary = {
   deniedActions: number
   adminActions: number
   providerVerificationEvents: number
+}
+
+export type AuditFilterOptions = {
+  categories: string[]
+  actions: { value: string; label: string; category: string }[]
+}
+
+export type AdminOverviewRange = 'today' | '7d' | '30d'
+
+export type SeriesPoint = {
+  date: string
+  value: number
+}
+
+export type Kpi = {
+  value: number
+  previous: number | null
+  series: SeriesPoint[]
+}
+
+export type BookingsSeriesPoint = {
+  date: string
+  created: number
+  completed: number
+  cancelled: number
+}
+
+export type AdminOverview = {
+  range: AdminOverviewRange
+  from: string
+  to: string
+  bucket: 'hour' | 'day'
+  kpis: {
+    bookingValue: Kpi
+    bookingsActive: Kpi
+    bookingsCompleted: Kpi
+    conversionRate: Kpi
+    avgProviderRating: Kpi
+  }
+  bookingsSeries: BookingsSeriesPoint[]
+  funnel: {
+    requestsCreated: number
+    requestsWithOffer: number
+    booked: number
+    completed: number
+  }
+  attention: {
+    pendingVerifications: number
+    staleOpenRequests: number
+    overdueBookings: number
+    suspendedProviders: number
+  }
+  supplyDemand: {
+    city: string
+    serviceId: number
+    serviceName: string
+    openRequests: number
+    eligibleProviders: number
+  }[]
+  topProviders: {
+    id: number
+    name: string
+    city: string
+    rating: number
+    reviewCount: number
+    completedJobs: number
+  }[]
+  security24h: {
+    failedLogins: number
+    deniedActions: number
+    csrfRejections: number
+  }
 }
 
 export type CustomerDashboard = {

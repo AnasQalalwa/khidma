@@ -45,6 +45,26 @@ export function formatBudget(
   return `Up to ${formatMoney(max)}`
 }
 
+export function formatPercent(value: number | null | undefined): string {
+  if (value === null || value === undefined) {
+    return '—'
+  }
+
+  return new Intl.NumberFormat(undefined, {
+    style: 'percent',
+    maximumFractionDigits: 1,
+    minimumFractionDigits: 0,
+  }).format(value)
+}
+
+export function formatCount(value: number | null | undefined): string {
+  if (value === null || value === undefined) {
+    return '—'
+  }
+
+  return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(value)
+}
+
 export function formatRating(value: number, count: number): string {
   if (count === 0) {
     return 'No reviews yet'

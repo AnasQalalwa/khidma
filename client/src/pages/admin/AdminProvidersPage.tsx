@@ -7,7 +7,7 @@ import type { AdminProvider, PagedResult } from '../../api/types'
 import { Roles } from '../../auth/roles'
 import { Button } from '../../components/Button'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
-import { PageHeader } from '../../components/PageHeader'
+import { AdminPageHeader } from '../../components/admin/AdminPageHeader'
 import { Pagination } from '../../components/Pagination'
 import { ReasonDialog } from '../../components/ReasonDialog'
 import { StatusBadge } from '../../components/StatusBadge'
@@ -140,10 +140,9 @@ export function AdminProvidersPage() {
 
   return (
     <WorkspaceLayout role={Roles.Admin}>
-      <PageHeader
-        eyebrow="Admin"
+      <AdminPageHeader
         title="Providers"
-        description="Operational control: suspend access to new work, or reactivate a provider who is already verified."
+        subtitle="Operational control: suspend access to new work, or reactivate a provider who is already verified."
       />
       <p className="muted">
         Suspension rejects pending offers and hides matching requests. Existing bookings stay

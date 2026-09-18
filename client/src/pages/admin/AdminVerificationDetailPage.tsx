@@ -12,7 +12,7 @@ import { Roles } from '../../auth/roles'
 import { Button } from '../../components/Button'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { DocumentList } from '../../components/DocumentList'
-import { PageHeader } from '../../components/PageHeader'
+import { AdminPageHeader } from '../../components/admin/AdminPageHeader'
 import { ReasonDialog } from '../../components/ReasonDialog'
 import { StatusBadge } from '../../components/StatusBadge'
 import { ErrorState, LoadingState } from '../../components/States'
@@ -130,10 +130,9 @@ export function AdminVerificationDetailPage() {
 
   return (
     <WorkspaceLayout role={Roles.Admin}>
-      <PageHeader
-        eyebrow="Provider verification"
+      <AdminPageHeader
         title={data?.fullName ?? 'Verification review'}
-        description="Review professional proof, then approve or reject the provider account."
+        subtitle="Review professional proof, then approve or reject the provider account."
         actions={
           <Button to="/admin/verifications" variant="secondary">
             Back to queue

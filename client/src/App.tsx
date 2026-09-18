@@ -2,7 +2,7 @@ import { Route, Routes } from 'react-router-dom'
 import { RequireRole } from './auth/RequireRole'
 import { Roles } from './auth/roles'
 import { Layout } from './components/Layout'
-import { AdminDashboard } from './pages/AdminDashboard'
+import { AdminOverviewPage } from './pages/admin/AdminOverviewPage'
 import { AdminAuditPage } from './pages/admin/AdminAuditPage'
 import { AdminCatalogPage } from './pages/admin/AdminCatalogPage'
 import { AdminProvidersPage } from './pages/admin/AdminProvidersPage'
@@ -155,7 +155,7 @@ export default function App() {
           path="/admin"
           element={
             <RequireRole role={Roles.Admin}>
-              <AdminDashboard />
+              <AdminOverviewPage />
             </RequireRole>
           }
         />

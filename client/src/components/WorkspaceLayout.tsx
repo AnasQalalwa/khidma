@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { Roles } from '../auth/roles'
 import { WorkspaceNav } from './WorkspaceNav'
 
 export function WorkspaceLayout({
@@ -9,7 +10,7 @@ export function WorkspaceLayout({
   children: ReactNode
 }) {
   return (
-    <div className="workspace">
+    <div className={role === Roles.Admin ? 'workspace admin-page' : 'workspace'}>
       <WorkspaceNav role={role} />
       {children}
     </div>
