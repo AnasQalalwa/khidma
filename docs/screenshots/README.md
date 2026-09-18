@@ -26,3 +26,5 @@ PNGs in this folder:
 - `provider-requests-360.png`, `provider-requests-768.png`, `provider-requests-1280.png` — `provider1` available feed showing that request
 - `booking-detail-360.png`, `booking-detail-768.png`, `booking-detail-1280.png` — customer booking (`Scheduled`)
 - `admin-verifications-360.png`, `admin-verifications-768.png`, `admin-verifications-1280.png` — `provider2` `PendingReview`
+- `admin-overview-360.png`, `admin-overview-768.png`, `admin-overview-1280.png` — admin platform overview at 7 days
+- `admin-audit-360.png`, `admin-audit-768.png`, `admin-audit-1280.png` — audit log list with humanized summaries
