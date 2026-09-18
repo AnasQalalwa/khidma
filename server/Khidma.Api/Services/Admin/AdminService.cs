@@ -316,13 +316,18 @@ public sealed partial class AdminService : IAdminService
 
         var roles = await _userManager.GetRolesAsync(user);
         var role = roles.FirstOrDefault() ?? string.Empty;
-        var recentAudit = (await _db.AuditLogs
+        var recentLogs = await _db.AuditLogs
             .AsNoTracking()
             .Where(a => a.ActorUserId == user.Id)
             .OrderByDescending(a => a.CreatedAt)
             .Take(8)
-            .ToListAsync(cancellationToken))
-            .Select(ToAuditListItem)
+            .ToListAsync(cancellationToken);
+        var recentSummaries = await AuditSummaryBuilder.BuildAsync(
+            _db,
+            recentLogs,
+            cancellationToken);
+        var recentAudit = recentLogs
+            .Select(log => ToAuditListItem(log, recentSummaries[log.Id]))
             .ToList();
 
         var dto = new AdminUserDetailDto
@@ -447,27 +452,33 @@ public sealed partial class AdminService : IAdminService
                 (a.EntityId != null && a.EntityId.ToLower().Contains(term)));
         }
 
+        if (query.HideAuth)
+        {
+            logs = logs.Where(a =>
+                a.Action != AuditActions.LoginSucceeded &&
+                a.Action != AuditActions.Logout);
+        }
+
         var pageResult = await logs
             .OrderByDescending(a => a.CreatedAt)
             .ThenByDescending(a => a.Id)
-            .Select(a => new AuditLogListItemDto
-            {
-                Id = a.Id,
-                CreatedAt = a.CreatedAt,
-                ActorUserId = a.ActorUserId,
-                ActorEmail = a.ActorEmail,
-                ActorRole = a.ActorRole,
-                Category = a.Category,
-                Action = a.Action,
-                EntityType = a.EntityType,
-                EntityId = a.EntityId,
-                Outcome = a.Outcome,
-                Message = a.Message,
-                IpAddress = a.IpAddress
-            })
             .ToPagedResultAsync(page, pageSize, cancellationToken);
 
-        return ServiceResult<PagedResult<AuditLogListItemDto>>.Success(pageResult);
+        var summaries = await AuditSummaryBuilder.BuildAsync(
+            _db,
+            pageResult.Items,
+            cancellationToken);
+
+        return ServiceResult<PagedResult<AuditLogListItemDto>>.Success(new PagedResult<AuditLogListItemDto>
+        {
+            Items = pageResult.Items
+                .Select(log => ToAuditListItem(log, summaries[log.Id]))
+                .ToList(),
+            Page = pageResult.Page,
+            PageSize = pageResult.PageSize,
+            TotalCount = pageResult.TotalCount,
+            TotalPages = pageResult.TotalPages
+        });
     }
 
     public async Task<ServiceResult<AuditLogDetailDto>> GetAuditLogAsync(
@@ -496,12 +507,16 @@ public sealed partial class AdminService : IAdminService
             EntityId = log.EntityId,
             Outcome = log.Outcome,
             Message = log.Message,
+            Summary = await AuditSummaryBuilder.BuildAsync(_db, log, cancellationToken),
             DetailsJson = log.DetailsJson,
             IpAddress = log.IpAddress,
             UserAgent = log.UserAgent,
             CorrelationId = log.CorrelationId
         });
     }
+
+    public AuditFilterOptionsDto GetAuditFilterOptions() =>
+        AuditSummaryBuilder.FilterOptions();
 
     public async Task<AuditSummaryDto> GetAuditSummaryAsync(CancellationToken cancellationToken)
     {
@@ -758,7 +773,7 @@ public sealed partial class AdminService : IAdminService
             Message = message
         }, cancellationToken);
 
-    private static AuditLogListItemDto ToAuditListItem(AuditLog log) => new()
+    private static AuditLogListItemDto ToAuditListItem(AuditLog log, string summary) => new()
     {
         Id = log.Id,
         CreatedAt = log.CreatedAt,
@@ -771,6 +786,7 @@ public sealed partial class AdminService : IAdminService
         EntityId = log.EntityId,
         Outcome = log.Outcome,
         Message = log.Message,
+        Summary = summary,
         IpAddress = log.IpAddress
     };
 

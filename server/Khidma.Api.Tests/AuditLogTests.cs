@@ -171,6 +171,115 @@ public sealed class AuditLogTests : IClassFixture<KhidmaApiFactory>
         Assert.Contains(AuditActions.ProviderReactivated, actions);
     }
 
+    [Fact]
+    public async Task AuditList_ReturnsHumanizedSummary_WithoutRawGuids()
+    {
+        var city = $"H{Guid.NewGuid():N}"[..10];
+        var (admin, _) = await TestHarness.CreateAdminAsync(_factory);
+        var (customer, _) = await TestHarness.RegisterAsync(_factory, "Customer", city);
+        var (provider, providerUser) = await TestHarness.RegisterAsync(_factory, "Provider", city);
+        var serviceId = await TestHarness.GetServiceIdAsync(_factory);
+        var profileId = await TestHarness.GetProviderProfileIdAsync(_factory, providerUser.Id);
+        var documentId = await TestHarness.UploadDocumentAsync(provider);
+        await TestHarness.ApproveDocumentAsync(admin, documentId);
+        var reject = await admin.PostAsJsonAsync(
+            $"/api/admin/providers/{profileId}/verification",
+            new { status = "Rejected", reason = "Need a clearer license" });
+        reject.EnsureSuccessStatusCode();
+
+        var title = "Kitchen sink leaking under the cabinet";
+        await TestHarness.ApproveProviderAsync(_factory, providerUser.Id, city, serviceId);
+        var requestId = await TestHarness.CreateRequestAsync(customer, serviceId, city, title);
+        var offerId = await TestHarness.SubmitOfferAsync(provider, requestId);
+        (await customer.PostAsync($"/api/offers/{offerId}/accept", null)).EnsureSuccessStatusCode();
+
+        var list = await admin.GetFromJsonAsync<JsonElement>("/api/admin/audit-logs?pageSize=100");
+        var summaries = list.GetProperty("items")
+            .EnumerateArray()
+            .Select(item => item.GetProperty("summary").GetString() ?? "")
+            .ToList();
+
+        Assert.Contains(summaries, text =>
+            text.Contains("rejected provider", StringComparison.OrdinalIgnoreCase) &&
+            text.Contains("Test Provider", StringComparison.Ordinal));
+        Assert.Contains(summaries, text =>
+            text.Contains("accepted an offer", StringComparison.OrdinalIgnoreCase) &&
+            text.Contains(title, StringComparison.Ordinal));
+        Assert.DoesNotContain(
+            summaries,
+            text => Guid.TryParse(text, out _) || text.Contains(providerUser.Id, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task HideAuth_OmitsLoginAndLogout_KeepsFailedLogins()
+    {
+        var client = TestHarness.CreateClient(_factory);
+        await AntiforgeryTestHelper.AttachTokenAsync(client);
+        var email = TestHarness.UniqueEmail("hideauth");
+        await client.PostAsJsonAsync("/api/auth/register", new
+        {
+            fullName = "Hide Auth User",
+            email,
+            password = "ValidPass1!",
+            role = "Customer",
+            city = "Ramallah"
+        });
+        await AntiforgeryTestHelper.AttachTokenAsync(client);
+        await client.PostAsync("/api/auth/logout", null);
+        await AntiforgeryTestHelper.AttachTokenAsync(client);
+        await client.PostAsJsonAsync("/api/auth/login", new
+        {
+            email,
+            password = "WrongPass1!"
+        });
+
+        var (admin, _) = await TestHarness.CreateAdminAsync(_factory);
+        var hidden = await admin.GetFromJsonAsync<JsonElement>(
+            "/api/admin/audit-logs?hideAuth=true&pageSize=100");
+        var hiddenActions = hidden.GetProperty("items")
+            .EnumerateArray()
+            .Select(item => item.GetProperty("action").GetString())
+            .ToHashSet();
+        Assert.DoesNotContain(AuditActions.LoginSucceeded, hiddenActions);
+        Assert.DoesNotContain(AuditActions.Logout, hiddenActions);
+        Assert.Contains(AuditActions.LoginFailed, hiddenActions);
+        Assert.Contains(AuditActions.RegisterSucceeded, hiddenActions);
+
+        var shown = await admin.GetFromJsonAsync<JsonElement>(
+            "/api/admin/audit-logs?hideAuth=false&pageSize=100");
+        var shownActions = shown.GetProperty("items")
+            .EnumerateArray()
+            .Select(item => item.GetProperty("action").GetString())
+            .ToHashSet();
+        Assert.Contains(AuditActions.Logout, shownActions);
+    }
+
+    [Fact]
+    public async Task AuditOptions_ReturnsKnownCategoriesAndActions()
+    {
+        var (admin, _) = await TestHarness.CreateAdminAsync(_factory);
+        var response = await admin.GetAsync("/api/admin/audit-logs/options");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var categories = doc.RootElement.GetProperty("categories")
+            .EnumerateArray()
+            .Select(item => item.GetString())
+            .ToHashSet();
+        Assert.Contains(AuditCategories.Auth, categories);
+        Assert.Contains(AuditCategories.Admin, categories);
+
+        var actions = doc.RootElement.GetProperty("actions").EnumerateArray().ToList();
+        Assert.Contains(actions, item =>
+            item.GetProperty("value").GetString() == AuditActions.ProviderRejected);
+        Assert.Contains(actions, item =>
+            item.GetProperty("value").GetString() == AuditActions.CsrfRejected);
+        Assert.All(actions, item =>
+        {
+            Assert.False(string.IsNullOrWhiteSpace(item.GetProperty("label").GetString()));
+            Assert.False(string.IsNullOrWhiteSpace(item.GetProperty("category").GetString()));
+        });
+    }
+
     private async Task<HashSet<string>> ActionsAsync()
     {
         using var scope = _factory.Services.CreateScope();

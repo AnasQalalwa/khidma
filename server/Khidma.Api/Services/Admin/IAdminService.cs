@@ -37,6 +37,8 @@ public interface IAdminService
 
     Task<AuditSummaryDto> GetAuditSummaryAsync(CancellationToken cancellationToken);
 
+    AuditFilterOptionsDto GetAuditFilterOptions();
+
     Task<ServiceResult<CategoryDto>> CreateCategoryAsync(
         SaveCategoryRequest request,
         CancellationToken cancellationToken);
