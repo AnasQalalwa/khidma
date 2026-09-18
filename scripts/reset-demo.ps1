@@ -13,7 +13,10 @@ $ErrorActionPreference = 'Stop'
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $ApiProject = Join-Path $RepoRoot 'server\Khidma.Api'
-$CatalogUrl = 'https://localhost:5001/api/catalog/categories'
+$CatalogUrls = @(
+    'http://localhost:5000/api/catalog/categories',
+    'https://localhost:5001/api/catalog/categories'
+)
 
 function Stop-LocalKhidmaListeners {
     foreach ($port in 5000, 5001) {
@@ -31,36 +34,23 @@ function Stop-LocalKhidmaListeners {
 }
 
 function Test-LocalApi {
-    try {
-        if ($PSVersionTable.PSVersion.Major -ge 6) {
-            $null = Invoke-WebRequest -Uri $CatalogUrl -UseBasicParsing -SkipCertificateCheck -TimeoutSec 5
-        }
-        else {
-            try {
-                Add-Type -TypeDefinition @'
-using System.Net;
-using System.Security.Cryptography.X509Certificates;
-public class KhidmaTrustAllCerts : ICertificatePolicy {
-    public bool CheckValidationResult(ServicePoint sp, X509Certificate cert, WebRequest req, int problem) {
-        return true;
-    }
-}
-'@
+    foreach ($url in $CatalogUrls) {
+        try {
+            if ($PSVersionTable.PSVersion.Major -ge 6 -and $url.StartsWith('https:')) {
+                $null = Invoke-WebRequest -Uri $url -UseBasicParsing -SkipCertificateCheck -TimeoutSec 5
             }
-            catch {
-                # Type already loaded in this session.
+            else {
+                $null = Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 5
             }
 
-            [System.Net.ServicePointManager]::CertificatePolicy = New-Object KhidmaTrustAllCerts
-            [System.Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }
-            $null = Invoke-WebRequest -Uri $CatalogUrl -UseBasicParsing -TimeoutSec 5
+            return $true
         }
+        catch {
+            continue
+        }
+    }
 
-        return $true
-    }
-    catch {
-        return $false
-    }
+    return $false
 }
 
 function Invoke-DotnetEf {
@@ -94,18 +84,30 @@ Write-Host 'Applying migrations...'
 Invoke-DotnetEf -EfArgs @('database', 'update')
 
 Write-Host 'Starting the API once so the Development seeder runs...'
+$stdoutLog = Join-Path $env:TEMP 'khidma-reset-demo.out.log'
+$stderrLog = Join-Path $env:TEMP 'khidma-reset-demo.err.log'
+Remove-Item $stdoutLog, $stderrLog -ErrorAction SilentlyContinue
 $env:ASPNETCORE_ENVIRONMENT = 'Development'
 $run = Start-Process -FilePath 'dotnet' -ArgumentList @(
     'run',
     '--project', $ApiProject,
     '--launch-profile', 'https'
-) -WorkingDirectory $RepoRoot -PassThru -WindowStyle Hidden
+) -WorkingDirectory $RepoRoot -PassThru -WindowStyle Hidden -RedirectStandardOutput $stdoutLog -RedirectStandardError $stderrLog
 
 try {
     $ready = $false
-    for ($attempt = 1; $attempt -le 45; $attempt++) {
+    for ($attempt = 1; $attempt -le 60; $attempt++) {
+        $run.Refresh()
         if ($run.HasExited) {
-            throw "API exited during seed (exit $($run.ExitCode)). Check that user-secrets include ConnectionStrings:Default and Seed:* passwords."
+            $tail = ''
+            if (Test-Path $stderrLog) {
+                $tail = (Get-Content $stderrLog -Raw)
+            }
+            elseif (Test-Path $stdoutLog) {
+                $tail = (Get-Content $stdoutLog -Raw)
+            }
+
+            throw "API exited during seed (exit $($run.ExitCode)). $tail"
         }
 
         Start-Sleep -Seconds 2
@@ -116,7 +118,12 @@ try {
     }
 
     if (-not $ready) {
-        throw 'API did not become ready on https://localhost:5001 after seeding.'
+        $tail = ''
+        if (Test-Path $stdoutLog) {
+            $tail = (Get-Content $stdoutLog -Tail 40) -join [Environment]::NewLine
+        }
+
+        throw "API did not become ready on http://localhost:5000 after seeding.`n$tail"
     }
 
     Write-Host 'Seeder finished.'
