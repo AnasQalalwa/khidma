@@ -1,10 +1,17 @@
 ## What changed
 
-Week 4 closeout on `feature/full-project-development`: unified accept-race 409, SQL Server opt-in tests, security-matrix walk (CSRF stays 400), thin auth/catalog services, frontend field errors and 409 reload, ADRs 19–21, `deploy/migrate.sql` + Azure runbook, docs cleanup, seeded `provider4` for the two-offer demo.
+Week 4 closeout on `feature/full-project-development`, plus live SQL Server proof on LocalDB 17 after the NVMe sector workaround (ADR 22):
+
+- Both EF migrations applied; `scripts/verify-schema.sql` confirms every §5.3 constraint (filtered unique indexes, `CK_Review_Rating`, rowversion, `decimal(18,2)`, nvarchar enums).
+- Live `scripts/concurrency-check.ps1` (provider1 + provider4): **200 + 409**, body `Another offer was accepted first.`, exactly one booking, sibling **Rejected**.
+- Live `scripts/smoke-test.ps1` 8/8 and `scripts/security-matrix.ps1` 14/14. CSRF missing token stays **400**.
+- `$env:KHIDMA_SQLSERVER_TESTS=1; dotnet test -c Release` → **119 passed**, 0 skipped; default suite still **117 passed**, 2 skipped.
+- 360 / 768 / 1280 screenshots in `docs/screenshots/` (Home, Catalog, customer request with offers, provider available requests, booking detail, admin verifications).
+- Script robustness only: smoke-test CSRF `$status`; concurrency-check PS7 409 body decode. No product features added.
 
 ## Why
 
-Prove the marketplace against the plan v2 rubric without new product features (no Docker/Redis/JWT/payments). Keep review-ready evidence in `docs/`.
+Prove the marketplace against the plan v2 rubric on real SQL Server without Docker/Redis/JWT/payments. Keep review-ready evidence in `docs/`.
 
 ## How to test
 
@@ -18,14 +25,14 @@ npm run test
 npm run build
 ```
 
-SQL Server (Windows, after LocalDB starts): `$env:KHIDMA_SQLSERVER_TESTS=1; dotnet test -c Release --filter FullyQualifiedName~SqlServerIntegrationTests`
+SQL Server (Windows LocalDB): `$env:KHIDMA_SQLSERVER_TESTS=1; dotnet test -c Release`
 
 Demo: `docs/demo-script.md` (Plumbing in Ramallah; Provider B = `provider3` → 404; loser message **Another offer was accepted first.**).
 
 ## Screenshots
 
-Live 360/768/1280 captures are blocked until SQL Server starts (`docs/screenshots/README.md`).
+Key captures: `docs/screenshots/customer-request-detail-1280.png`, `provider-requests-1280.png`, `admin-verifications-1280.png`, `home-360.png`. Full set: `docs/screenshots/README.md`.
 
 ## Unsure about
 
-LocalDB on this NVMe host crashes (`256 misaligned log IOs`). Live schema/smoke/concurrency/security-matrix were not run. Azure was prepared, not deployed. `gh auth login` is still required to open this PR from the CLI if you paste the body yourself.
+Azure was prepared (`deploy/AZURE_DEPLOY.md`), not deployed. Branch protection and the `v1.0.0` tag wait until this PR is merged to develop, then develop → main. Live UI PDF upload and admin suspend-in-the-browser were not re-run (xUnit covers both). Do not merge this PR from the closeout agent.

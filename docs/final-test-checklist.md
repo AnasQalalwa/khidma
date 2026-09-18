@@ -39,10 +39,10 @@ Use seeded accounts (`customer@khidma.local` + `provider1@khidma.local` in Ramal
 
 Manual (SQL Server / browser) — not replaced by SQLite tests:
 
-- [ ] Full UI pass of admin Overview, Users, Verification, Providers, Audit Logs at 360 / 430 / 768 / 1024 / 1280 / 1440.
-- [ ] Confirm cookie + CSRF through the Vite proxy (`http://localhost:5173` → `https://localhost:5001`).
+- [ ] Full UI pass of admin Overview, Users, Verification, Providers, Audit Logs at 360 / 430 / 768 / 1024 / 1280 / 1440. (360 / 768 / 1280 captured for Home, Catalog, customer request detail, provider requests, booking detail, admin verifications.)
+- [x] Confirm cookie + CSRF through the Vite proxy (`http://localhost:5173` → `https://localhost:5001`). Customer, provider1, and admin logged in via the SPA in Phase 9.
 - [x] Confirm SPA fallback: refresh `/customer/requests/1` on the API host still serves the React app. (Automated: `SpaFallbackTests`. Re-check in the browser after SQL Server is up.)
-- [ ] Concurrent accept against SQL Server (`scripts/concurrency-check.ps1`).
-- [ ] Live smoke against LocalDB (`scripts/smoke-test.ps1`).
+- [x] Concurrent accept against SQL Server (`scripts/concurrency-check.ps1`). 200 + 409, accept-first message, one booking, sibling Rejected.
+- [x] Live smoke against LocalDB (`scripts/smoke-test.ps1`). 8 passed, 0 failed.
 - [ ] Upload a real PDF in the provider profile and download it as admin.
 - [ ] Suspend a provider in the UI and confirm pending offers flip to Rejected.

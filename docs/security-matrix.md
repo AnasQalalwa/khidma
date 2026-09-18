@@ -37,11 +37,11 @@ Statuses:
 | Append-only audit log, no delete/update API | IMPLEMENTED | `AuditLogTests`. Failure to write audit does not fail the request. |
 | Audit details exclude passwords, cookies, tokens, binaries | IMPLEMENTED | Explicit details dictionary only. |
 | LastLoginAt set on successful login only | IMPLEMENTED | `AdminUserMonitoringTests`. |
-| Concurrent accept under SQL Server | FAILED | LocalDB 17.0.4025.3 crashes on start: `256 misaligned log IOs` on `master.mdf` (NVMe 32K physical sectors). Recreate (`sqllocaldb delete`/`create -s`) did not help. Live scripts and `KHIDMA_SQLSERVER_TESTS=1` are blocked until the host SQL instance starts. Code path unified to `Another offer was accepted first.` Opt-in tests: `SqlServerIntegrationTests`. |
+| Concurrent accept under SQL Server | VERIFIED | 18 September 2026. `scripts/concurrency-check.ps1` against `https://localhost:5001` (provider1 + provider4): `Accept statuses: 200, 409`, 409 body contains `Another offer was accepted first.`, exactly one booking, sibling offer `Rejected`. `$env:KHIDMA_SQLSERVER_TESTS=1; dotnet test -c Release` → **119 passed**, 0 failed, 0 skipped (`SqlServerIntegrationTests.ConcurrentAccept_ProducesOneBooking_And409ForLoser` + filtered unique index). |
 | HTTPS cookie Secure in production hosting | IMPLEMENTED | `CookieSecurePolicy.Always` for Identity and antiforgery cookies when not Development and not Testing. Readable `XSRF-TOKEN` is Secure in that same case. `UseHsts()` outside Development. App Service HTTPS Only is in `deploy/AZURE_DEPLOY.md` (not applied on this machine). |
 | SQL injection via city/status filters | VERIFIED | All list filters go through EF parameterized LINQ (`ServiceRequestService`, `AdminService`). No string-concatenated SQL. |
 | XSS in request title/offer message/review comment | VERIFIED | No `dangerouslySetInnerHTML` under `client/src`. React text interpolation only. |
-| Admin suspend of a live provider | IMPLEMENTED | `SuspensionTests` (SQLite). Live UI confirm still blocked on SQL Server. |
+| Admin suspend of a live provider | IMPLEMENTED | `SuspensionTests` (SQLite). Live UI suspend/reactivate was not re-run in the browser in Phase 9. |
 | SPA deep link vs `/api` 404 | IMPLEMENTED | `SpaFallbackTests`: `/customer/requests/1` → HTML; `/api/nope` → JSON 404. |
 | Generic 500 in Production | IMPLEMENTED | `ProductionExceptionTests` — no exception type, message, or stack in the body. |
 
@@ -49,38 +49,50 @@ Statuses:
 
 Query: [`scripts/verify-schema.sql`](../scripts/verify-schema.sql). Expected objects: `UX_Offer_OneAcceptedPerRequest` (`[Status] = 'Accepted'`), `IX_Offers_ServiceRequestId_ProviderId` (`[Status] <> 'Withdrawn'`), unique `IX_Reviews_BookingId`, unique `IX_Bookings_OfferId`, unique `IX_ProviderServices_ProviderProfileId_ServiceId`, `CK_Review_Rating`, `rowversion` on `ServiceRequests` and `Bookings`, `decimal(18,2)` money columns, `nvarchar` status enums.
 
-**Output (18 September 2026):** not executed. `sqllocaldb start MSSQLLocalDB` failed after stop/delete/create. `error.log`:
+**Output (18 September 2026)** after LocalDB started (ADR 22 / README NVMe note). Command: `sqlcmd -S "(localdb)\MSSQLLocalDB" -d Khidma -C -W -i scripts/verify-schema.sql`
+
+Every §5.3 constraint is present. No new migration was required.
 
 ```text
-There have been 256 misaligned log IOs which required falling back to synchronous IO.
-The current IO is on file ...\MSSQLLocalDB\master.mdf.
-Hit Fatal Error: Server is terminating
+=== Filtered and unique indexes ===
+index_name table_name is_unique filter_definition column_name
+---------- ---------- --------- ----------------- -----------
+IX_Bookings_OfferId Bookings 1 NULL OfferId
+IX_Offers_ServiceRequestId_ProviderId Offers 1 ([Status]<>'Withdrawn') ServiceRequestId
+IX_Offers_ServiceRequestId_ProviderId Offers 1 ([Status]<>'Withdrawn') ProviderId
+IX_ProviderServices_ProviderProfileId_ServiceId ProviderServices 1 NULL ProviderProfileId
+IX_ProviderServices_ProviderProfileId_ServiceId ProviderServices 1 NULL ServiceId
+IX_Reviews_BookingId Reviews 1 NULL BookingId
+RoleNameIndex AspNetRoles 1 ([NormalizedName] IS NOT NULL) NormalizedName
+UserNameIndex AspNetUsers 1 ([NormalizedUserName] IS NOT NULL) NormalizedUserName
+UX_Offer_OneAcceptedPerRequest Offers 1 ([Status]='Accepted') ServiceRequestId
+=== Check constraints ===
+name table_name definition
+---- ---------- ----------
+CK_ProviderVerificationDocuments_FileSize ProviderVerificationDocuments ([FileSizeBytes]>(0))
+CK_Review_Rating Reviews ([Rating]>=(1) AND [Rating]<=(5))
+=== Rowversion columns ===
+table_name column_name type_name
+---------- ----------- ---------
+Bookings RowVersion timestamp
+ServiceRequests RowVersion timestamp
+=== Money decimals ===
+table_name column_name type_name precision scale
+---------- ----------- --------- --------- -----
+Bookings FinalPrice decimal 18 2
+Offers Price decimal 18 2
+ServiceRequests BudgetMax decimal 18 2
+ServiceRequests BudgetMin decimal 18 2
+=== String enum columns ===
+table_name column_name type_name max_length
+---------- ----------- --------- ----------
+Bookings Status nvarchar 40
+Offers Status nvarchar 40
+ProviderProfiles VerificationStatus nvarchar 64
+ServiceRequests Status nvarchar 40
 ```
 
-This is the SQL Server 2022+ NVMe 32 KB physical-sector issue, not a Khidma schema bug. Installing SQL Server 2022 Developer/Express on the same disk will hit the same crash unless the sector workaround is applied first.
-
-### Unblock SQL Server on this machine
-
-1. In an elevated Command Prompt:
-
-```bat
-REG ADD "HKLM\SYSTEM\CurrentControlSet\Services\stornvme\Parameters\Device" /v ForcedPhysicalSectorSizeInBytes /t REG_MULTI_SZ /d "* 4095" /f
-```
-
-2. Reboot.
-3. `sqllocaldb start MSSQLLocalDB`
-4. Confirm: `sqlcmd -S "(localdb)\MSSQLLocalDB" -Q "SELECT @@VERSION" -C`
-5. Then:
-
-```bat
-dotnet user-secrets set "ConnectionStrings:Default" "Server=(localdb)\mssqllocaldb;Database=Khidma;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True" --project server/Khidma.Api
-dotnet ef database update --project server/Khidma.Api
-sqlcmd -S "(localdb)\MSSQLLocalDB" -d Khidma -C -i scripts/verify-schema.sql
-set KHIDMA_SQLSERVER_TESTS=1
-dotnet test -c Release --filter FullyQualifiedName~SqlServerIntegrationTests
-```
-
-If you would rather install a full instance after the registry fix: SQL Server 2022 Developer, mixed mode or Windows auth, enable TCP, then put that connection string in user-secrets instead of LocalDB.
+Migrations applied: `20260904230532_InitialCreate`, `20260916111438_AddProviderVerificationAuditAndSuspension`. Host recovery (NVMe sector workaround) is documented in the README Prerequisites and ADR 22 — not a schema bug.
 
 ## HTTP walk (§8.4, Week 4 Day 1)
 
@@ -88,21 +100,23 @@ Live script: `scripts/security-matrix.ps1` plus `server/Khidma.Api/Khidma.Api.ht
 
 | Check | Expected | Automated evidence | Live SQL Server |
 | --- | --- | --- | --- |
-| Provider B on Provider A's offer | 403/404 | `AuthorizationMatrixTests.ProviderB_CannotWithdrawProviderAOffer` | Blocked (LocalDB down) |
-| Provider B on Provider A's booking | 403/404 | `BookingTests` ownership + script | Blocked |
-| Provider B on ineligible request (list) | 200 empty | `EligibilityTests.WrongCity_DoesNotSeeRequest` | Blocked |
-| Provider B on ineligible request (URL) | 404 | `EligibilityTests.IneligibleProvider_DetailIsHidden` | Blocked |
-| Unapproved / suspended offer | 403 | `OfferTests` / `SuspensionTests` | Blocked |
-| No customer contact pre-accept | omitted from JSON | `EligibilityTests.Provider_CannotSeeCustomerContactBeforeAcceptance` | Blocked |
-| Register `Admin` / `admin` / ` Admin ` | 400 | `AuthEndpointsTests.Register_Admin_IsRejected` | Blocked |
-| Mutation without `X-XSRF-TOKEN` | 400 | `CsrfMutationTests` | Blocked |
-| Complete Scheduled booking | 409 | `BookingTests.Scheduled_ToCompleted_IsIllegal` | Blocked |
-| Accept on Booked request | 409 | `AcceptOfferTests.SecondAcceptance_IsRejected` | Blocked |
-| Second review | 409 | `ReviewTests.SecondReview_IsRejected` | Blocked |
-| Path traversal filename | 400 | `VerificationDocumentTests.PathTraversalFileName_IsRejected` | Blocked |
-| Wrong magic bytes | 400 | `VerificationDocumentTests.FakeMimeSignature_IsRejected` | Blocked |
-| Oversize (>10 MB) | 400 | `VerificationDocumentTests.FileOver10Mb_IsRejected` | Blocked |
-| Other provider downloads document | 403 | `VerificationDocumentTests.AnotherProvider_CannotReadOrDeleteDocument` | Blocked |
+| Provider B on Provider A's offer | 403/404 | `AuthorizationMatrixTests.ProviderB_CannotWithdrawProviderAOffer` | VERIFIED — `security-matrix.ps1` withdraw 403/404 |
+| Provider B on Provider A's booking | 403/404 | `BookingTests` ownership + script | VERIFIED — GET booking 403/404 |
+| Provider B on ineligible request (list) | 200 empty | `EligibilityTests.WrongCity_DoesNotSeeRequest` | VERIFIED — `/available` 200, request absent |
+| Provider B on ineligible request (URL) | 404 | `EligibilityTests.IneligibleProvider_DetailIsHidden` | VERIFIED — GET detail 404 |
+| Unapproved / suspended offer | 403 | `OfferTests` / `SuspensionTests` | VERIFIED — ineligible Provider B POST offer 403 (script); unapproved/suspended remain xUnit |
+| No customer contact pre-accept | omitted from JSON | `EligibilityTests.Provider_CannotSeeCustomerContactBeforeAcceptance` | VERIFIED — provider JSON had no contact fields |
+| Register `Admin` / `admin` / ` Admin ` | 400 | `AuthEndpointsTests.Register_Admin_IsRejected` | VERIFIED — all three 400 |
+| Mutation without `X-XSRF-TOKEN` | 400 | `CsrfMutationTests` | VERIFIED — logout without token 400 |
+| Complete Scheduled booking | 409 | `BookingTests.Scheduled_ToCompleted_IsIllegal` | VERIFIED — complete Scheduled 409 |
+| Accept on Booked request | 409 | `AcceptOfferTests.SecondAcceptance_IsRejected` | VERIFIED — second accept 409 |
+| Second review | 409 | `ReviewTests.SecondReview_IsRejected` | VERIFIED — second review 409 |
+| Path traversal filename | 400 | `VerificationDocumentTests.PathTraversalFileName_IsRejected` | VERIFIED — upload `..\..\secret.pdf` 400 |
+| Wrong magic bytes | 400 | `VerificationDocumentTests.FakeMimeSignature_IsRejected` | Automated only (not in live script) |
+| Oversize (>10 MB) | 400 | `VerificationDocumentTests.FileOver10Mb_IsRejected` | Automated only (not in live script) |
+| Other provider downloads document | 403 | `VerificationDocumentTests.AnotherProvider_CannotReadOrDeleteDocument` | Automated only (not in live script) |
+
+Live script result 18 September 2026: `scripts/security-matrix.ps1` **14 passed, 0 failed** against `https://localhost:5001`. `scripts/smoke-test.ps1` **8 passed, 0 failed**.
 
 XSS: no `dangerouslySetInnerHTML` in `client/src`. Titles, messages, and review comments are React text nodes.
 
@@ -126,7 +140,7 @@ If a reviewer finds a real credential in history that this pass missed, stop and
 
 Verification (`PendingReview` / `Approved` / `Rejected`) is not the same as suspension (`IsSuspended` + reason). Admin cannot approve a provider without an approved document (409). Rejecting a provider or document requires a stored reason. Document downloads are owner-or-admin `File()` results. Audit has no FK and no update/delete API.
 
-Residual (unchanged): uploads are not malware-scanned; audit has no retention job; LocalDB on this NVMe host still needs the sector workaround before live SQL proofs.
+Residual (unchanged): uploads are not malware-scanned; audit has no retention job. LocalDB on this NVMe host was recovered with the sector workaround (README Prerequisites, ADR 22).
 
 
 

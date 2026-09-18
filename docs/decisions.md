@@ -154,7 +154,7 @@ DTOs that link to a public profile include both `providerId` and `providerProfil
 | `GET /api/admin/stats` | One `CountAsync` per counter (independent aggregates, not N+1) |
 | `GET /api/service-requests/available` | 2 (provider profile + one projected page) |
 
-Live `Executed DbCommand` capture against SQL Server is blocked until LocalDB starts. There was no N+1 to fix; counts above are the after state and match the before state in source.
+Live `Executed DbCommand` capture against SQL Server was not repeated in Phase 9 (source counts above). There was no N+1 to fix; counts are the after state and match the before state in source.
 
 **Pagination.** `PageQuery` caps `pageSize` at 50 (audit logs 100). Catalog lists and `GET /service-requests/{id}/offers` are unpaged because they are bounded by the catalog size and the unique-offer-per-provider rule.
 
@@ -193,5 +193,9 @@ Live `Executed DbCommand` capture against SQL Server is blocked until LocalDB st
 **Tests.** `AuditLogTests` (register/login/logout without secrets; marketplace and admin events recorded).
 
 **Limitations.** Swallow-on-failure means a down database can drop an event. There is no SIEM export. Correlation is the HTTP `TraceIdentifier`, not a distributed trace id.
+
+## ADR 22 — LocalDB NVMe sector-size environment defect
+
+**Decision.** Treat the LocalDB crash on this Windows 11 NVMe host as an environment defect, not a Khidma schema or EF bug. `error.log` showed `256 misaligned log IOs` on `master.mdf`, then exception `0xC00000FD` (stack overflow) and `Hit Fatal Error: Server is terminating`. The host was recovered with `ForcedPhysicalSectorSizeInBytes="* 4095"` plus a full **Restart** (not Shut down, because Fast Startup keeps stornvme state). The workaround, undo `REG DELETE`, and log symptoms are in the README Prerequisites. After the restart, both migrations applied, the seeder ran, `scripts/verify-schema.sql` matched §5.3, and the live accept-race plus opt-in SQL Server tests passed.
 
 

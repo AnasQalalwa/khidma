@@ -34,7 +34,7 @@ Demo service is **Plumbing in Ramallah**. There is no seeded â€œAC not coolingâ€
 
 10. **(0:45)** `dotnet test -c Release` and `npm run test` green. CI jobs **Backend** and **Frontend**. Four-week commit graph on `feature/full-project-development`.
 
-11. **(0:30)** Next: Blob Storage for documents, SQL Server sector/LocalDB health, Azure App Service from `deploy/AZURE_DEPLOY.md`. Differently: prove accept-race on real SQL earlier; keep CSRF as the framework 400.
+11. **(0:30)** Next: Blob Storage for documents, Azure App Service from `deploy/AZURE_DEPLOY.md`. LocalDB NVMe recovery is documented (README / ADR 22). Keep CSRF as the framework 400.
 
 ## Expected questions
 
@@ -42,4 +42,4 @@ Demo service is **Plumbing in Ramallah**. There is no seeded â€œAC not coolingâ€
 - What stops two accepts on one request? State + rowversion + filtered unique index. ADR 5.
 - Where is eligibility enforced? Once: `EligibleOpenRequestsForProvider`, reused by list and detail. ADR 2 / 14.
 - Why is `AverageRating` stored? List/public cards; recomputed in the review transaction. ADR 4.
-- Biggest weakness? Local disk documents (not multi-instance) and LocalDB crash on this NVMe host until the sector workaround. Fixes: Blob Storage; registry + reboot or SQL Server 2022 after that.
+- Biggest weakness? Local disk documents (not multi-instance). LocalDB on NVMe needed the sector workaround (README / ADR 22) before live SQL proofs. Fixes: Blob Storage; registry + Restart if LocalDB will not start.

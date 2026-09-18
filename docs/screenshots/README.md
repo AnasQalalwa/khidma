@@ -1,19 +1,16 @@
 # Responsive screenshots
 
-Viewports to capture: **360**, **768**, and **1280**. Check `document.documentElement.scrollWidth <= window.innerWidth` on each page.
-
-Pages: Home, Catalog, Login, customer request detail, provider requests, booking detail, admin users.
+Captured 18 September 2026 against Vite (`http://localhost:5173`) proxying to `https://localhost:5001` after LocalDB + seeder. Viewports **360**, **768**, and **1280**. On each page `document.documentElement.scrollWidth <= window.innerWidth`.
 
 Admin tables use `.table-wrap { overflow-x: auto }` so wide grids scroll inside the panel instead of the page. `html`/`body` use `overflow-x: clip`.
 
-Playwright is not a project dependency. Capture these PNGs here once LocalDB (or SQL Server 2022) is running and the HTTPS API is up:
+Playwright is not a project dependency. PNGs in this folder:
 
 - `home-360.png`, `home-768.png`, `home-1280.png`
 - `catalog-360.png`, `catalog-768.png`, `catalog-1280.png`
-- `login-360.png`, `login-768.png`, `login-1280.png`
-- `customer-request-detail-360.png`, `customer-request-detail-768.png`, `customer-request-detail-1280.png`
-- `provider-requests-360.png`, `provider-requests-768.png`, `provider-requests-1280.png`
-- `booking-detail-360.png`, `booking-detail-768.png`, `booking-detail-1280.png`
-- `admin-users-360.png`, `admin-users-768.png`, `admin-users-1280.png`
+- `customer-request-detail-360.png`, `customer-request-detail-768.png`, `customer-request-detail-1280.png` — open Plumbing request in Ramallah with two **Pending** offers (`provider1` + `provider4`)
+- `provider-requests-360.png`, `provider-requests-768.png`, `provider-requests-1280.png` — `provider1` available feed showing that request
+- `booking-detail-360.png`, `booking-detail-768.png`, `booking-detail-1280.png` — customer booking from `concurrency-check.ps1` (`Scheduled`)
+- `admin-verifications-360.png`, `admin-verifications-768.png`, `admin-verifications-1280.png` — `provider2` `PendingReview`
 
-Live capture in this closeout was blocked: SQL Server LocalDB fails to start (`256 misaligned log IOs`). Public pages can still be checked against a Vite preview; authenticated dashboards need the API.
+Login PNGs were not a Phase 9 deliverable; cookie + CSRF through the proxy was proven by logging in as customer, provider1, and admin.

@@ -173,15 +173,29 @@ $jobScript = {
         UseBasicParsing = $true
     }
 
-    if ($SkipCert -and $PSVersionTable.PSVersion.Major -ge 6) {
-        $params.SkipCertificateCheck = $true
+    if ($PSVersionTable.PSVersion.Major -ge 6) {
+        $params.SkipHttpErrorCheck = $true
+        if ($SkipCert) {
+            $params.SkipCertificateCheck = $true
+        }
+    }
+
+    function ConvertTo-TextBody {
+        param($Content)
+        if ($null -eq $Content) {
+            return ''
+        }
+        if ($Content -is [byte[]]) {
+            return [Text.Encoding]::UTF8.GetString($Content)
+        }
+        return [string]$Content
     }
 
     try {
         $response = Invoke-WebRequest @params
         return @{
             Status = [int]$response.StatusCode
-            Body   = [string]$response.Content
+            Body   = ConvertTo-TextBody $response.Content
         }
     }
     catch {
@@ -193,15 +207,24 @@ $jobScript = {
         $status = [int]$web.StatusCode
         $body = ''
         try {
-            $stream = $web.GetResponseStream()
-            if ($stream) {
-                $reader = New-Object System.IO.StreamReader($stream)
-                $body = $reader.ReadToEnd()
-                $reader.Dispose()
+            if ($web.Content -and $web.Content.PSObject.Methods['ReadAsStringAsync']) {
+                $body = $web.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+            }
+            elseif ($web.PSObject.Methods['GetResponseStream']) {
+                $stream = $web.GetResponseStream()
+                if ($stream) {
+                    $reader = New-Object System.IO.StreamReader($stream)
+                    $body = $reader.ReadToEnd()
+                    $reader.Dispose()
+                }
             }
         }
         catch {
             $body = $_.Exception.Message
+        }
+
+        if ([string]::IsNullOrWhiteSpace($body) -and $_.ErrorDetails) {
+            $body = [string]$_.ErrorDetails.Message
         }
 
         return @{

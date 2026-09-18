@@ -6,7 +6,17 @@ Khidma is a local service marketplace. Customers publish requests, eligible prov
 
 ## Screenshots
 
-Responsive captures (360 / 768 / 1280) belong in `docs/screenshots/`. Live PNGs are blocked until SQL Server starts (the SPA waits on `/api/auth/me`). Checklist: `docs/screenshots/README.md`.
+Responsive captures (360 / 768 / 1280) live in [`docs/screenshots/`](docs/screenshots/). Recorded 18 September 2026 against the Vite proxy after LocalDB + seeder.
+
+![Customer request detail at 1280](docs/screenshots/customer-request-detail-1280.png)
+
+![Provider available requests at 1280](docs/screenshots/provider-requests-1280.png)
+
+![Admin verifications at 1280](docs/screenshots/admin-verifications-1280.png)
+
+![Home at 360](docs/screenshots/home-360.png)
+
+Checklist: [`docs/screenshots/README.md`](docs/screenshots/README.md).
 
 ## Stack
 
@@ -25,7 +35,35 @@ Responsive captures (360 / 768 / 1280) belong in `docs/screenshots/`. Live PNGs 
 - SQL Server LocalDB **or** SQL Server 2022 Developer/Express
 - PowerShell 7 (`pwsh`) for smoke scripts (Windows PowerShell 5.1 also runs most of them)
 
-If LocalDB fails with `256 misaligned log IOs` on NVMe, apply the sector registry workaround in `docs/security-matrix.md` and reboot, or install SQL Server 2022 after that reboot.
+If LocalDB fails with `256 misaligned log IOs` on NVMe, see **LocalDB crashes on start (Windows 11 NVMe)** below.
+
+### LocalDB crashes on start (Windows 11 NVMe)
+
+**Symptom.** `sqllocaldb start MSSQLLocalDB` fails. `%LOCALAPPDATA%\Microsoft\Microsoft SQL Server Local DB\Instances\MSSQLLocalDB\error.log` (this host, 18 September 2026) contains:
+
+```text
+There have been 256 misaligned log IOs which required falling back to synchronous IO.  The current IO is on file C:\Users\Anas\AppData\Local\Microsoft\Microsoft SQL Server Local DB\Instances\MSSQLLocalDB\master.mdf.
+CImageHelper::DoMiniDump entered. Dump attempts: 1. Exception record exists. Exception code: 0xC00000FD
+Hit Fatal Error: Server is terminating
+```
+
+`0xC00000FD` is a stack overflow in SQL Server's dump path after the misaligned IOs. This is a SQL Server 2022+ / LocalDB 17 + NVMe 32 KB physical-sector host issue, not a Khidma schema bug (ADR 22).
+
+**Fix.** Elevated Command Prompt:
+
+```bat
+REG ADD "HKLM\SYSTEM\CurrentControlSet\Services\stornvme\Parameters\Device" /v ForcedPhysicalSectorSizeInBytes /t REG_MULTI_SZ /d "* 4095" /f
+```
+
+Then **Restart** Windows. Do not use Shut down: Fast Startup keeps kernel/stornvme state, so the registry value may not apply until a real Restart. After reboot: `sqllocaldb start MSSQLLocalDB`, then `sqlcmd -S "(localdb)\MSSQLLocalDB" -Q "SELECT @@VERSION" -C`.
+
+**Undo:**
+
+```bat
+REG DELETE "HKLM\SYSTEM\CurrentControlSet\Services\stornvme\Parameters\Device" /v ForcedPhysicalSectorSizeInBytes /f
+```
+
+Then Restart again.
 
 ## Run on a clean Windows machine
 
@@ -140,7 +178,7 @@ dotnet test -c Release --filter FullyQualifiedName~SqlServerIntegrationTests
 
 CI stays on `ubuntu-latest` (no LocalDB). A Windows SQL job is not wired until a runner with a healthy SQL Server exists.
 
-Current automated counts: **117** backend passed, **2** SQL Server skipped by default, **29** frontend passed. See `docs/TEST_RESULTS.md`.
+Current automated counts: **117** backend passed (default; **2** SQL Server skipped), **119** when `KHIDMA_SQLSERVER_TESTS=1`, **29** frontend passed. See `docs/TEST_RESULTS.md`.
 
 ## Deviations from plan v2
 
@@ -160,7 +198,7 @@ CSRF failures stay **400** (ADR 17). Ineligible provider direct URLs stay **404*
 ## Known limitations
 
 - SQLite tests cannot `ORDER BY DateTimeOffset`; lists sort by `Id`.
-- SQLite filtered indexes are not SQL Server. Concurrent-accept proof needs LocalDB (`scripts/concurrency-check.ps1` / `KHIDMA_SQLSERVER_TESTS=1`).
+- SQLite filtered indexes are not SQL Server. Concurrent-accept proof is LocalDB (`scripts/concurrency-check.ps1` / `KHIDMA_SQLSERVER_TESTS=1`); both passed on this machine 18 September 2026.
 - City match is exact (case-insensitive), not geographic.
 - Verification files live on local disk (`App_Data`); not multi-instance. Successor: Blob Storage.
 - No payments, messaging, email, or maps.

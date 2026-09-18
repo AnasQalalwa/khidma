@@ -223,7 +223,7 @@ Write-Step 'State-changing request without CSRF token is rejected' {
         throw 'Expected CSRF rejection.'
     }
     catch {
-        var status = $_.Exception.Response.StatusCode.value__
+        $status = $_.Exception.Response.StatusCode.value__
         if ($status -ne 400) {
             throw "Expected 400, got $status"
         }
