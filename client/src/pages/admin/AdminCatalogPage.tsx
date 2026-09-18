@@ -8,7 +8,7 @@ import {
   updateService,
 } from '../../api/admin'
 import { getCategories, getServices, type CatalogService, type Category } from '../../api/catalog'
-import { ApiError } from '../../api/client'
+import { ApiError, fieldError } from '../../api/client'
 import { Roles } from '../../auth/roles'
 import { Button } from '../../components/Button'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
@@ -24,6 +24,8 @@ export function AdminCatalogPage() {
   const [error, setError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [categoryFieldErrors, setCategoryFieldErrors] = useState<Record<string, string[]>>({})
+  const [serviceFieldErrors, setServiceFieldErrors] = useState<Record<string, string[]>>({})
   const [categoryName, setCategoryName] = useState('')
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
   const [serviceName, setServiceName] = useState('')
@@ -64,6 +66,7 @@ export function AdminCatalogPage() {
     setBusy(true)
     setActionError(null)
     setSuccess(null)
+    setCategoryFieldErrors({})
     try {
       if (editingCategory) {
         await updateCategory(editingCategory.id, categoryName)
@@ -76,7 +79,12 @@ export function AdminCatalogPage() {
       setEditingCategory(null)
       await load()
     } catch (err) {
-      setActionError(err instanceof ApiError ? err.message : 'Could not save category.')
+      if (err instanceof ApiError) {
+        setActionError(err.message)
+        setCategoryFieldErrors(err.validationErrors)
+      } else {
+        setActionError('Could not save category.')
+      }
     } finally {
       setBusy(false)
     }
@@ -91,6 +99,7 @@ export function AdminCatalogPage() {
     setBusy(true)
     setActionError(null)
     setSuccess(null)
+    setServiceFieldErrors({})
     try {
       const payload = {
         name: serviceName,
@@ -107,7 +116,12 @@ export function AdminCatalogPage() {
       setEditingService(null)
       await load()
     } catch (err) {
-      setActionError(err instanceof ApiError ? err.message : 'Could not save service.')
+      if (err instanceof ApiError) {
+        setActionError(err.message)
+        setServiceFieldErrors(err.validationErrors)
+      } else {
+        setActionError('Could not save service.')
+      }
     } finally {
       setBusy(false)
     }
@@ -163,7 +177,10 @@ export function AdminCatalogPage() {
           <section className="dashboard-panel">
             <h2>Categories</h2>
             <form className="form" onSubmit={(event) => void handleCategorySubmit(event)}>
-              <FormField label={editingCategory ? 'Rename category' : 'New category'}>
+              <FormField
+                label={editingCategory ? 'Rename category' : 'New category'}
+                error={fieldError(categoryFieldErrors, 'name')}
+              >
                 <input
                   value={categoryName}
                   onChange={(event) => setCategoryName(event.target.value)}
@@ -228,7 +245,10 @@ export function AdminCatalogPage() {
           <section className="dashboard-panel">
             <h2>Services</h2>
             <form className="form" onSubmit={(event) => void handleServiceSubmit(event)}>
-              <FormField label="Category">
+              <FormField
+                label="Category"
+                error={fieldError(serviceFieldErrors, 'categoryId')}
+              >
                 <select
                   value={serviceCategoryId}
                   onChange={(event) => setServiceCategoryId(event.target.value)}
@@ -241,7 +261,10 @@ export function AdminCatalogPage() {
                   ))}
                 </select>
               </FormField>
-              <FormField label={editingService ? 'Rename service' : 'New service'}>
+              <FormField
+                label={editingService ? 'Rename service' : 'New service'}
+                error={fieldError(serviceFieldErrors, 'name')}
+              >
                 <input
                   value={serviceName}
                   onChange={(event) => setServiceName(event.target.value)}

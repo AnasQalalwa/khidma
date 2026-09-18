@@ -38,4 +38,35 @@ describe('LoginPage', () => {
       'Invalid email or password.',
     )
   })
+
+  it('maps API validation errors onto the email and password fields', async () => {
+    login.mockRejectedValue(
+      new ApiError('One or more validation errors occurred.', 400, {
+        title: 'One or more validation errors occurred.',
+        status: 400,
+        errors: {
+          Email: ['Email is invalid.'],
+          Password: ['Password is required.'],
+        },
+      }),
+    )
+
+    render(
+      <MemoryRouter>
+        <AuthContext.Provider value={createAuthValue({ login })}>
+          <LoginPage />
+        </AuthContext.Provider>
+      </MemoryRouter>,
+    )
+
+    const user = userEvent.setup()
+    await user.type(screen.getByLabelText('Email'), 'not-an-email@khidma.test')
+    await user.type(screen.getByLabelText('Password'), 'short')
+    await user.click(screen.getByRole('button', { name: 'Login' }))
+
+    expect(await screen.findByText('Email is invalid.')).toBeInTheDocument()
+    expect(screen.getByText('Password is required.')).toBeInTheDocument()
+    expect(screen.getByLabelText('Email')).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByLabelText('Password')).toHaveAttribute('aria-invalid', 'true')
+  })
 })

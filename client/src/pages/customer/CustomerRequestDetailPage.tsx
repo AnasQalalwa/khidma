@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { acceptOffer } from '../../api/offers'
 import { ApiError } from '../../api/client'
 import { cancelServiceRequest, getCustomerRequest } from '../../api/requests'
@@ -17,11 +17,14 @@ import { formatBudget, formatDate } from '../../utils/format'
 export function CustomerRequestDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const requestId = Number(id)
+  const notice = (location.state as { notice?: string } | null)?.notice
   const [data, setData] = useState<RequestDetailForCustomer | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [acceptConflict, setAcceptConflict] = useState(false)
   const [cancelOpen, setCancelOpen] = useState(false)
   const [acceptId, setAcceptId] = useState<number | null>(null)
   const [busy, setBusy] = useState(false)
@@ -72,11 +75,18 @@ export function CustomerRequestDetailPage() {
 
     setBusy(true)
     setActionError(null)
+    setAcceptConflict(false)
     try {
       const booking = await acceptOffer(acceptId)
       navigate(`/customer/bookings/${booking.id}`)
     } catch (err) {
-      setActionError(err instanceof ApiError ? err.message : 'Could not accept the offer.')
+      if (err instanceof ApiError) {
+        setActionError(err.message)
+        setAcceptConflict(err.status === 409)
+        setAcceptId(null)
+      } else {
+        setActionError('Could not accept the offer.')
+      }
     } finally {
       setBusy(false)
     }
@@ -96,9 +106,29 @@ export function CustomerRequestDetailPage() {
             description={data.description}
             actions={<StatusBadge status={data.status} />}
           />
+          {notice ? (
+            <div className="alert alert-success" role="status">
+              {notice}
+            </div>
+          ) : null}
           {actionError ? (
             <div className="alert" role="alert">
-              {actionError}
+              <p>{actionError}</p>
+              {acceptConflict ? (
+                <div className="dashboard-actions">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => {
+                      setActionError(null)
+                      setAcceptConflict(false)
+                      void load()
+                    }}
+                  >
+                    Reload offers
+                  </Button>
+                </div>
+              ) : null}
             </div>
           ) : null}
           <dl className="detail-grid">

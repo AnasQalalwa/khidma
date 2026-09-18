@@ -3,13 +3,16 @@ import {
   useId,
   type InputHTMLAttributes,
   type ReactElement,
+  type SelectHTMLAttributes,
   type TextareaHTMLAttributes,
 } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { Icon } from './icons'
 
 type ControlElement = ReactElement<
-  InputHTMLAttributes<HTMLInputElement> | TextareaHTMLAttributes<HTMLTextAreaElement>
+  | InputHTMLAttributes<HTMLInputElement>
+  | TextareaHTMLAttributes<HTMLTextAreaElement>
+  | SelectHTMLAttributes<HTMLSelectElement>
 >
 
 export function FormField({

@@ -74,3 +74,19 @@ Added: admin registration variants (`Admin`/`admin`/` Admin `), path-traversal u
 | Tests without asserts | None. |
 
 Auth and catalog domain decisions now live in `AuthService` / `CatalogService`. `TreatWarningsAsErrors` is on both csproj files. Query counts: `docs/decisions.md` ADR 18.
+
+## Phase 4 — Frontend quality (18 September 2026)
+
+| Command | Result |
+| --- | --- |
+| `npx tsc -b` | Passed (`"strict": true` already on in `tsconfig.app.json`; no `any` escapes added). |
+| `npm run lint` | Passed. |
+| `npm run test` | **29 passed**, 0 failed, 15 files. |
+| `npm run build` | Passed. |
+| `dotnet test -c Release` | **114 passed**, 0 failed, 2 skipped. |
+
+UI: EmptyState on admin dashboard / user audit / public provider services / document lists; request-form retry; catalog and login field errors; accept 409 shows the server message plus **Reload offers**; request save and offer withdraw use `role="status"`. Submit buttons on mutation forms already use `loading` (disabled while in flight).
+
+A11y: labels, `:focus-visible`, `StatusBadge` text, and `aria-invalid` on mapped field errors. No `dangerouslySetInnerHTML`.
+
+Responsive: `.table-wrap` and `overflow-x: clip` are in place. Live 360/768/1280 screenshots are blocked until SQL Server starts (SPA bootstrap requires `/api/auth/me`). Capture checklist: `docs/screenshots/README.md`. Playwright was not added.

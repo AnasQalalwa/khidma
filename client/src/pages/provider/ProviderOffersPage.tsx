@@ -17,6 +17,7 @@ export function ProviderOffersPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<number | null>(null)
   const [data, setData] = useState<PagedResult<OfferMine> | null>(null)
 
@@ -45,8 +46,10 @@ export function ProviderOffersPage() {
   async function handleWithdraw(id: number) {
     setBusyId(id)
     setActionError(null)
+    setSuccess(null)
     try {
       await withdrawOffer(id)
+      setSuccess('Offer withdrawn.')
       await load()
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : 'Could not withdraw the offer.')
@@ -62,6 +65,11 @@ export function ProviderOffersPage() {
         title="My offers"
         description="Track pending, accepted, rejected, and withdrawn offers."
       />
+      {success ? (
+        <div className="alert alert-success" role="status">
+          {success}
+        </div>
+      ) : null}
       {actionError ? (
         <div className="alert" role="alert">
           {actionError}

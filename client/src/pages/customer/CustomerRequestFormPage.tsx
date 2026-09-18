@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { FilePlus2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { getServices } from '../../api/catalog'
@@ -39,58 +39,47 @@ export function CustomerRequestFormPage({ requestId }: { requestId?: number }) {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({})
+  const [success, setSuccess] = useState<string | null>(null)
 
-  useEffect(() => {
-    let cancelled = false
-
-    async function load() {
-      try {
-        const catalog = await getServices()
-        if (!cancelled) {
-          setServices(catalog)
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setServicesError(
-            err instanceof ApiError ? err.message : 'Could not load services.',
-          )
-        }
-      }
-
-      if (requestId === undefined) {
-        if (!cancelled) {
-          setLoading(false)
-        }
-        return
-      }
-
-      try {
-        const detail = await getCustomerRequest(requestId)
-        if (!cancelled) {
-          setServiceId(String(detail.serviceId))
-          setTitle(detail.title)
-          setDescription(detail.description)
-          setCity(detail.city)
-          setPreferredDate(toDateTimeLocal(detail.preferredDate))
-          setBudgetMin(detail.budgetMin == null ? '' : String(detail.budgetMin))
-          setBudgetMax(detail.budgetMax == null ? '' : String(detail.budgetMax))
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setLoadError(err instanceof ApiError ? err.message : 'Could not load request.')
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false)
-        }
-      }
+  const load = useCallback(async () => {
+    setLoading(true)
+    setLoadError(null)
+    setServicesError(null)
+    try {
+      const catalog = await getServices()
+      setServices(catalog)
+    } catch (err) {
+      setServicesError(
+        err instanceof ApiError ? err.message : 'Could not load services.',
+      )
+      setLoading(false)
+      return
     }
 
-    void load()
-    return () => {
-      cancelled = true
+    if (requestId === undefined) {
+      setLoading(false)
+      return
+    }
+
+    try {
+      const detail = await getCustomerRequest(requestId)
+      setServiceId(String(detail.serviceId))
+      setTitle(detail.title)
+      setDescription(detail.description)
+      setCity(detail.city)
+      setPreferredDate(toDateTimeLocal(detail.preferredDate))
+      setBudgetMin(detail.budgetMin == null ? '' : String(detail.budgetMin))
+      setBudgetMax(detail.budgetMax == null ? '' : String(detail.budgetMax))
+    } catch (err) {
+      setLoadError(err instanceof ApiError ? err.message : 'Could not load request.')
+    } finally {
+      setLoading(false)
     }
   }, [requestId])
+
+  useEffect(() => {
+    void load()
+  }, [load])
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -118,7 +107,10 @@ export function CustomerRequestFormPage({ requestId }: { requestId?: number }) {
             serviceId: Number(serviceId),
             city,
           })
-      navigate(`/customer/requests/${saved.id}`)
+      setSuccess(isEdit ? 'Request updated.' : 'Request created.')
+      navigate(`/customer/requests/${saved.id}`, {
+        state: { notice: isEdit ? 'Request updated.' : 'Request created.' },
+      })
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message)
@@ -140,13 +132,26 @@ export function CustomerRequestFormPage({ requestId }: { requestId?: number }) {
       />
       {loading ? <LoadingState label="Loading request form" count={2} /> : null}
       {loadError ? (
-        <ErrorState title="Unable to load request" description={loadError} />
+        <ErrorState
+          title="Unable to load request"
+          description={loadError}
+          onRetry={() => void load()}
+        />
       ) : null}
       {servicesError ? (
-        <ErrorState title="Unable to load services" description={servicesError} />
+        <ErrorState
+          title="Unable to load services"
+          description={servicesError}
+          onRetry={() => void load()}
+        />
       ) : null}
       {!loading && !loadError && !servicesError ? (
         <form className="form workspace-form" onSubmit={(event) => void handleSubmit(event)}>
+          {success ? (
+            <div className="alert alert-success" role="status">
+              {success}
+            </div>
+          ) : null}
           {error ? (
             <div className="alert" role="alert">
               {error}

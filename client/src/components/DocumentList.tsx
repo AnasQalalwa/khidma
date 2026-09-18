@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import type { VerificationDocument } from '../api/types'
 import { formatBytes, formatDate, statusLabel } from '../utils/format'
+import { EmptyState } from './States'
 import { StatusBadge } from './StatusBadge'
 
 export function DocumentList({
@@ -13,7 +14,7 @@ export function DocumentList({
   renderActions?: (document: VerificationDocument) => ReactNode
 }) {
   if (documents.length === 0) {
-    return <p className="muted">{empty}</p>
+    return <EmptyState title="No documents" description={empty} />
   }
 
   return (

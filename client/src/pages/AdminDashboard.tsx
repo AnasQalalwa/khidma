@@ -18,7 +18,7 @@ import { Button } from '../components/Button'
 import { DashboardPanel, DashboardShell } from '../components/DashboardShell'
 import { StatCard } from '../components/StatCard'
 import { StatusBadge } from '../components/StatusBadge'
-import { ErrorState, LoadingState } from '../components/States'
+import { EmptyState, ErrorState, LoadingState } from '../components/States'
 import { WorkspaceLayout } from '../components/WorkspaceLayout'
 import { formatDate } from '../utils/format'
 
@@ -134,12 +134,18 @@ export function AdminDashboard() {
                   ))}
                 </ul>
               ) : (
-                <p className="muted">No items need attention right now.</p>
+                <EmptyState
+                  title="Nothing needs attention"
+                  description="No verification or moderation items are waiting."
+                />
               )}
             </DashboardPanel>
             <DashboardPanel title="Recent activity" description="Latest security and marketplace events.">
               {recent.length === 0 ? (
-                <p className="muted">No audit events yet.</p>
+                <EmptyState
+                  title="No audit events yet"
+                  description="Security and marketplace actions will show up here."
+                />
               ) : (
                 <ul className="plain-list">
                   {recent.map((event) => (

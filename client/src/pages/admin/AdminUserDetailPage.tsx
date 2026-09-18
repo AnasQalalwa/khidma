@@ -7,7 +7,7 @@ import { Roles } from '../../auth/roles'
 import { Button } from '../../components/Button'
 import { PageHeader } from '../../components/PageHeader'
 import { StatusBadge } from '../../components/StatusBadge'
-import { ErrorState, LoadingState } from '../../components/States'
+import { EmptyState, ErrorState, LoadingState } from '../../components/States'
 import { WorkspaceLayout } from '../../components/WorkspaceLayout'
 import { formatDate, formatRating } from '../../utils/format'
 
@@ -95,7 +95,10 @@ export function AdminUserDetailPage() {
           ) : null}
           <h2>Recent audit events</h2>
           {data.recentAuditEvents.length === 0 ? (
-            <p className="muted">No recent events for this user.</p>
+            <EmptyState
+              title="No recent events"
+              description="This account has no audit history yet."
+            />
           ) : (
             <ul className="plain-list">
               {data.recentAuditEvents.map((event) => (

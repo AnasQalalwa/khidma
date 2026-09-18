@@ -7,7 +7,7 @@ import {
   Users,
 } from 'lucide-react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { ApiError } from '../api/client'
+import { ApiError, fieldError } from '../api/client'
 import { useAuth } from '../auth/useAuth'
 import { dashboardPath } from '../auth/roles'
 import { AuthShell } from '../components/AuthShell'
@@ -23,6 +23,7 @@ export function LoginPage() {
   const [password, setPassword] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({})
 
   if (authenticated && user) {
     return <Navigate to={dashboardPath(user.role)} replace />
@@ -36,6 +37,7 @@ export function LoginPage() {
 
     setSubmitting(true)
     setError(null)
+    setFieldErrors({})
 
     try {
       const current = await login({ email, password })
@@ -46,6 +48,7 @@ export function LoginPage() {
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message)
+        setFieldErrors(err.validationErrors)
       } else {
         setError('Login failed.')
       }
@@ -95,7 +98,7 @@ export function LoginPage() {
             {error}
           </div>
         ) : null}
-        <FormField label="Email" icon={Mail}>
+        <FormField label="Email" icon={Mail} error={fieldError(fieldErrors, 'email')}>
           <input
             type="email"
             autoComplete="email"
@@ -112,6 +115,7 @@ export function LoginPage() {
           autoComplete="current-password"
           placeholder="Enter your password"
           required
+          error={fieldError(fieldErrors, 'password')}
         />
         <Button type="submit" block loading={submitting} iconRight={ArrowRight}>
           {submitting ? 'Signing in…' : 'Login'}

@@ -66,7 +66,10 @@ export function PublicProviderPage() {
       <section className="dashboard-panel">
         <h2>Services</h2>
         {data.services.length === 0 ? (
-          <p className="muted">No services listed yet.</p>
+          <EmptyState
+            title="No services listed"
+            description="This provider has not chosen services yet."
+          />
         ) : (
           <ul className="chip-list">
             {data.services.map((service) => (
