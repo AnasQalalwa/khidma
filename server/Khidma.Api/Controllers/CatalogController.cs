@@ -1,91 +1,43 @@
 using Khidma.Api.Contracts.Catalog;
-using Khidma.Api.Data;
+using Khidma.Api.Services.Catalog;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace Khidma.Api.Controllers;
 
 [ApiController]
 [Route("api/catalog")]
 [AllowAnonymous]
-public sealed class CatalogController : ControllerBase
+public sealed class CatalogController : ApiControllerBase
 {
-    private readonly AppDbContext _db;
+    private readonly ICatalogService _catalog;
 
-    public CatalogController(AppDbContext db)
+    public CatalogController(ICatalogService catalog)
     {
-        _db = db;
+        _catalog = catalog;
     }
 
     [HttpGet("categories")]
     public async Task<ActionResult<IReadOnlyList<CategoryDto>>> GetCategories(
         CancellationToken cancellationToken)
     {
-        var categories = await _db.Categories
-            .AsNoTracking()
-            .OrderBy(c => c.Name)
-            .Select(c => new CategoryDto
-            {
-                Id = c.Id,
-                Name = c.Name
-            })
-            .ToListAsync(cancellationToken);
-
-        return Ok(categories);
+        return Ok(await _catalog.GetCategoriesAsync(cancellationToken));
     }
 
     [HttpGet("services")]
     public async Task<ActionResult<IReadOnlyList<ServiceDto>>> GetServices(
         CancellationToken cancellationToken)
     {
-        var services = await _db.Services
-            .AsNoTracking()
-            .OrderBy(s => s.Category.Name)
-            .ThenBy(s => s.Name)
-            .Select(s => new ServiceDto
-            {
-                Id = s.Id,
-                Name = s.Name,
-                CategoryId = s.CategoryId,
-                CategoryName = s.Category.Name
-            })
-            .ToListAsync(cancellationToken);
-
-        return Ok(services);
+        return Ok(await _catalog.GetServicesAsync(cancellationToken));
     }
 
     [HttpGet("categories/{categoryId:int}/services")]
-    public async Task<ActionResult<IReadOnlyList<ServiceDto>>> GetServicesByCategory(
+    public async Task<IActionResult> GetServicesByCategory(
         int categoryId,
         CancellationToken cancellationToken)
     {
-        var categoryExists = await _db.Categories
-            .AsNoTracking()
-            .AnyAsync(c => c.Id == categoryId, cancellationToken);
-
-        if (!categoryExists)
-        {
-            return NotFound(new ProblemDetails
-            {
-                Status = StatusCodes.Status404NotFound,
-                Title = "Category not found."
-            });
-        }
-
-        var services = await _db.Services
-            .AsNoTracking()
-            .Where(s => s.CategoryId == categoryId)
-            .OrderBy(s => s.Name)
-            .Select(s => new ServiceDto
-            {
-                Id = s.Id,
-                Name = s.Name,
-                CategoryId = s.CategoryId,
-                CategoryName = s.Category.Name
-            })
-            .ToListAsync(cancellationToken);
-
-        return Ok(services);
+        return FromResult(await _catalog.GetServicesByCategoryAsync(
+            categoryId,
+            cancellationToken));
     }
 }

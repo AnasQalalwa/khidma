@@ -12,4 +12,19 @@ public static class ClaimsPrincipalExtensions
 
     public static string? GetRole(this ClaimsPrincipal user) =>
         user.FindFirstValue(ClaimTypes.Role);
+
+    public static string ResolveWorkspaceRole(this ClaimsPrincipal user)
+    {
+        if (user.IsInRole(AppRoles.Admin))
+        {
+            return AppRoles.Admin;
+        }
+
+        if (user.IsInRole(AppRoles.Provider))
+        {
+            return AppRoles.Provider;
+        }
+
+        return AppRoles.Customer;
+    }
 }

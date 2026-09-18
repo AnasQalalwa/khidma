@@ -46,4 +46,16 @@ public sealed class CatalogEndpointsTests : IClassFixture<KhidmaApiFactory>
         Assert.Contains(services, s => s.Name == "Plumbing");
         Assert.Contains(services, s => s.CategoryName == "Home Services");
     }
+
+    [Fact]
+    public async Task GetServicesByMissingCategory_Returns404()
+    {
+        var client = _factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false
+        });
+
+        var response = await client.GetAsync("/api/catalog/categories/99999/services");
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
 }

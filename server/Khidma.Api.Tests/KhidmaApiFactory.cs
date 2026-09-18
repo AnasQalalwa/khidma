@@ -133,9 +133,13 @@ public sealed class KhidmaApiFactory : WebApplicationFactory<Program>
                 Directory.Delete(_documentRoot, recursive: true);
             }
         }
-        catch
+        catch (IOException)
         {
-            // Temp cleanup is best-effort in tests.
+            Console.Error.WriteLine($"Could not delete test documents at {_documentRoot}.");
+        }
+        catch (UnauthorizedAccessException)
+        {
+            Console.Error.WriteLine($"Could not delete test documents at {_documentRoot}.");
         }
     }
 

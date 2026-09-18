@@ -16,15 +16,18 @@ public sealed class ProviderVerificationService : IProviderVerificationService
     private readonly AppDbContext _db;
     private readonly IProviderDocumentStorage _storage;
     private readonly IAuditService _audit;
+    private readonly ILogger<ProviderVerificationService> _logger;
 
     public ProviderVerificationService(
         AppDbContext db,
         IProviderDocumentStorage storage,
-        IAuditService audit)
+        IAuditService audit,
+        ILogger<ProviderVerificationService> logger)
     {
         _db = db;
         _storage = storage;
         _audit = audit;
+        _logger = logger;
     }
 
     public async Task<ServiceResult<ProviderVerificationDto>> GetMineAsync(
@@ -364,6 +367,12 @@ public sealed class ProviderVerificationService : IProviderVerificationService
         document.ReviewedByUserId = adminUserId;
         await _db.SaveChangesAsync(cancellationToken);
 
+        _logger.LogInformation(
+            "Admin {AdminUserId} reviewed verification document {DocumentId} as {Status}",
+            adminUserId,
+            document.Id,
+            status);
+
         await _audit.RecordAsync(new AuditEntry
         {
             Category = AuditCategories.Admin,
@@ -430,6 +439,11 @@ public sealed class ProviderVerificationService : IProviderVerificationService
             profile.VerificationReviewedByUserId = adminUserId;
             await _db.SaveChangesAsync(cancellationToken);
 
+            _logger.LogInformation(
+                "Admin {AdminUserId} approved provider {ProviderProfileId}",
+                adminUserId,
+                profile.Id);
+
             await _audit.RecordAsync(new AuditEntry
             {
                 Category = AuditCategories.Admin,
@@ -454,6 +468,11 @@ public sealed class ProviderVerificationService : IProviderVerificationService
             profile.VerificationReviewedAt = DateTimeOffset.UtcNow;
             profile.VerificationReviewedByUserId = adminUserId;
             await _db.SaveChangesAsync(cancellationToken);
+
+            _logger.LogInformation(
+                "Admin {AdminUserId} rejected provider {ProviderProfileId}",
+                adminUserId,
+                profile.Id);
 
             await _audit.RecordAsync(new AuditEntry
             {
@@ -549,6 +568,13 @@ public sealed class ProviderVerificationService : IProviderVerificationService
                 {
                     await transaction.CommitAsync(cancellationToken);
                 }
+
+                _logger.LogInformation(
+                    "Admin {AdminUserId} {Action} provider {ProviderProfileId}; pending offers rejected {RejectedCount}",
+                    adminUserId,
+                    request.Suspended ? "suspended" : "reactivated",
+                    profile.Id,
+                    rejectedPending);
 
                 await _audit.RecordAsync(new AuditEntry
                 {

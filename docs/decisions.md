@@ -141,3 +141,18 @@ DTOs that link to a public profile include both `providerId` and `providerProfil
 
 **Rejected alternative.** Map antiforgery failures to 403 Forbidden so the status matches "you are not allowed." That confuses CSRF (the request is malformed) with authorization (the user is the wrong principal).
 
+## ADR 18 — Dashboard and available-feed query counts
+
+**Decision.** Enable `Microsoft.EntityFrameworkCore.Database.Command` = Information and `EnableSensitiveDataLogging` in Development only. Dashboards and `GET /api/service-requests/available` already use `Select` projections (no per-row round trips).
+
+| Endpoint | Round trips (LINQ, after this pass) |
+| --- | --- |
+| `GET /api/dashboard/customer` | 6 (`Count` × 4 + recent requests + active bookings) |
+| `GET /api/dashboard/provider` | 7 (profile + eligible count + pending offers + active bookings + 3 projected lists) |
+| `GET /api/admin/stats` | One `CountAsync` per counter (independent aggregates, not N+1) |
+| `GET /api/service-requests/available` | 2 (provider profile + one projected page) |
+
+Live `Executed DbCommand` capture against SQL Server is blocked until LocalDB starts. There was no N+1 to fix; counts above are the after state and match the before state in source.
+
+**Pagination.** `PageQuery` caps `pageSize` at 50 (audit logs 100). Catalog lists and `GET /service-requests/{id}/offers` are unpaged because they are bounded by the catalog size and the unique-offer-per-provider rule.
+

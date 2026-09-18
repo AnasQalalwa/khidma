@@ -71,4 +71,12 @@ public sealed class ServiceResult<T>
         StatusCode = StatusCodes.Status401Unauthorized,
         Title = title
     };
+
+    public static ServiceResult<T> BadRequest(string title, string? detail = null) => new()
+    {
+        Succeeded = false,
+        StatusCode = StatusCodes.Status400BadRequest,
+        Title = title,
+        Detail = detail
+    };
 }

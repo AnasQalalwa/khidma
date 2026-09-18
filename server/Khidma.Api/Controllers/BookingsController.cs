@@ -28,13 +28,9 @@ public sealed class BookingsController : ApiControllerBase
         [FromQuery] PageQuery paging,
         CancellationToken cancellationToken)
     {
-        var role = User.IsInRole(AppRoles.Provider)
-            ? AppRoles.Provider
-            : AppRoles.Customer;
-
         return FromResult(await _bookings.GetMineAsync(
             RequireUserId(),
-            role,
+            CallerRole(),
             paging,
             cancellationToken));
     }
@@ -47,7 +43,7 @@ public sealed class BookingsController : ApiControllerBase
         return FromResult(await _bookings.GetByIdAsync(
             id,
             RequireUserId(),
-            User.IsInRole(AppRoles.Admin),
+            CallerIsAdmin(),
             cancellationToken));
     }
 
@@ -111,7 +107,7 @@ public sealed class BookingsController : ApiControllerBase
         return FromResult(await _reviews.GetForBookingAsync(
             id,
             RequireUserId(),
-            User.IsInRole(AppRoles.Admin),
+            CallerIsAdmin(),
             cancellationToken));
     }
 }

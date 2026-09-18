@@ -21,6 +21,10 @@ if (!builder.Environment.IsEnvironment("Testing"))
     builder.Services.AddDbContext<AppDbContext>(options =>
     {
         options.UseSqlServer(connectionString);
+        if (builder.Environment.IsDevelopment())
+        {
+            options.EnableSensitiveDataLogging();
+        }
     });
 }
 
@@ -80,6 +84,8 @@ builder.Services.Configure<ProviderDocumentStorageOptions>(
 builder.Services.AddSingleton<IProviderDocumentStorage, LocalProviderDocumentStorage>();
 builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<UserRegistrationService>();
+builder.Services.AddScoped<Khidma.Api.Services.Auth.IAuthService, Khidma.Api.Services.Auth.AuthService>();
+builder.Services.AddScoped<Khidma.Api.Services.Catalog.ICatalogService, Khidma.Api.Services.Catalog.CatalogService>();
 builder.Services.AddScoped<Khidma.Api.Services.ServiceRequests.IServiceRequestService, Khidma.Api.Services.ServiceRequests.ServiceRequestService>();
 builder.Services.AddScoped<Khidma.Api.Services.Offers.IOfferService, Khidma.Api.Services.Offers.OfferService>();
 builder.Services.AddScoped<Khidma.Api.Services.Bookings.IBookingService, Khidma.Api.Services.Bookings.BookingService>();

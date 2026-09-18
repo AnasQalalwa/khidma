@@ -64,3 +64,13 @@ Unblock steps are in `docs/security-matrix.md`.
 | Live `scripts/security-matrix.ps1` | Not executed (no SQL Server). Cases covered by xUnit; script is ready. |
 
 Added: admin registration variants (`Admin`/`admin`/` Admin `), path-traversal upload 400, CSRF documented as 400 (ADR 17).
+
+## Phase 3 — Code quality (18 September 2026)
+
+| Command | Result |
+| --- | --- |
+| `dotnet test -c Release` | **114 passed**, 0 failed, 2 skipped. |
+| Empty `catch` | Removed from `KhidmaApiFactory`; remaining catches log or rethrow. |
+| Tests without asserts | None. |
+
+Auth and catalog domain decisions now live in `AuthService` / `CatalogService`. `TreatWarningsAsErrors` is on both csproj files. Query counts: `docs/decisions.md` ADR 18.

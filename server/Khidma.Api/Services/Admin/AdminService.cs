@@ -17,18 +17,15 @@ public sealed class AdminService : IAdminService
     private readonly AppDbContext _db;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IAuditService _audit;
-    private readonly ILogger<AdminService> _logger;
 
     public AdminService(
         AppDbContext db,
         UserManager<ApplicationUser> userManager,
-        IAuditService audit,
-        ILogger<AdminService> logger)
+        IAuditService audit)
     {
         _db = db;
         _userManager = userManager;
         _audit = audit;
-        _logger = logger;
     }
 
     public async Task<AdminStatsDto> GetStatsAsync(CancellationToken cancellationToken)

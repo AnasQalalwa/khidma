@@ -65,16 +65,10 @@ public sealed class ServiceRequestsController : ApiControllerBase
         int id,
         CancellationToken cancellationToken)
     {
-        var role = User.IsInRole(AppRoles.Admin)
-            ? AppRoles.Admin
-            : User.IsInRole(AppRoles.Provider)
-                ? AppRoles.Provider
-                : AppRoles.Customer;
-
         return FromResult(await _requests.GetByIdAsync(
             id,
             RequireUserId(),
-            role,
+            CallerRole(),
             cancellationToken));
     }
 

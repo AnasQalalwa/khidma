@@ -13,6 +13,10 @@ public abstract class ApiControllerBase : ControllerBase
             ?? throw new InvalidOperationException("Authenticated user id is missing.");
     }
 
+    protected string CallerRole() => User.ResolveWorkspaceRole();
+
+    protected bool CallerIsAdmin() => User.IsInRole(AppRoles.Admin);
+
     protected IActionResult FromResult<T>(ServiceResult<T> result)
     {
         if (result.Succeeded)

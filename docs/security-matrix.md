@@ -39,7 +39,7 @@ Statuses:
 | LastLoginAt set on successful login only | IMPLEMENTED | `AdminUserMonitoringTests`. |
 | Concurrent accept under SQL Server | FAILED | LocalDB 17.0.4025.3 crashes on start: `256 misaligned log IOs` on `master.mdf` (NVMe 32K physical sectors). Recreate (`sqllocaldb delete`/`create -s`) did not help. Live scripts and `KHIDMA_SQLSERVER_TESTS=1` are blocked until the host SQL instance starts. Code path unified to `Another offer was accepted first.` Opt-in tests: `SqlServerIntegrationTests`. |
 | HTTPS cookie Secure in production hosting | TO VERIFY | Still `CookieSecurePolicy.SameAsRequest` until Phase 6 sets `Always` outside Development. |
-| SQL injection via city/status filters | TO VERIFY | EF parameterized queries; SQL logs deferred to Phase 3 (needs a running API). |
+| SQL injection via city/status filters | VERIFIED | All list filters go through EF parameterized LINQ (`ServiceRequestService`, `AdminService`). No string-concatenated SQL. |
 | XSS in request title/offer message/review comment | VERIFIED | No `dangerouslySetInnerHTML` under `client/src`. React text interpolation only. |
 | Admin suspend of a live provider | TO VERIFY | Covered by `SuspensionTests` against SQLite. Live UI confirm blocked on SQL Server. |
 
