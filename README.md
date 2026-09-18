@@ -1,5 +1,7 @@
 # Khidma
 
+![Khidma](docs/brand/khidma-logo.png)
+
 Khidma is a local service marketplace. Customers publish requests, eligible providers submit offers, the customer accepts exactly one offer, and the booking is started, completed, and reviewed.
 
 **Deployed URL:** _TBD after Azure deploy_ — see `deploy/AZURE_DEPLOY.md`.

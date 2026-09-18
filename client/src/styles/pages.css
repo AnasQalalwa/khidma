@@ -521,6 +521,10 @@
   gap: 0.85rem;
 }
 
+.auth-copy .brand {
+  justify-self: start;
+}
+
 .auth-visual .eyebrow {
   margin-bottom: 0;
   color: var(--color-primary);
