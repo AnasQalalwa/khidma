@@ -64,6 +64,10 @@
   grid-column: span 5;
 }
 
+.admin-card-start {
+  align-self: start;
+}
+
 .admin-span-4 {
   grid-column: span 4;
 }
@@ -345,13 +349,35 @@
 
 .hide-auth {
   display: inline-flex;
+  flex-direction: row;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.5rem;
   min-height: 42px;
-  flex-shrink: 0;
+  width: auto;
+  max-width: none;
+  flex: 0 0 auto;
   white-space: nowrap;
   font-size: 13px;
   font-weight: 600;
+  color: var(--color-heading);
+  cursor: pointer;
+}
+
+.admin-page .filter-bar-actions {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  flex: 0 0 auto;
+  align-self: flex-end;
+  white-space: nowrap;
+}
+
+.admin-page .filter-bar-actions .btn {
+  height: 42px;
+  min-height: 42px;
+  padding-block: 0;
+  flex-shrink: 0;
 }
 
 .admin-page .filter-bar {
@@ -447,9 +473,14 @@
 
   .admin-page .filter-bar > label:not(.hide-auth),
   .admin-page .filter-bar > .filter-search,
-  .admin-page .filter-bar > .btn {
+  .admin-page .filter-bar > .btn,
+  .admin-page .filter-bar-actions {
     flex: 1 1 100%;
     max-width: none;
     width: 100%;
+  }
+
+  .admin-page .filter-bar-actions {
+    justify-content: flex-start;
   }
 }

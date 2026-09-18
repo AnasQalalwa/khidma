@@ -264,18 +264,20 @@ export function AdminAuditPage() {
             onChange={(event) => setSearch(event.target.value)}
           />
         </label>
-        <label className="hide-auth" htmlFor="audit-hide-auth">
-          <input
-            id="audit-hide-auth"
-            type="checkbox"
-            checked={hideAuth}
-            onChange={(event) => setHideAuth(event.target.checked)}
-          />
-          Hide login and logout
-        </label>
-        <button className="btn btn-secondary btn-sm" type="submit">
-          Apply filters
-        </button>
+        <div className="filter-bar-actions">
+          <label className="hide-auth" htmlFor="audit-hide-auth">
+            <input
+              id="audit-hide-auth"
+              type="checkbox"
+              checked={hideAuth}
+              onChange={(event) => setHideAuth(event.target.checked)}
+            />
+            Hide login and logout
+          </label>
+          <button className="btn btn-secondary btn-sm" type="submit">
+            Apply filters
+          </button>
+        </div>
       </form>
       {loading ? <LoadingState label="Loading audit logs" /> : null}
       {error ? (

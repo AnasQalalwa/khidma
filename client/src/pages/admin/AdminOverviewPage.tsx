@@ -149,7 +149,7 @@ export function AdminOverviewPage() {
         </SectionCard>
 
         <SectionCard
-          className="admin-span-5"
+          className="admin-span-5 admin-card-start"
           title="Needs attention"
           status={status}
           error={error}
