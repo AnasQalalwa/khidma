@@ -38,7 +38,7 @@
 
 .brand-logo {
   display: block;
-  height: 36px;
+  height: 32px;
   width: auto;
 }
 
@@ -48,12 +48,21 @@
   width: auto;
 }
 
-@media (max-width: 767px) {
-  .brand-logo {
+.brand-full .brand-logo {
+  display: block;
+  height: 48px;
+}
+
+.brand-full .brand-mark-img {
+  display: none;
+}
+
+@media (max-width: 479px) {
+  .brand:not(.brand-full) .brand-logo {
     display: none;
   }
 
-  .brand-mark-img {
+  .brand:not(.brand-full) .brand-mark-img {
     display: block;
   }
 }

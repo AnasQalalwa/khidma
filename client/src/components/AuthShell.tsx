@@ -29,7 +29,7 @@ export function AuthShell({
     <div className={`auth-shell auth-shell-${variant}`}>
       <aside className="auth-visual">
         <div className="auth-copy">
-          <BrandLink />
+          <BrandLink size="full" />
           <span className="eyebrow">{eyebrow}</span>
           <h2 className="auth-title">{title}</h2>
           <p className="auth-lead">{description}</p>
