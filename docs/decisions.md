@@ -156,3 +156,40 @@ Live `Executed DbCommand` capture against SQL Server is blocked until LocalDB st
 
 **Pagination.** `PageQuery` caps `pageSize` at 50 (audit logs 100). Catalog lists and `GET /service-requests/{id}/offers` are unpaged because they are bounded by the catalog size and the unique-offer-per-provider rule.
 
+## ADR 19 — Verification documents (scope)
+
+**Decision.** Keep professional proof as a first-class upload, even though plan v2 cut *request* photo uploads and said “no file uploads.” Providers upload PDF/JPEG/PNG identity evidence. Admin must approve at least one document before the provider can be `Approved` (ADR 9, ADR 16).
+
+**Why added.** A boolean `IsApproved` toggle is not a trust gate. The marketplace eligibility rule (`Approved` + not suspended + service + city) is load-bearing; without documents an admin can mark a stranger live with no evidence. Request photos stay out of scope (no `RequestImage` entity).
+
+**Security controls.** Extension + declared content type + magic bytes must agree. Size 1 byte–10 MB. Original name must equal `Path.GetFileName` and must not contain `..`. Stored names are GUIDs under `ProviderDocuments:RootPath` (default `{ContentRoot}/App_Data/provider-documents`), never `wwwroot`. Downloads are authorized `File()` results. Another provider cannot download a peer’s file (403/404).
+
+**Tests.** `VerificationDocumentTests` (allowed types, exe, wrong extension, magic-byte mismatch, 10 MB + 1, path traversal, peer download). Admin approval blocked until a document is `Approved` (`ProviderVerificationDecisionTests`).
+
+**Limitations.** Local disk is not multi-instance. The successor is Azure Blob Storage with the same `IProviderDocumentStorage` contract. Files are not virus-scanned.
+
+## ADR 20 — Provider suspension (scope)
+
+**Decision.** Admins can suspend or reactivate a provider with a required reason. Suspension is a boolean plus `SuspensionReason` / `SuspendedAt` / `SuspendedByUserId`. It is not time-boxed.
+
+**Why added.** Plan v2 reduced admin to catalog + approval + a stat strip and explicitly dropped block/suspend. Live marketplace abuse (spam offers, misconduct) still needs an immediate kill switch that does not wait for a verification re-review. Complaints as a domain stay out of scope.
+
+**Security controls.** Admin-only endpoint. Reason required on suspend. Eligibility excludes suspended providers (empty `available` 200, offer POST 403, ineligible request detail 404). Pending offers are rejected; in-flight bookings are not mutated so work already accepted can finish. Actions are audited and logged with `{AdminUserId}`.
+
+**Tests.** `SuspensionTests` (reason required, non-admin 403, feed exclusion, offer 403, pending offers rejected, bookings still completable, reactivation restores eligibility).
+
+**Limitations.** No automatic expiry. Reactivation is a manual admin action. Suspension does not delete documents or the Identity user.
+
+## ADR 21 — Audit logging (scope)
+
+**Decision.** Persist an append-only `AuditLog` (no foreign keys, no update/delete API) for auth, marketplace, and admin trust events. `IAuditService.RecordAsync` runs after the business commit and swallows persistence failures after a warning log.
+
+**Why added.** Plan v2 had no audit table. Verification, document review, and suspension are high-impact admin actions; login success/failure needs a trail without storing secrets. Traceability is part of the Week 4 security story, not a new product feature.
+
+**Security controls.** Details are an explicit dictionary; forbidden keys and raw bytes are dropped. Passwords, cookie names, and antiforgery tokens must never appear (`AuditLogTests`). Actor claims, IP, user agent, and `TraceIdentifier` are truncated. Admin list is paged (max 100) and admin-only.
+
+**Tests.** `AuditLogTests` (register/login/logout without secrets; marketplace and admin events recorded).
+
+**Limitations.** Swallow-on-failure means a down database can drop an event. There is no SIEM export. Correlation is the HTTP `TraceIdentifier`, not a distributed trace id.
+
+

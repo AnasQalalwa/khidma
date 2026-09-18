@@ -30,6 +30,21 @@ Roles: **Customer**, **Provider**, **Admin**. New providers register as `Pending
 
 Out of scope: payments, chat, JWT, maps, notifications, and multi-offer acceptance.
 
+## Deviations from plan v2
+
+Plan v2 (`docs/plan-v2.md` after the Week 4 docs pass; currently `Service_Booking_Platform_Capstone_Plan_v2.md` at the repo root) is the product of record. These extras shipped because the core workflow is not safe without them:
+
+| Added | Why |
+| --- | --- |
+| Professional verification **uploads** | Trust gate before `Approved` (ADR 19). Not request photos. |
+| Provider **suspension** | Admin kill switch without a complaints domain (ADR 20). |
+| **Audit** logging | Traceability for auth and admin trust actions (ADR 21). |
+| Role **dashboard** endpoints | One round-trip for the home counters (ADR 10). |
+
+Cuts that stay cut: payments, chat, notifications, maps, request photo uploads, JWT, Docker/Redis, favorites, portfolios.
+
+CSRF failures stay **400** (ADR 17). Ineligible provider direct URLs stay **404**, not the §15 403. Demo cities stay the seeded Palestinian set (Ramallah, Nablus, Bethlehem, Hebron).
+
 ## Technology stack
 
 | Layer | Stack |
