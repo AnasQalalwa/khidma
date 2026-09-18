@@ -13,10 +13,6 @@ $ErrorActionPreference = 'Stop'
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $ApiProject = Join-Path $RepoRoot 'server\Khidma.Api'
-$CatalogUrls = @(
-    'http://localhost:5000/api/catalog/categories',
-    'https://localhost:5001/api/catalog/categories'
-)
 
 function Stop-LocalKhidmaListeners {
     foreach ($port in 5000, 5001) {
@@ -34,23 +30,29 @@ function Stop-LocalKhidmaListeners {
 }
 
 function Test-LocalApi {
-    foreach ($url in $CatalogUrls) {
+    try {
+        $null = Invoke-WebRequest -Uri 'http://localhost:5000/api/catalog/categories' -UseBasicParsing -TimeoutSec 5 -MaximumRedirection 0
+        return $true
+    }
+    catch {
+        $status = 0
         try {
-            if ($PSVersionTable.PSVersion.Major -ge 6 -and $url.StartsWith('https:')) {
-                $null = Invoke-WebRequest -Uri $url -UseBasicParsing -SkipCertificateCheck -TimeoutSec 5
-            }
-            else {
-                $null = Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 5
-            }
-
-            return $true
+            $status = [int]$_.Exception.Response.StatusCode
         }
         catch {
-            continue
+            $status = 0
         }
-    }
 
-    return $false
+        if ($status -ge 200 -and $status -lt 400) {
+            return $true
+        }
+
+        if ($_.Exception.Message -match 'redirect') {
+            return $true
+        }
+
+        return $false
+    }
 }
 
 function Invoke-DotnetEf {
@@ -83,6 +85,12 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host 'Applying migrations...'
 Invoke-DotnetEf -EfArgs @('database', 'update')
 
+Write-Host 'Building the API...'
+dotnet build $ApiProject -nologo
+if ($LASTEXITCODE -ne 0) {
+    throw 'dotnet build failed.'
+}
+
 Write-Host 'Starting the API once so the Development seeder runs...'
 $stdoutLog = Join-Path $env:TEMP 'khidma-reset-demo.out.log'
 $stderrLog = Join-Path $env:TEMP 'khidma-reset-demo.err.log'
@@ -91,39 +99,46 @@ $env:ASPNETCORE_ENVIRONMENT = 'Development'
 $run = Start-Process -FilePath 'dotnet' -ArgumentList @(
     'run',
     '--project', $ApiProject,
-    '--launch-profile', 'https'
+    '--launch-profile', 'https',
+    '--no-build'
 ) -WorkingDirectory $RepoRoot -PassThru -WindowStyle Hidden -RedirectStandardOutput $stdoutLog -RedirectStandardError $stderrLog
+
+function Get-SeederLog {
+    $chunks = @()
+    if (Test-Path $stdoutLog) {
+        $chunks += Get-Content $stdoutLog -Raw -ErrorAction SilentlyContinue
+    }
+    if (Test-Path $stderrLog) {
+        $chunks += Get-Content $stderrLog -Raw -ErrorAction SilentlyContinue
+    }
+
+    return ($chunks -join [Environment]::NewLine)
+}
 
 try {
     $ready = $false
-    for ($attempt = 1; $attempt -le 60; $attempt++) {
+    for ($attempt = 1; $attempt -le 90; $attempt++) {
         $run.Refresh()
         if ($run.HasExited) {
-            $tail = ''
-            if (Test-Path $stderrLog) {
-                $tail = (Get-Content $stderrLog -Raw)
-            }
-            elseif (Test-Path $stdoutLog) {
-                $tail = (Get-Content $stdoutLog -Raw)
-            }
-
-            throw "API exited during seed (exit $($run.ExitCode)). $tail"
+            throw "API exited during seed (exit $($run.ExitCode)). $(Get-SeederLog)"
         }
 
-        Start-Sleep -Seconds 2
+        $log = Get-SeederLog
+        if ($log -match 'Application started') {
+            $ready = $true
+            break
+        }
+
         if (Test-LocalApi) {
             $ready = $true
             break
         }
+
+        Start-Sleep -Seconds 2
     }
 
     if (-not $ready) {
-        $tail = ''
-        if (Test-Path $stdoutLog) {
-            $tail = (Get-Content $stdoutLog -Tail 40) -join [Environment]::NewLine
-        }
-
-        throw "API did not become ready on http://localhost:5000 after seeding.`n$tail"
+        throw "API did not become ready after seeding.`n$(Get-SeederLog)"
     }
 
     Write-Host 'Seeder finished.'
