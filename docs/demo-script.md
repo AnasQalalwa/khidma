@@ -18,7 +18,7 @@ Demo service is **Plumbing in Ramallah**. There is no seeded “AC not cooling�
 
 2. **(1:00)** Log in as **Admin**. Catalog is seeded (Home Services / Plumbing). Open **Provider Verification**: `provider2` is `PendingReview`. Overview shows the stat strip and needs-attention queue.
 
-3. **(1:30)** Log in as **Customer**. Create a request: Plumbing, Ramallah, a future preferred date, budget 200–400, title such as “Kitchen leak”. First submit a **past date** and show the validation error, then use a future date.
+3. **(1:30)** Log in as **Customer**. Create a request: Plumbing, Ramallah, a future preferred date, budget 200–400, title “Kitchen sink leaking under the cabinet”, description “Water pooling under the sink since yesterday. Need someone to check the pipe and seal.” First submit a **past date** and show the validation error, then use a future date.
 
 4. **(1:30)** Log in as **Provider A** (`provider1`). The request is on **Available requests**. Point out: *no customer email or phone on this screen, by design.* Submit an offer (price 300, future estimated date).
 
