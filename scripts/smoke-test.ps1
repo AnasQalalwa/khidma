@@ -169,7 +169,31 @@ Write-Step 'Customer login' {
     }
 }
 
-Write-Step 'Customer can list own requests' {
+Write-Step 'Customer can create and list a request' {
+    $services = (Invoke-KhidmaRequest -Method GET -Path '/api/catalog/services' -Session $customer).Content | ConvertFrom-Json
+    $plumbing = @($services) | Where-Object { $_.name -eq 'Plumbing' } | Select-Object -First 1
+    if (-not $plumbing) {
+        throw 'Plumbing service was not found in the catalog.'
+    }
+
+    $token = Get-XsrfToken -Session $customer
+    $hiddenStamp = [guid]::NewGuid().ToString('N').Substring(0, 8)
+    $preferredDate = [DateTimeOffset]::UtcNow.AddDays(8).ToString('o')
+    $created = Invoke-KhidmaRequest -Method POST -Path '/api/service-requests' -Session $customer -Headers @{
+        'X-XSRF-TOKEN' = $token
+    } -Body (@{
+            serviceId     = $plumbing.id
+            title         = 'Leaking pipe under the kitchen sink'
+            description   = "Water is pooling under the kitchen sink.`n[$hiddenStamp]"
+            city          = 'Ramallah'
+            preferredDate = $preferredDate
+            budgetMin     = 80
+            budgetMax     = 150
+        } | ConvertTo-Json)
+    if ($created.StatusCode -ne 200) {
+        throw "Create request expected 200, got $($created.StatusCode)"
+    }
+
     $response = Invoke-KhidmaRequest -Method GET -Path '/api/service-requests/mine' -Session $customer
     if ($response.StatusCode -ne 200) {
         throw "Expected 200, got $($response.StatusCode)"

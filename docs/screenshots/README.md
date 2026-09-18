@@ -1,12 +1,13 @@
 # Responsive screenshots
 
-Captured against Vite (`http://localhost:5173`) proxying to `https://localhost:5001` after LocalDB + seeder. Viewports **360**, **768**, and **1280** at `deviceScaleFactor: 1` via Playwright Chromium (`npm run screenshots` in `client/`). Not part of CI.
+Captured against Vite (`http://localhost:5173`) proxying to `https://localhost:5001` after a fresh Development reset. Run `./scripts/reset-demo.ps1` first, then walk the demo once so the dashboard has realistic requests, offers, and bookings. Viewports **360**, **768**, and **1280** at `deviceScaleFactor: 1` via Playwright Chromium (`npm run screenshots` in `client/`). Not part of CI.
 
 On each page `document.documentElement.scrollWidth <= window.innerWidth`.
 
 Admin tables use `.table-wrap { overflow-x: auto }` so wide grids scroll inside the panel instead of the page. `html`/`body` use `overflow-x: clip`.
 
 ```powershell
+./scripts/reset-demo.ps1
 # API:  dotnet run --project server/Khidma.Api --launch-profile https
 # Vite: npm run dev   (from client/)
 $env:KHIDMA_ADMIN_EMAIL = 'admin@khidma.local'

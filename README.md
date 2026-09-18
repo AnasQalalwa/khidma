@@ -129,6 +129,16 @@ Passwords come from `Seed:*` user secrets, never from git.
 | `provider3@khidma.local` | Provider B | Bethlehem, **Approved** — ineligible for Ramallah Plumbing (direct URL **404**) |
 | `provider4@khidma.local` | Provider C | Ramallah, **Approved**, Plumbing — second offer on the demo request |
 
+## Reset local demo data
+
+Before a live demo or capturing screenshots, drop and recreate the Development database and re-seed:
+
+```powershell
+./scripts/reset-demo.ps1
+```
+
+The script runs `dotnet ef database drop -f`, `dotnet ef database update`, then starts the API once so the Development seeder runs. Passwords stay in `Seed:*` user-secrets and are never printed. Stop any already-running API first (the script also tries to free ports 5000/5001).
+
 ## Architecture
 
 ```mermaid
