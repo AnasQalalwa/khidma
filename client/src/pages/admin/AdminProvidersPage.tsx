@@ -175,11 +175,12 @@ export function AdminProvidersPage() {
             ))}
           </select>
         </label>
-        <label htmlFor="provider-search">
+        <label className="filter-search" htmlFor="provider-search">
           Search name or email
           <input
             id="provider-search"
             type="search"
+            placeholder="Name or email"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />

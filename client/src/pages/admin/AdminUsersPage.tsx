@@ -69,11 +69,12 @@ export function AdminUsersPage() {
           setSubmittedSearch(search.trim())
         }}
       >
-        <label htmlFor="user-search">
+        <label className="filter-search" htmlFor="user-search">
           Search name or email
           <input
             id="user-search"
             type="search"
+            placeholder="Name or email"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />

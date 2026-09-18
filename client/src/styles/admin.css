@@ -341,8 +341,62 @@
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
+  min-height: 42px;
+  flex-shrink: 0;
+  white-space: nowrap;
   font-size: 13px;
   font-weight: 600;
+}
+
+.admin-page .filter-bar {
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.admin-page .filter-bar > label:not(.hide-auth) {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.admin-page .filter-bar > .filter-search {
+  flex: 1 1 16rem;
+  max-width: 28rem;
+}
+
+.admin-page .filter-bar > label:has(select) {
+  flex: 0 1 11rem;
+}
+
+.admin-page .filter-bar input[type='search'],
+.admin-page .filter-bar input[type='date'],
+.admin-page .filter-bar input[type='text'],
+.admin-page .filter-bar select {
+  width: 100%;
+  min-width: 0;
+  height: 42px;
+  min-height: 42px;
+  box-sizing: border-box;
+  padding-block: 0;
+  padding-inline: 0.9rem;
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.admin-page .filter-bar input[type='search'] {
+  appearance: none;
+}
+
+.admin-page .filter-bar input[type='search']::-webkit-search-decoration,
+.admin-page .filter-bar input[type='search']::-webkit-search-cancel-button {
+  appearance: none;
+}
+
+.admin-page .filter-bar > .btn {
+  height: 42px;
+  min-height: 42px;
+  padding-block: 0;
+  flex-shrink: 0;
 }
 
 @media (max-width: 1023px) {
@@ -382,6 +436,14 @@
   }
 
   .admin-header-tools {
+    width: 100%;
+  }
+
+  .admin-page .filter-bar > label:not(.hide-auth),
+  .admin-page .filter-bar > .filter-search,
+  .admin-page .filter-bar > .btn {
+    flex: 1 1 100%;
+    max-width: none;
     width: 100%;
   }
 }

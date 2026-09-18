@@ -854,6 +854,17 @@ textarea:focus {
   align-items: center;
 }
 
+.filter-bar {
+  align-items: flex-end;
+}
+
+.filter-bar > label:not(.hide-auth) {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.35rem;
+}
+
 .filter-bar label,
 .pagination {
   justify-content: space-between;
@@ -861,7 +872,7 @@ textarea:focus {
 
 .filter-bar select {
   display: block;
-  margin-top: 0.35rem;
+  margin-top: 0;
 }
 
 .pagination {
@@ -1219,7 +1230,7 @@ textarea:focus {
 .filter-bar input[type='date'],
 .filter-bar input[type='text'] {
   display: block;
-  margin-top: 0.35rem;
+  margin-top: 0;
   min-width: 10rem;
 }
 
