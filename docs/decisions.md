@@ -221,4 +221,10 @@ Live `Executed DbCommand` capture against SQL Server was not repeated in Phase 9
 
 **Tests.** `AdminOverviewTests` (role gate, range validation, conversion math, stale/overdue, supply/demand eligibility, empty database, CSRF counted).
 
+## ADR 24 — Admin dashboard v2 chrome and charts
+
+**Decision.** The admin overview is the ADR 23 DTO rendered as KPI cards, a grouped daily bar chart (Created / Completed / Cancelled, integer Y ticks, tooltip), funnel, attention, supply/demand, top providers, recent activity, and a 24h security strip. Rate KPI deltas use percentage points (`+80 pts`). Header and footer use `khidma-logo-compact.svg` at 32px height (mark only below 480px). The full Arabic wordmark stays on auth pages and the README, where it is at least 48px. Local demos and screenshot recaptures start from `scripts/reset-demo.ps1`; smoke, concurrency, and security scripts use realistic request titles with uniqueness only in the description.
+
+**Why.** Operator screenshots should look like a marketplace, not a test harness. Compact chrome keeps the header from clipping Arabic; bars and pts deltas are readable at a glance; the hide-auth checkbox stays on one line with Apply filters.
+
 
