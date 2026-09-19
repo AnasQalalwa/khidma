@@ -84,6 +84,13 @@ public sealed partial class AdminService
         var supplyRows = await LoadSupplyDemandAsync(cancellationToken);
         var topProviders = await _db.ProviderProfiles
             .AsNoTracking()
+            .Where(p =>
+                p.VerificationStatus == ProviderVerificationStatus.Approved &&
+                !p.IsSuspended &&
+                (p.ReviewCount > 0 ||
+                 _db.Bookings.Any(b =>
+                     b.ProviderId == p.UserId &&
+                     b.Status == BookingStatus.Completed)))
             .Select(p => new TopProviderDto
             {
                 Id = p.Id,
@@ -96,6 +103,7 @@ public sealed partial class AdminService
                     b.Status == BookingStatus.Completed)
             })
             .OrderByDescending(p => p.Rating)
+            .ThenByDescending(p => p.ReviewCount)
             .ThenByDescending(p => p.CompletedJobs)
             .Take(5)
             .ToListAsync(cancellationToken);

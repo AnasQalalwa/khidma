@@ -158,7 +158,7 @@ describe('AdminOverviewPage', () => {
 
     expect(await screen.findByText('No requests were created in this range.')).toBeInTheDocument()
     expect(screen.getByText('There are no open requests right now.')).toBeInTheDocument()
-    expect(screen.getByText('No providers to rank yet.')).toBeInTheDocument()
+    expect(screen.getByText('No rated providers yet.')).toBeInTheDocument()
     expect(screen.getByText('No recent activity.')).toBeInTheDocument()
   })
 

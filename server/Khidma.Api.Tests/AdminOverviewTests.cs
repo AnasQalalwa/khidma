@@ -354,3 +354,131 @@ public sealed class AdminOverviewEmptyDatabaseTests : IAsyncLifetime
         Assert.Equal(0, security.GetProperty("csrfRejections").GetInt32());
     }
 }
+
+public sealed class AdminOverviewTopProvidersTests : IAsyncLifetime
+{
+    private readonly KhidmaApiFactory _factory = new();
+
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public async Task DisposeAsync() => await _factory.DisposeAsync();
+
+    [Fact]
+    public async Task RejectedProvider_WithFiveStarRating_IsNotListed()
+    {
+        var (admin, _) = await TestHarness.CreateAdminAsync(_factory);
+        await SeedNamedProviderAsync(
+            "Rejected Five Star",
+            ProviderVerificationStatus.Rejected,
+            suspended: false,
+            rating: 5.00m,
+            reviewCount: 4);
+
+        Assert.DoesNotContain("Rejected Five Star", await TopProviderNamesAsync(admin));
+    }
+
+    [Fact]
+    public async Task SuspendedProvider_IsNotListed()
+    {
+        var (admin, _) = await TestHarness.CreateAdminAsync(_factory);
+        await SeedNamedProviderAsync(
+            "Suspended Star",
+            ProviderVerificationStatus.Approved,
+            suspended: true,
+            rating: 4.90m,
+            reviewCount: 6);
+
+        Assert.DoesNotContain("Suspended Star", await TopProviderNamesAsync(admin));
+    }
+
+    [Fact]
+    public async Task PendingProvider_IsNotListed()
+    {
+        var (admin, _) = await TestHarness.CreateAdminAsync(_factory);
+        await SeedNamedProviderAsync(
+            "Pending Star",
+            ProviderVerificationStatus.PendingReview,
+            suspended: false,
+            rating: 4.80m,
+            reviewCount: 3);
+
+        Assert.DoesNotContain("Pending Star", await TopProviderNamesAsync(admin));
+    }
+
+    [Fact]
+    public async Task ApprovedProvider_WithZeroReviewsAndZeroCompletedBookings_IsNotListed()
+    {
+        var (admin, _) = await TestHarness.CreateAdminAsync(_factory);
+        await SeedNamedProviderAsync(
+            "Idle Approved",
+            ProviderVerificationStatus.Approved,
+            suspended: false,
+            rating: 0m,
+            reviewCount: 0);
+
+        Assert.DoesNotContain("Idle Approved", await TopProviderNamesAsync(admin));
+    }
+
+    [Fact]
+    public async Task TopProviders_OrderByRatingThenReviewCount()
+    {
+        var (admin, _) = await TestHarness.CreateAdminAsync(_factory);
+        await SeedNamedProviderAsync(
+            "Lower Rated Many Reviews",
+            ProviderVerificationStatus.Approved,
+            suspended: false,
+            rating: 4.50m,
+            reviewCount: 20);
+        await SeedNamedProviderAsync(
+            "Top Rated Few Reviews",
+            ProviderVerificationStatus.Approved,
+            suspended: false,
+            rating: 5.00m,
+            reviewCount: 2);
+        await SeedNamedProviderAsync(
+            "Top Rated Many Reviews",
+            ProviderVerificationStatus.Approved,
+            suspended: false,
+            rating: 5.00m,
+            reviewCount: 8);
+
+        var names = await TopProviderNamesAsync(admin);
+        Assert.Equal(
+            new[] { "Top Rated Many Reviews", "Top Rated Few Reviews", "Lower Rated Many Reviews" },
+            names);
+    }
+
+    private async Task SeedNamedProviderAsync(
+        string fullName,
+        ProviderVerificationStatus status,
+        bool suspended,
+        decimal rating,
+        int reviewCount)
+    {
+        var city = $"P{Guid.NewGuid():N}"[..10];
+        var (_, user) = await TestHarness.RegisterAsync(_factory, "Provider", city);
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var profile = await db.ProviderProfiles
+            .Include(p => p.User)
+            .SingleAsync(p => p.UserId == user.Id);
+        profile.User.FullName = fullName;
+        profile.VerificationStatus = status;
+        profile.IsSuspended = suspended;
+        profile.AverageRating = rating;
+        profile.ReviewCount = reviewCount;
+        await db.SaveChangesAsync();
+    }
+
+    private static async Task<List<string>> TopProviderNamesAsync(HttpClient admin)
+    {
+        var response = await admin.GetAsync("/api/admin/stats/overview?range=7d");
+        response.EnsureSuccessStatusCode();
+        using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        return doc.RootElement
+            .GetProperty("topProviders")
+            .EnumerateArray()
+            .Select(item => item.GetProperty("name").GetString() ?? string.Empty)
+            .ToList();
+    }
+}

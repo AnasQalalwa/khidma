@@ -174,7 +174,7 @@ export function AdminOverviewPage() {
           status={status === 'ready' && data && data.topProviders.length === 0 ? 'empty' : status}
           error={error}
           onRetry={() => void load()}
-          empty="No providers to rank yet."
+          empty="No rated providers yet."
         >
           {data ? <TopProvidersList providers={data.topProviders} /> : null}
         </SectionCard>
