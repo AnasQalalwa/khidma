@@ -521,6 +521,10 @@
   gap: 0.85rem;
 }
 
+.auth-copy .brand {
+  justify-self: start;
+}
+
 .auth-visual .eyebrow {
   margin-bottom: 0;
   color: var(--color-primary);
@@ -924,6 +928,7 @@
   padding: var(--space-5);
   display: grid;
   gap: var(--space-3);
+  align-content: start;
 }
 
 .dashboard-panel-head {
@@ -942,6 +947,7 @@
   display: flex;
   gap: var(--space-3);
   flex-wrap: wrap;
+  align-items: center;
 }
 
 .status-page {

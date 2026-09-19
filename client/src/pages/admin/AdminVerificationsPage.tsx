@@ -4,7 +4,7 @@ import { getAdminVerifications } from '../../api/verification'
 import { ApiError } from '../../api/client'
 import type { AdminVerificationListItem, PagedResult, ProviderVerificationStatus } from '../../api/types'
 import { Roles } from '../../auth/roles'
-import { PageHeader } from '../../components/PageHeader'
+import { AdminPageHeader } from '../../components/admin/AdminPageHeader'
 import { Pagination } from '../../components/Pagination'
 import { StatusBadge } from '../../components/StatusBadge'
 import { EmptyState, ErrorState, LoadingState } from '../../components/States'
@@ -50,10 +50,9 @@ export function AdminVerificationsPage() {
 
   return (
     <WorkspaceLayout role={Roles.Admin}>
-      <PageHeader
-        eyebrow="Admin"
+      <AdminPageHeader
         title="Provider verification"
-        description="Review professional proof documents before a provider can receive new work."
+        subtitle="Review professional proof documents before a provider can receive new work."
       />
       <div className="tabs" role="tablist" aria-label="Verification status">
         {TABS.map((item) => (

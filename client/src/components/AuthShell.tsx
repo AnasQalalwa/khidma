@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { AuthVisual } from './AuthVisual'
+import { BrandLink } from './BrandLink'
 import { Icon } from './icons'
 
 export type AuthBenefit = {
@@ -28,6 +29,7 @@ export function AuthShell({
     <div className={`auth-shell auth-shell-${variant}`}>
       <aside className="auth-visual">
         <div className="auth-copy">
+          <BrandLink size="full" />
           <span className="eyebrow">{eyebrow}</span>
           <h2 className="auth-title">{title}</h2>
           <p className="auth-lead">{description}</p>

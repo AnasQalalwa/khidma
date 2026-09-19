@@ -5,7 +5,7 @@ import { ApiError } from '../../api/client'
 import type { AdminUserDetail } from '../../api/types'
 import { Roles } from '../../auth/roles'
 import { Button } from '../../components/Button'
-import { PageHeader } from '../../components/PageHeader'
+import { AdminPageHeader } from '../../components/admin/AdminPageHeader'
 import { StatusBadge } from '../../components/StatusBadge'
 import { EmptyState, ErrorState, LoadingState } from '../../components/States'
 import { WorkspaceLayout } from '../../components/WorkspaceLayout'
@@ -41,10 +41,9 @@ export function AdminUserDetailPage() {
 
   return (
     <WorkspaceLayout role={Roles.Admin}>
-      <PageHeader
-        eyebrow="User monitoring"
+      <AdminPageHeader
         title={data?.fullName ?? 'User'}
-        description="Account activity and recent audit events. Identity secrets are never shown."
+        subtitle="Account activity and recent audit events. Identity secrets are never shown."
         actions={
           <Button to="/admin/users" variant="secondary">
             Back to users
@@ -104,7 +103,7 @@ export function AdminUserDetailPage() {
               {data.recentAuditEvents.map((event) => (
                 <li key={event.id} className="plain-row">
                   <div>
-                    <strong>{event.action}</strong>
+                    <strong>{event.summary}</strong>
                     <p className="muted">{formatDate(event.createdAt)}</p>
                   </div>
                   <StatusBadge status={event.outcome} />

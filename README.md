@@ -1,12 +1,14 @@
 # Khidma
 
+![Khidma](docs/brand/khidma-logo.png)
+
 Khidma is a local service marketplace. Customers publish requests, eligible providers submit offers, the customer accepts exactly one offer, and the booking is started, completed, and reviewed.
 
 **Deployed URL:** _TBD after Azure deploy_ — see `deploy/AZURE_DEPLOY.md`.
 
 ## Screenshots
 
-Responsive captures (360 / 768 / 1280) live in [`docs/screenshots/`](docs/screenshots/). Recorded 18 September 2026 against the Vite proxy after LocalDB + seeder.
+Responsive captures (360 / 768 / 1280) live in [`docs/screenshots/`](docs/screenshots/). Recorded 19 September 2026 against the Vite proxy after `./scripts/reset-demo.ps1` and a demo walkthrough.
 
 ![Customer request detail at 1280](docs/screenshots/customer-request-detail-1280.png)
 
@@ -127,6 +129,16 @@ Passwords come from `Seed:*` user secrets, never from git.
 | `provider3@khidma.local` | Provider B | Bethlehem, **Approved** — ineligible for Ramallah Plumbing (direct URL **404**) |
 | `provider4@khidma.local` | Provider C | Ramallah, **Approved**, Plumbing — second offer on the demo request |
 
+## Reset local demo data
+
+Before a live demo or capturing screenshots, drop and recreate the Development database and re-seed:
+
+```powershell
+./scripts/reset-demo.ps1
+```
+
+The script runs `dotnet ef database drop -f`, `dotnet ef database update`, then starts the API once so the Development seeder runs. Passwords stay in `Seed:*` user-secrets and are never printed. Stop any already-running API first (the script also tries to free ports 5000/5001).
+
 ## Architecture
 
 ```mermaid
@@ -178,7 +190,7 @@ dotnet test -c Release --filter FullyQualifiedName~SqlServerIntegrationTests
 
 CI stays on `ubuntu-latest` (no LocalDB). A Windows SQL job is not wired until a runner with a healthy SQL Server exists.
 
-Current automated counts: **117** backend passed (default; **2** SQL Server skipped), **119** when `KHIDMA_SQLSERVER_TESTS=1`, **29** frontend passed. See `docs/TEST_RESULTS.md`.
+Current automated counts: **133** backend passed (default; **2** SQL Server skipped), **135** when `KHIDMA_SQLSERVER_TESTS=1`, **42** frontend passed. See `docs/TEST_RESULTS.md`. The backend suite includes `AdminOverviewTests`.
 
 ## Deviations from plan v2
 

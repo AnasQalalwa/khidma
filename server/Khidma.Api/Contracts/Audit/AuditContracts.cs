@@ -24,6 +24,8 @@ public sealed class AuditLogListItemDto
 
     public string? Message { get; init; }
 
+    public required string Summary { get; init; }
+
     public string? IpAddress { get; init; }
 }
 
@@ -50,6 +52,8 @@ public sealed class AuditLogDetailDto
     public required string Outcome { get; init; }
 
     public string? Message { get; init; }
+
+    public required string Summary { get; init; }
 
     public string? DetailsJson { get; init; }
 
@@ -81,6 +85,8 @@ public sealed class AuditLogQuery : Common.PageQuery
     public string? Outcome { get; set; }
 
     public string? Search { get; set; }
+
+    public bool HideAuth { get; set; }
 }
 
 public sealed class AuditSummaryDto
@@ -93,3 +99,20 @@ public sealed class AuditSummaryDto
 
     public required int ProviderVerificationEvents { get; init; }
 }
+
+public sealed class AuditFilterOptionsDto
+{
+    public required IReadOnlyList<string> Categories { get; init; }
+
+    public required IReadOnlyList<AuditActionOptionDto> Actions { get; init; }
+}
+
+public sealed class AuditActionOptionDto
+{
+    public required string Value { get; init; }
+
+    public required string Label { get; init; }
+
+    public required string Category { get; init; }
+}
+

@@ -127,10 +127,11 @@ $me = (Invoke-KhidmaRequest -Method GET -Path '/api/providers/me' -Session $prov
 $preferredDate = [DateTimeOffset]::UtcNow.AddDays(8).ToString('o')
 $city = $me.city
 
+$hiddenStamp = [guid]::NewGuid().ToString('N').Substring(0, 8)
 $requestBody = @{
     serviceId     = $plumbing.id
-    title         = "Concurrency check $(Get-Date -Format 'yyyyMMddHHmmss')"
-    description   = 'Temporary request used by scripts/concurrency-check.ps1.'
+    title         = 'Bathroom tap dripping'
+    description   = "The bathroom tap keeps dripping after it is turned off.`n[$hiddenStamp]"
     city          = $city
     preferredDate = $preferredDate
     budgetMin     = 40
@@ -146,7 +147,7 @@ $offer = Invoke-KhidmaRequest -Method POST -Path "/api/service-requests/$request
     'X-XSRF-TOKEN' = $provider.Token
 } -Body (@{
         price         = 75
-        message       = 'Concurrency probe offer.'
+        message       = 'I can replace the washer and stop the drip this week.'
         estimatedDate = $preferredDate
     } | ConvertTo-Json)
 
@@ -243,7 +244,7 @@ if (-not [string]::IsNullOrWhiteSpace($provider2Email) -and -not [string]::IsNul
         'X-XSRF-TOKEN' = $provider2.Token
     } -Body (@{
             price         = 80
-            message       = 'Concurrency sibling offer.'
+            message       = 'I can reseat the tap and check the supply line tomorrow.'
             estimatedDate = $preferredDate
         } | ConvertTo-Json)
     if ($sibling.StatusCode -ne 200) {

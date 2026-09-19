@@ -262,8 +262,8 @@ $request = Invoke-KhidmaRequest -Method POST -Path '/api/service-requests' -Sess
     'X-XSRF-TOKEN' = $customer.Token
 } -Body (@{
         serviceId     = $plumbing.id
-        title         = "Security matrix $($(Get-Date -Format 'yyyyMMddHHmmss'))"
-        description   = 'Temporary request used by scripts/security-matrix.ps1.'
+        title         = 'Ceiling light not working'
+        description   = "The hallway ceiling light flickers and then stays off.`n[$([guid]::NewGuid().ToString('N').Substring(0, 8))]"
         city          = $meA.city
         preferredDate = $preferredDate
         budgetMin     = 40
@@ -302,7 +302,7 @@ Write-Step 'Provider B POST offer is 403' {
             'X-XSRF-TOKEN' = $providerB.Token
         } -Body (@{
                 price         = 50
-                message       = 'Should be denied.'
+                message       = 'I can replace the ceiling fixture this week.'
                 estimatedDate = $preferredDate
             } | ConvertTo-Json)
         throw 'Expected 403.'
@@ -319,7 +319,7 @@ $offer = Invoke-KhidmaRequest -Method POST -Path "/api/service-requests/$request
     'X-XSRF-TOKEN' = $providerA.Token
 } -Body (@{
         price         = 75
-        message       = 'Eligible offer.'
+        message       = 'I can diagnose the fitting and replace the bulb holder.'
         estimatedDate = $preferredDate
     } | ConvertTo-Json)
 $offerId = ($offer.Content | ConvertFrom-Json).id

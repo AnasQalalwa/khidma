@@ -13,7 +13,7 @@ import { Roles } from '../../auth/roles'
 import { Button } from '../../components/Button'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { FormField } from '../../components/FormField'
-import { PageHeader } from '../../components/PageHeader'
+import { AdminPageHeader } from '../../components/admin/AdminPageHeader'
 import { EmptyState, ErrorState, LoadingState } from '../../components/States'
 import { WorkspaceLayout } from '../../components/WorkspaceLayout'
 
@@ -153,10 +153,9 @@ export function AdminCatalogPage() {
 
   return (
     <WorkspaceLayout role={Roles.Admin}>
-      <PageHeader
-        eyebrow="Admin"
+      <AdminPageHeader
         title="Catalog"
-        description="Manage categories and services. Items used by requests or providers cannot be deleted."
+        subtitle="Manage categories and services. Items used by requests or providers cannot be deleted."
       />
       {success ? (
         <div className="alert alert-success" role="status">

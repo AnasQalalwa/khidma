@@ -1,12 +1,18 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { Activity, ShieldAlert, ShieldCheck, Users } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
-import { getAuditLog, getAuditLogs, getAuditSummary } from '../../api/audit'
+import { getAuditFilterOptions, getAuditLog, getAuditLogs, getAuditSummary } from '../../api/audit'
 import { ApiError } from '../../api/client'
-import type { AuditLogDetail, AuditLogItem, AuditSummary, PagedResult } from '../../api/types'
+import type {
+  AuditFilterOptions,
+  AuditLogDetail,
+  AuditLogItem,
+  AuditSummary,
+  PagedResult,
+} from '../../api/types'
 import { Roles } from '../../auth/roles'
+import { AdminPageHeader } from '../../components/admin/AdminPageHeader'
 import { DetailDrawer } from '../../components/DetailDrawer'
-import { PageHeader } from '../../components/PageHeader'
 import { Pagination } from '../../components/Pagination'
 import { StatCard } from '../../components/StatCard'
 import { StatusBadge } from '../../components/StatusBadge'
@@ -26,6 +32,22 @@ function prettyJson(value: string | null) {
   }
 }
 
+function shortId(value: string | null): string | null {
+  if (!value) {
+    return null
+  }
+
+  return value.length <= 8 ? value : value.slice(0, 8)
+}
+
+function parseHideAuth(value: string | null): boolean {
+  if (value === 'false' || value === '0') {
+    return false
+  }
+
+  return true
+}
+
 export function AdminAuditPage() {
   const [params, setParams] = useSearchParams()
   const [page, setPage] = useState(1)
@@ -36,6 +58,7 @@ export function AdminAuditPage() {
   const [search, setSearch] = useState(params.get('search') ?? '')
   const [from, setFrom] = useState(params.get('from') ?? '')
   const [to, setTo] = useState(params.get('to') ?? '')
+  const [hideAuth, setHideAuth] = useState(parseHideAuth(params.get('hideAuth')))
   const [applied, setApplied] = useState({
     category: params.get('category') ?? '',
     action: params.get('action') ?? '',
@@ -44,7 +67,9 @@ export function AdminAuditPage() {
     search: params.get('search') ?? '',
     from: params.get('from') ?? '',
     to: params.get('to') ?? '',
+    hideAuth: parseHideAuth(params.get('hideAuth')),
   })
+  const [options, setOptions] = useState<AuditFilterOptions | null>(null)
   const [summary, setSummary] = useState<AuditSummary | null>(null)
   const [data, setData] = useState<PagedResult<AuditLogItem> | null>(null)
   const [loading, setLoading] = useState(true)
@@ -56,7 +81,7 @@ export function AdminAuditPage() {
     setLoading(true)
     setError(null)
     try {
-      const [counts, logs] = await Promise.all([
+      const [counts, logs, filterOptions] = await Promise.all([
         getAuditSummary(),
         getAuditLogs({
           page,
@@ -68,10 +93,13 @@ export function AdminAuditPage() {
           search: applied.search || undefined,
           from: applied.from || undefined,
           to: applied.to || undefined,
+          hideAuth: applied.hideAuth,
         }),
+        getAuditFilterOptions(),
       ])
       setSummary(counts)
       setData(logs)
+      setOptions(filterOptions)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not load audit logs.')
     } finally {
@@ -93,12 +121,17 @@ export function AdminAuditPage() {
       search: search.trim(),
       from,
       to,
+      hideAuth,
     }
     setPage(1)
     setApplied(next)
     const updated = new URLSearchParams()
     for (const [key, value] of Object.entries(next)) {
-      if (value) {
+      if (typeof value === 'boolean') {
+        if (!value) {
+          updated.set(key, 'false')
+        }
+      } else if (value) {
         updated.set(key, value)
       }
     }
@@ -120,12 +153,15 @@ export function AdminAuditPage() {
     }
   }
 
+  const actionOptions = options?.actions.filter(
+    (item) => !category || item.category === category,
+  )
+
   return (
     <WorkspaceLayout role={Roles.Admin}>
-      <PageHeader
-        eyebrow="Admin"
+      <AdminPageHeader
         title="Audit logs"
-        description="Append-only security and marketplace events. Logs cannot be edited or deleted."
+        subtitle="Append-only security and marketplace events. Logs cannot be edited or deleted."
       />
       {summary ? (
         <div className="dash-grid">
@@ -166,21 +202,36 @@ export function AdminAuditPage() {
         </label>
         <label htmlFor="audit-category">
           Category
-          <input
+          <select
             id="audit-category"
-            type="text"
             value={category}
-            onChange={(event) => setCategory(event.target.value)}
-          />
+            onChange={(event) => {
+              setCategory(event.target.value)
+              setAction('')
+            }}
+          >
+            <option value="">All</option>
+            {options?.categories.map((item) => (
+              <option key={item} value={item}>
+                {item}
+              </option>
+            ))}
+          </select>
         </label>
         <label htmlFor="audit-action">
           Action
-          <input
+          <select
             id="audit-action"
-            type="text"
             value={action}
             onChange={(event) => setAction(event.target.value)}
-          />
+          >
+            <option value="">All</option>
+            {actionOptions?.map((item) => (
+              <option key={item.value} value={item.value}>
+                {item.label}
+              </option>
+            ))}
+          </select>
         </label>
         <label htmlFor="audit-outcome">
           Outcome
@@ -213,9 +264,20 @@ export function AdminAuditPage() {
             onChange={(event) => setSearch(event.target.value)}
           />
         </label>
-        <button className="btn btn-secondary btn-sm" type="submit">
-          Apply filters
-        </button>
+        <div className="filter-bar-actions">
+          <label className="hide-auth" htmlFor="audit-hide-auth">
+            <input
+              id="audit-hide-auth"
+              type="checkbox"
+              checked={hideAuth}
+              onChange={(event) => setHideAuth(event.target.checked)}
+            />
+            Hide login and logout
+          </label>
+          <button className="btn btn-secondary btn-sm" type="submit">
+            Apply filters
+          </button>
+        </div>
       </form>
       {loading ? <LoadingState label="Loading audit logs" /> : null}
       {error ? (
@@ -232,8 +294,7 @@ export function AdminAuditPage() {
                 <tr>
                   <th>When</th>
                   <th>Actor</th>
-                  <th>Action</th>
-                  <th>Entity</th>
+                  <th>Summary</th>
                   <th>Outcome</th>
                 </tr>
               </thead>
@@ -256,12 +317,8 @@ export function AdminAuditPage() {
                       <div className="muted">{item.actorRole ?? '—'}</div>
                     </td>
                     <td>
-                      <strong>{item.action}</strong>
-                      <div className="muted">{item.category}</div>
-                    </td>
-                    <td>
-                      {item.entityType ?? '—'}
-                      {item.entityId ? ` #${item.entityId}` : ''}
+                      <strong>{item.summary}</strong>
+                      <div className="muted">{item.action}</div>
                     </td>
                     <td>
                       <StatusBadge status={item.outcome} />
@@ -279,7 +336,7 @@ export function AdminAuditPage() {
                 key={`card-${item.id}`}
                 onClick={() => void openDetail(item)}
               >
-                <strong>{item.action}</strong>
+                <strong>{item.summary}</strong>
                 <p className="muted">
                   {formatDate(item.createdAt)} · {item.actorEmail ?? 'System'}
                 </p>
@@ -298,7 +355,7 @@ export function AdminAuditPage() {
 
       <DetailDrawer
         open={selected !== null}
-        title={selected?.action ?? 'Audit event'}
+        title={selected?.summary ?? 'Audit event'}
         onClose={() => setSelected(null)}
       >
         {selected ? (
@@ -328,8 +385,13 @@ export function AdminAuditPage() {
               <li>
                 <strong>Entity</strong>
                 <p>
-                  {selected.entityType ?? '—'} {selected.entityId ?? ''}
+                  {selected.entityType ?? '—'}
+                  {shortId(selected.entityId) ? ` · ${shortId(selected.entityId)}` : ''}
                 </p>
+              </li>
+              <li>
+                <strong>Action</strong>
+                <p>{selected.action}</p>
               </li>
               <li>
                 <strong>Message</strong>

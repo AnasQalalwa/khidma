@@ -4,6 +4,7 @@ import type {
   AdminProvider,
   AdminStats,
   AdminAttention,
+  AdminOverview,
   AdminUser,
   AdminUserDetail,
   PageQuery,
@@ -13,6 +14,10 @@ import type { Category, CatalogService } from './catalog'
 
 export function getAdminStats(): Promise<AdminStats> {
   return apiRequest('/api/admin/stats')
+}
+
+export function getAdminOverview(range: 'today' | '7d' | '30d'): Promise<AdminOverview> {
+  return apiRequest(`/api/admin/stats/overview${toQuery({ range })}`)
 }
 
 export function getAdminAttention(): Promise<AdminAttention> {
