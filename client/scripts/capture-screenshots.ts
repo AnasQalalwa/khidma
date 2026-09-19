@@ -125,10 +125,22 @@ async function main(): Promise<void> {
     await logout(page)
     await login(page, adminEmail, adminPassword)
 
+    await page.goto(`${BASE_URL}/admin?range=7d`)
+    await captureWidths(page, 'admin-overview', async () => {
+      await page.getByRole('heading', { name: 'Platform overview' }).waitFor()
+      await page.getByText('Booking value').waitFor()
+    })
+
     await page.goto(`${BASE_URL}/admin/verifications`)
     await captureWidths(page, 'admin-verifications', async () => {
       await page.getByRole('heading', { name: 'Provider verification' }).waitFor()
       await page.getByText('Demo Provider Two').waitFor()
+    })
+
+    await page.goto(`${BASE_URL}/admin/audit`)
+    await captureWidths(page, 'admin-audit', async () => {
+      await page.getByRole('heading', { name: 'Audit logs' }).waitFor()
+      await page.getByText('Hide login and logout').waitFor()
     })
   } finally {
     await context.close()

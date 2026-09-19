@@ -4,7 +4,7 @@ import { getAdminUsers } from '../../api/admin'
 import { ApiError } from '../../api/client'
 import type { AdminUser, PagedResult } from '../../api/types'
 import { Roles } from '../../auth/roles'
-import { PageHeader } from '../../components/PageHeader'
+import { AdminPageHeader } from '../../components/admin/AdminPageHeader'
 import { Pagination } from '../../components/Pagination'
 import { StatusBadge } from '../../components/StatusBadge'
 import { EmptyState, ErrorState, LoadingState } from '../../components/States'
@@ -57,10 +57,9 @@ export function AdminUsersPage() {
 
   return (
     <WorkspaceLayout role={Roles.Admin}>
-      <PageHeader
-        eyebrow="Admin"
+      <AdminPageHeader
         title="Users"
-        description="Search accounts, filter by role, and inspect last login and provider status."
+        subtitle="Search accounts, filter by role, and inspect last login and provider status."
       />
       <form
         className="filter-bar"
@@ -70,11 +69,12 @@ export function AdminUsersPage() {
           setSubmittedSearch(search.trim())
         }}
       >
-        <label htmlFor="user-search">
+        <label className="filter-search" htmlFor="user-search">
           Search name or email
           <input
             id="user-search"
             type="search"
+            placeholder="Name or email"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />

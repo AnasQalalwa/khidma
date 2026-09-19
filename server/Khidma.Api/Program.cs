@@ -132,6 +132,7 @@ app.UseStaticFiles();
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseMiddleware<AntiforgeryAuditMiddleware>();
 
 app.MapControllers();
 

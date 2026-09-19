@@ -1,11 +1,11 @@
 import { useEffect, useState, type MouseEvent } from 'react'
-import { ArrowRight, Home, LogOut, Menu, X } from 'lucide-react'
+import { ArrowRight, LogOut, Menu, X } from 'lucide-react'
 import { Link, NavLink } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
 import { dashboardPath, Roles, workspaceLinks } from '../auth/roles'
+import { BrandLink } from './BrandLink'
 import { RoleBadge } from './Badge'
 import { Button, IconButton } from './Button'
-import { Icon } from './icons'
 
 export function Header() {
   const { authenticated, user, logout } = useAuth()
@@ -68,12 +68,7 @@ export function Header() {
   return (
     <header className="header">
       <div className="container header-inner">
-        <NavLink to="/" className="brand" onClick={closeMenu}>
-          <span className="brand-mark">
-            <Icon icon={Home} size={16} />
-          </span>
-          Khidma
-        </NavLink>
+        <BrandLink onClick={closeMenu} />
         <IconButton
           className="nav-toggle"
           label={menuOpen ? 'Close menu' : 'Open menu'}

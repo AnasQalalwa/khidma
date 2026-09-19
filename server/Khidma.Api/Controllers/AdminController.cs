@@ -31,6 +31,14 @@ public sealed class AdminController : ApiControllerBase
         return Ok(await _admin.GetStatsAsync(cancellationToken));
     }
 
+    [HttpGet("stats/overview")]
+    public async Task<IActionResult> StatsOverview(
+        [FromQuery] string? range,
+        CancellationToken cancellationToken)
+    {
+        return FromResult(await _admin.GetOverviewAsync(range, cancellationToken));
+    }
+
     [HttpGet("attention")]
     public async Task<IActionResult> Attention(CancellationToken cancellationToken)
     {
@@ -141,6 +149,12 @@ public sealed class AdminController : ApiControllerBase
     public async Task<IActionResult> AuditSummary(CancellationToken cancellationToken)
     {
         return Ok(await _admin.GetAuditSummaryAsync(cancellationToken));
+    }
+
+    [HttpGet("audit-logs/options")]
+    public IActionResult AuditLogOptions()
+    {
+        return Ok(_admin.GetAuditFilterOptions());
     }
 
     [HttpGet("audit-logs/{id:long}")]

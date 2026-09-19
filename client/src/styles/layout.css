@@ -29,26 +29,42 @@
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: 0.55rem;
-  color: var(--color-heading);
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  font-size: 1.05rem;
+  line-height: 0;
 }
 
 .brand:hover {
   text-decoration: none;
 }
 
-.brand-mark {
-  width: 32px;
+.brand-logo {
+  display: block;
   height: 32px;
-  border-radius: 9px;
-  display: grid;
-  place-items: center;
-  color: white;
-  background: linear-gradient(145deg, var(--color-primary), var(--color-primary-deep));
-  box-shadow: none;
+  width: auto;
+}
+
+.brand-mark-img {
+  display: none;
+  height: 32px;
+  width: auto;
+}
+
+.brand-full .brand-logo {
+  display: block;
+  height: 48px;
+}
+
+.brand-full .brand-mark-img {
+  display: none;
+}
+
+@media (max-width: 479px) {
+  .brand:not(.brand-full) .brand-logo {
+    display: none;
+  }
+
+  .brand:not(.brand-full) .brand-mark-img {
+    display: block;
+  }
 }
 
 .nav {

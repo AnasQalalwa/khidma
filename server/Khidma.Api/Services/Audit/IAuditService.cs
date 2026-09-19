@@ -24,6 +24,7 @@ public static class AuditActions
     public const string LoginSucceeded = "Auth.LoginSucceeded";
     public const string LoginFailed = "Auth.LoginFailed";
     public const string Logout = "Auth.Logout";
+    public const string CsrfRejected = "Auth.CsrfRejected";
 
     public const string ProviderProfileUpdated = "Provider.ProfileUpdated";
     public const string ProviderServicesUpdated = "Provider.ServicesUpdated";

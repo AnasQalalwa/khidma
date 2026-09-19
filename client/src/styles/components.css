@@ -2,6 +2,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  align-self: auto;
+  height: auto;
   gap: 0.45rem;
   border: 0;
   border-radius: var(--radius-pill);
@@ -852,6 +854,17 @@ textarea:focus {
   align-items: center;
 }
 
+.filter-bar {
+  align-items: flex-end;
+}
+
+.filter-bar > label:not(.hide-auth) {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.35rem;
+}
+
 .filter-bar label,
 .pagination {
   justify-content: space-between;
@@ -859,7 +872,7 @@ textarea:focus {
 
 .filter-bar select {
   display: block;
-  margin-top: 0.35rem;
+  margin-top: 0;
 }
 
 .pagination {
@@ -1089,6 +1102,7 @@ textarea:focus {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--space-4);
+  align-items: start;
 }
 
 .chip-list {
@@ -1216,7 +1230,7 @@ textarea:focus {
 .filter-bar input[type='date'],
 .filter-bar input[type='text'] {
   display: block;
-  margin-top: 0.35rem;
+  margin-top: 0;
   min-width: 10rem;
 }
 

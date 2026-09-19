@@ -223,3 +223,18 @@ Estimated **~100 / 100** on product evidence. Remaining points are operator: Azu
 16. **Manual — real PDF upload** — provider profile upload + admin download.
 17. **Manual — suspend in the UI** — confirm pending offers flip to Rejected (covered by `SuspensionTests`).
 18. **Manual — live dashboard query counts** — ADR 18 source counts; `Executed DbCommand` capture on SQL Server not repeated in Phase 9.
+
+## Admin dashboard v2 (19 September 2026)
+
+Recorded on `feature/admin-dashboard-v2` after the polish pass. Commands were run as-is. **No failures.**
+
+| Command | Result |
+| --- | --- |
+| `dotnet test -c Release` | **133 passed**, 0 failed, **2 skipped** (SQL Server opt-in). Includes `AdminOverviewTests` (6 `[Fact]` + 2 `[Theory]` = **13** cases). |
+| `$env:KHIDMA_SQLSERVER_TESTS=1` (not re-run this pass) | Previous proof **2/2** on LocalDB; default skip count unchanged. Expected **135** passed / 0 skipped. |
+| `npm run lint` / `npx tsc -b` (client) | Passed. |
+| `npm run test` (client) | **42 passed**, 0 failed, **19** files (includes `formatDelta` pts/currency/count/percent). |
+| `./scripts/reset-demo.ps1` | Dropped `Khidma`, applied both migrations, Development seeder ran. |
+| `npm run screenshots` | Recaptured 24 PNGs after compact 32px chrome, grouped bookings bars, and a demo walk (kitchen sink + two pending offers, completed bathroom tap with review, scheduled ceiling light, rejected extra provider; `provider2` still `PendingReview`). |
+
+Opened `admin-overview-1280`, `admin-audit-1280`, and `home-360`: compact logo (mark-only at 360), no background tiling, no smoke/concurrency/security-matrix titles. Conversion delta shows **pts**. Hide login and logout sits on one line with Apply filters.

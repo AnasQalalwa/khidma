@@ -45,6 +45,43 @@ export function formatBudget(
   return `Up to ${formatMoney(max)}`
 }
 
+export function formatPercent(value: number | null | undefined): string {
+  if (value === null || value === undefined) {
+    return '—'
+  }
+
+  return new Intl.NumberFormat(undefined, {
+    style: 'percent',
+    maximumFractionDigits: 1,
+    minimumFractionDigits: 0,
+  }).format(value)
+}
+
+export function formatCount(value: number | null | undefined): string {
+  if (value === null || value === undefined) {
+    return '—'
+  }
+
+  return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(value)
+}
+
+export type DeltaKind = 'percent' | 'currency' | 'count' | 'pts'
+
+export function formatDelta(amount: number, kind: DeltaKind): string {
+  const sign = amount > 0 ? '+' : amount < 0 ? '−' : ''
+  const abs = Math.abs(amount)
+  const body =
+    kind === 'currency'
+      ? formatMoney(abs)
+      : kind === 'percent'
+        ? formatPercent(abs)
+        : kind === 'count'
+          ? formatCount(abs)
+          : `${Math.round(abs * 100)} pts`
+
+  return `${sign}${body}`
+}
+
 export function formatRating(value: number, count: number): string {
   if (count === 0) {
     return 'No reviews yet'

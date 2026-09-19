@@ -9,6 +9,10 @@ public interface IAdminService
 {
     Task<AdminStatsDto> GetStatsAsync(CancellationToken cancellationToken);
 
+    Task<ServiceResult<AdminOverviewDto>> GetOverviewAsync(
+        string? range,
+        CancellationToken cancellationToken);
+
     Task<AdminAttentionDto> GetAttentionAsync(CancellationToken cancellationToken);
 
     Task<ServiceResult<PagedResult<AdminProviderListItemDto>>> GetProvidersAsync(
@@ -32,6 +36,8 @@ public interface IAdminService
         CancellationToken cancellationToken);
 
     Task<AuditSummaryDto> GetAuditSummaryAsync(CancellationToken cancellationToken);
+
+    AuditFilterOptionsDto GetAuditFilterOptions();
 
     Task<ServiceResult<CategoryDto>> CreateCategoryAsync(
         SaveCategoryRequest request,
