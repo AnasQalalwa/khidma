@@ -11,6 +11,8 @@ public class ProviderProfileConfiguration : IEntityTypeConfiguration<ProviderPro
         builder.HasKey(p => p.Id);
 
         builder.Ignore(p => p.CanReceiveWork);
+        builder.Ignore(p => p.HasPhoto);
+        builder.Ignore(p => p.IsLocationLocked);
 
         builder.Property(p => p.UserId)
             .IsRequired();
@@ -19,8 +21,20 @@ public class ProviderProfileConfiguration : IEntityTypeConfiguration<ProviderPro
             .IsRequired()
             .HasMaxLength(80);
 
+        builder.Property(p => p.Latitude)
+            .HasPrecision(9, 6);
+
+        builder.Property(p => p.Longitude)
+            .HasPrecision(9, 6);
+
         builder.Property(p => p.Bio)
             .HasMaxLength(1000);
+
+        builder.Property(p => p.PhotoStoredFileName)
+            .HasMaxLength(100);
+
+        builder.Property(p => p.PhotoContentType)
+            .HasMaxLength(100);
 
         builder.Property(p => p.VerificationStatus)
             .HasConversion<string>()

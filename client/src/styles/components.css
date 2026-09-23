@@ -468,11 +468,135 @@ textarea {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   padding: 0.8rem 0.9rem;
-  background: #fcfdfc;
+  background-color: #fcfdfc;
   color: var(--color-text);
   transition:
     border-color var(--transition-fast),
     box-shadow var(--transition-fast);
+}
+
+select {
+  appearance: none;
+  padding-right: 2.5rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%235b6b7a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1rem;
+  cursor: pointer;
+}
+
+select::-ms-expand {
+  display: none;
+}
+
+.phone-field {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: 100%;
+  min-height: 2.85rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: #fcfdfc;
+  padding: 0 0.9rem;
+}
+
+.phone-code {
+  position: relative;
+  flex: none;
+}
+
+.phone-code-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  border: 0;
+  border-right: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-heading);
+  font-weight: 700;
+  line-height: 1;
+  padding: 0 0.55rem 0 0;
+  margin-right: 0.15rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.phone-code-trigger svg {
+  width: 0.9rem;
+  height: 0.9rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.phone-code-menu {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 0.45rem);
+  left: -0.35rem;
+  width: 16.5rem;
+  max-height: 16rem;
+  margin: 0;
+  padding: 0.35rem;
+  overflow: auto;
+  list-style: none;
+  background: #ffffff;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  box-shadow: 0 16px 40px rgba(18, 32, 58, 0.12);
+}
+
+.phone-code-menu button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-heading);
+  padding: 0.5rem 0.65rem;
+  cursor: pointer;
+  text-align: left;
+}
+
+.phone-code-menu button[aria-selected='true'],
+.phone-code-menu button:hover {
+  background: var(--color-primary-light);
+}
+
+.phone-field input {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0.8rem 0;
+  min-width: 0;
+}
+
+.field-control.has-icon .phone-field {
+  padding-left: 2.5rem;
+}
+
+.field-control.has-icon .phone-field input,
+.phone-field input:focus,
+.phone-field input:focus-visible {
+  padding-left: 0;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.phone-field:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: var(--focus-ring);
+}
+
+.field:has([aria-invalid='true']) .phone-field {
+  border-color: var(--color-danger);
+  background: var(--color-danger-bg);
 }
 
 .field-control {
@@ -480,6 +604,7 @@ textarea {
 }
 
 .field-control.has-icon input,
+.field-control.has-icon select,
 .field-control.has-icon textarea {
   padding-left: 2.5rem;
 }
@@ -532,6 +657,102 @@ textarea:focus {
 .password-toggle:hover {
   color: var(--color-heading);
   background: var(--color-surface-soft);
+}
+
+.password-rules {
+  list-style: none;
+  margin: 0;
+  padding: 0.15rem 0 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.password-rule {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.password-rule-mark {
+  width: 1.05rem;
+  height: 1.05rem;
+  flex: 0 0 1.05rem;
+  border-radius: 999px;
+  border: 1.5px solid var(--color-border-strong);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-surface);
+}
+
+.password-rule.is-met {
+  color: var(--color-success);
+}
+
+.password-rule.is-met .password-rule-mark {
+  border-color: var(--color-success);
+  background: var(--color-success);
+  color: var(--color-on-primary);
+}
+
+.auth-verify-note {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  border-radius: 14px;
+  background: var(--color-primary-light);
+  color: var(--color-primary-deep);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+#verification {
+  scroll-margin-top: calc(var(--header-height) + 1rem);
+}
+
+.location-picker {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.location-picker-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+}
+
+.location-picker-toolbar .muted {
+  margin: 0;
+}
+
+.location-map {
+  height: 280px;
+  width: 100%;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-soft);
+  z-index: 0;
+}
+
+.location-pin {
+  background: transparent;
+  border: 0;
+}
+
+.location-pin span {
+  display: block;
+  width: 16px;
+  height: 16px;
+  margin: 0 auto;
+  border-radius: 999px;
+  background: var(--color-primary);
+  border: 2px solid white;
+  box-shadow: 0 6px 16px rgba(15, 118, 110, 0.35);
 }
 
 .role-grid {

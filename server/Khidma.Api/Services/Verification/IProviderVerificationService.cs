@@ -13,6 +13,7 @@ public interface IProviderVerificationService
         string providerUserId,
         string documentType,
         IFormFile file,
+        int? serviceId,
         CancellationToken cancellationToken);
 
     Task<ServiceResult<ProviderVerificationDto>> DeleteMineAsync(

@@ -1,9 +1,5 @@
 import { apiRequest } from './client'
-import type { CustomerDashboard, ProviderDashboard } from './types'
-
-export function getCustomerDashboard(): Promise<CustomerDashboard> {
-  return apiRequest('/api/dashboard/customer')
-}
+import type { ProviderDashboard } from './types'
 
 export function getProviderDashboard(): Promise<ProviderDashboard> {
   return apiRequest('/api/dashboard/provider')

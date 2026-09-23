@@ -1,3 +1,51 @@
+export function formatDay(value: string | null | undefined): string {
+  if (!value) {
+    return '—'
+  }
+
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value)
+  if (!match) {
+    return formatDate(value)
+  }
+
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(date)
+}
+
+export function formatTime(value: string | null | undefined): string {
+  if (!value) {
+    return '—'
+  }
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return '—'
+  }
+
+  return new Intl.DateTimeFormat(undefined, { timeStyle: 'short' }).format(date)
+}
+
+export function formatSlot(start: string | null | undefined, end: string | null | undefined): string {
+  if (!start) {
+    return '—'
+  }
+
+  const startDate = new Date(start)
+  if (Number.isNaN(startDate.getTime())) {
+    return '—'
+  }
+
+  const endDate = end ? new Date(end) : null
+  const day = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(startDate)
+  const startTime = new Intl.DateTimeFormat(undefined, { timeStyle: 'short' }).format(startDate)
+  if (!endDate || Number.isNaN(endDate.getTime())) {
+    return `${day}, ${startTime}`
+  }
+
+  const endTime = new Intl.DateTimeFormat(undefined, { timeStyle: 'short' }).format(endDate)
+  return `${day}, ${startTime} – ${endTime}`
+}
+
 export function formatDate(value: string | null | undefined): string {
   if (!value) {
     return '—'

@@ -27,6 +27,8 @@ export function customerUser(
     id: 'customer-1',
     email: 'customer@khidma.test',
     fullName: 'Test Customer',
+    phoneNumber: '0591111111',
+    city: 'Ramallah',
     role: 'Customer',
     ...overrides,
   }
@@ -39,6 +41,8 @@ export function providerUser(
     id: 'provider-1',
     email: 'provider@khidma.test',
     fullName: 'Test Provider',
+    phoneNumber: '0593333333',
+    city: 'Ramallah',
     role: 'Provider',
     ...overrides,
   }
@@ -51,6 +55,8 @@ export function adminUser(
     id: 'admin-1',
     email: 'admin@khidma.test',
     fullName: 'Test Admin',
+    phoneNumber: '0590000001',
+    city: null,
     role: 'Admin',
     ...overrides,
   }

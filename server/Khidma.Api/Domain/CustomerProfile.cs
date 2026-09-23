@@ -8,7 +8,5 @@ public class CustomerProfile
 
     public string City { get; set; } = default!;
 
-    public string? DefaultContact { get; set; }
-
     public ApplicationUser User { get; set; } = default!;
 }

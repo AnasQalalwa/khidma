@@ -6,6 +6,7 @@ using Khidma.Api.Domain.Enums;
 using Khidma.Api.Infrastructure;
 using Khidma.Api.Services.Audit;
 using Khidma.Api.Services.Documents;
+using Khidma.Api.Services.Providers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 
@@ -44,6 +45,7 @@ public sealed class ProviderVerificationService : IProviderVerificationService
         string providerUserId,
         string documentType,
         IFormFile file,
+        int? serviceId,
         CancellationToken cancellationToken)
     {
         if (!Enum.TryParse<VerificationDocumentType>(documentType, ignoreCase: true, out var type) ||
@@ -72,6 +74,17 @@ public sealed class ProviderVerificationService : IProviderVerificationService
             return ServiceResult<ProviderVerificationDto>.NotFound("Provider profile not found.");
         }
 
+        if (serviceId.HasValue)
+        {
+            var serviceExists = await _db.Services.AnyAsync(s => s.Id == serviceId.Value, cancellationToken);
+            if (!serviceExists)
+            {
+                return ServiceResult<ProviderVerificationDto>.Validation(
+                    "serviceId",
+                    "That service does not exist.");
+            }
+        }
+
         string storedFileName;
         await using (var buffer = new MemoryStream())
         {
@@ -86,6 +99,7 @@ public sealed class ProviderVerificationService : IProviderVerificationService
         var document = new ProviderVerificationDocument
         {
             ProviderProfileId = profile.Id,
+            ServiceId = serviceId,
             DocumentType = type,
             OriginalFileName = validation.SafeOriginalFileName,
             StoredFileName = storedFileName,
@@ -131,6 +145,7 @@ public sealed class ProviderVerificationService : IProviderVerificationService
                 ["originalFileName"] = validation.SafeOriginalFileName,
                 ["contentType"] = validation.CanonicalContentType,
                 ["fileSizeBytes"] = validation.FileSizeBytes,
+                ["serviceId"] = serviceId,
                 ["resubmitted"] = resubmitted
             }
         }, cancellationToken);
@@ -166,6 +181,13 @@ public sealed class ProviderVerificationService : IProviderVerificationService
             return ServiceResult<ProviderVerificationDto>.Conflict(
                 "Reviewed documents cannot be deleted.");
         }
+
+        var linkedChanges = await _db.ProviderProfileChangeRequests
+            .Where(c =>
+                c.ProofDocumentId == document.Id &&
+                c.Status == ProviderChangeRequestStatus.Pending)
+            .ToListAsync(cancellationToken);
+        _db.ProviderProfileChangeRequests.RemoveRange(linkedChanges);
 
         var stored = document.StoredFileName;
         _db.ProviderVerificationDocuments.Remove(document);
@@ -282,6 +304,12 @@ public sealed class ProviderVerificationService : IProviderVerificationService
                 "Document status is not valid.");
         }
 
+        if (query.HasPendingChanges == true)
+        {
+            providers = providers.Where(p => p.ChangeRequests.Any(
+                c => c.Status == ProviderChangeRequestStatus.Pending));
+        }
+
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
             var term = query.Search.Trim().ToLower();
@@ -314,7 +342,9 @@ public sealed class ProviderVerificationService : IProviderVerificationService
                 Services = p.ProviderServices
                     .OrderBy(ps => ps.Service.Name)
                     .Select(ps => ps.Service.Name)
-                    .ToList()
+                    .ToList(),
+                PendingChangeCount = p.ChangeRequests.Count(
+                    c => c.Status == ProviderChangeRequestStatus.Pending)
             })
             .ToPagedResultAsync(page, pageSize, cancellationToken);
 
@@ -354,6 +384,7 @@ public sealed class ProviderVerificationService : IProviderVerificationService
         }
 
         var document = await _db.ProviderVerificationDocuments
+            .Include(d => d.Service)
             .FirstOrDefaultAsync(d => d.Id == documentId, cancellationToken);
 
         if (document is null)
@@ -365,6 +396,42 @@ public sealed class ProviderVerificationService : IProviderVerificationService
         document.ReviewNote = string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim();
         document.ReviewedAt = DateTimeOffset.UtcNow;
         document.ReviewedByUserId = adminUserId;
+
+        var linkedChanges = await _db.ProviderProfileChangeRequests
+            .Include(c => c.ProviderProfile)
+                .ThenInclude(p => p.ProviderServices)
+            .Include(c => c.ProofDocument)
+            .Include(c => c.Service)
+            .Where(c =>
+                c.ProofDocumentId == document.Id &&
+                c.Status == ProviderChangeRequestStatus.Pending)
+            .ToListAsync(cancellationToken);
+
+        foreach (var change in linkedChanges)
+        {
+            change.ProofDocument = document;
+            if (status == VerificationDocumentStatus.Approved &&
+                change.Type == ProviderChangeRequestType.AddService)
+            {
+                var applied = await ProviderProfileService.ApplyApprovedChangeAsync(
+                    change,
+                    cancellationToken);
+                if (applied.Succeeded)
+                {
+                    change.Status = ProviderChangeRequestStatus.Approved;
+                    change.ReviewedAt = document.ReviewedAt;
+                    change.ReviewedByUserId = adminUserId;
+                }
+            }
+            else if (status == VerificationDocumentStatus.Rejected)
+            {
+                change.Status = ProviderChangeRequestStatus.Rejected;
+                change.ReviewNote = document.ReviewNote;
+                change.ReviewedAt = document.ReviewedAt;
+                change.ReviewedByUserId = adminUserId;
+            }
+        }
+
         await _db.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation(
@@ -389,7 +456,7 @@ public sealed class ProviderVerificationService : IProviderVerificationService
             }
         }, cancellationToken);
 
-        return ServiceResult<VerificationDocumentDto>.Success(ToDocumentDto(document));
+        return ServiceResult<VerificationDocumentDto>.Success(ProviderChangeMapping.ToDocumentDto(document));
     }
 
     public async Task<ServiceResult<ProviderVerificationDto>> DecideProviderAsync(
@@ -545,12 +612,14 @@ public sealed class ProviderVerificationService : IProviderVerificationService
                     profile.SuspendedAt = DateTimeOffset.UtcNow;
                     profile.SuspendedByUserId = adminUserId;
 
-                    var pending = await _db.Offers
-                        .Where(o => o.ProviderId == profile.UserId && o.Status == OfferStatus.Pending)
+                    var pending = await _db.Bookings
+                        .Where(b => b.ProviderId == profile.UserId && b.Status == BookingStatus.Pending)
                         .ToListAsync(cancellationToken);
-                    foreach (var offer in pending)
+                    foreach (var booking in pending)
                     {
-                        offer.Status = OfferStatus.Rejected;
+                        booking.Status = BookingStatus.Declined;
+                        booking.DeclineReason = "The provider is no longer available.";
+                        booking.RespondedAt = DateTimeOffset.UtcNow;
                     }
 
                     rejectedPending = pending.Count;
@@ -570,7 +639,7 @@ public sealed class ProviderVerificationService : IProviderVerificationService
                 }
 
                 _logger.LogInformation(
-                    "Admin {AdminUserId} {Action} provider {ProviderProfileId}; pending offers rejected {RejectedCount}",
+                    "Admin {AdminUserId} {Action} provider {ProviderProfileId}; pending bookings declined {RejectedCount}",
                     adminUserId,
                     request.Suspended ? "suspended" : "reactivated",
                     profile.Id,
@@ -590,7 +659,7 @@ public sealed class ProviderVerificationService : IProviderVerificationService
                         : "Admin reactivated a provider.",
                     Details = new Dictionary<string, object?>
                     {
-                        ["pendingOffersRejected"] = rejectedPending,
+                        ["pendingBookingsDeclined"] = rejectedPending,
                         ["verificationStatus"] = profile.VerificationStatus.ToString()
                     }
                 }, cancellationToken);
@@ -625,6 +694,11 @@ public sealed class ProviderVerificationService : IProviderVerificationService
             .Include(p => p.ProviderServices)
                 .ThenInclude(ps => ps.Service)
             .Include(p => p.Documents)
+                .ThenInclude(d => d.Service)
+            .Include(p => p.ChangeRequests)
+                .ThenInclude(c => c.Service)
+            .Include(p => p.ChangeRequests)
+                .ThenInclude(c => c.ProofDocument)
             .FirstOrDefaultAsync(p => p.UserId == userId, cancellationToken);
 
     private Task<ProviderProfile?> LoadProfileByIdAsync(
@@ -636,6 +710,11 @@ public sealed class ProviderVerificationService : IProviderVerificationService
             .Include(p => p.ProviderServices)
                 .ThenInclude(ps => ps.Service)
             .Include(p => p.Documents)
+                .ThenInclude(d => d.Service)
+            .Include(p => p.ChangeRequests)
+                .ThenInclude(c => c.Service)
+            .Include(p => p.ChangeRequests)
+                .ThenInclude(c => c.ProofDocument)
             .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
 
     private static ProviderVerificationDto ToDto(ProviderProfile profile) => new()
@@ -645,6 +724,8 @@ public sealed class ProviderVerificationService : IProviderVerificationService
         FullName = profile.User.FullName,
         Email = profile.User.Email ?? string.Empty,
         City = profile.City,
+        Latitude = profile.Latitude,
+        Longitude = profile.Longitude,
         YearsOfExperience = profile.YearsOfExperience,
         Bio = profile.Bio,
         VerificationStatus = profile.VerificationStatus.ToString(),
@@ -661,25 +742,13 @@ public sealed class ProviderVerificationService : IProviderVerificationService
             .ToList(),
         Documents = profile.Documents
             .OrderByDescending(d => d.UploadedAt)
-            .Select(ToDocumentDto)
+            .Select(ProviderChangeMapping.ToDocumentDto)
             .ToList(),
         HasApprovedDocument = profile.Documents.Any(
-            d => d.ReviewStatus == VerificationDocumentStatus.Approved)
+            d => d.ReviewStatus == VerificationDocumentStatus.Approved),
+        HasPhoto = profile.HasPhoto,
+        PendingChanges = ProviderChangeMapping.PendingOf(profile)
     };
-
-    private static VerificationDocumentDto ToDocumentDto(ProviderVerificationDocument document) =>
-        new()
-        {
-            Id = document.Id,
-            DocumentType = document.DocumentType.ToString(),
-            OriginalFileName = document.OriginalFileName,
-            ContentType = document.ContentType,
-            FileSizeBytes = document.FileSizeBytes,
-            UploadedAt = document.UploadedAt,
-            ReviewStatus = document.ReviewStatus.ToString(),
-            ReviewNote = document.ReviewNote,
-            ReviewedAt = document.ReviewedAt
-        };
 
     private static AuditEntry DeniedDocumentAccess(int documentId, string message) => new()
     {

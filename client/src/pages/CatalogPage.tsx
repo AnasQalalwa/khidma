@@ -44,7 +44,7 @@ export function CatalogPage() {
   const [services, setServices] = useState<CatalogService[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [query, setQuery] = useState('')
+  const [query, setQuery] = useState(() => searchParams.get('q') ?? '')
   const [sort, setSort] = useState<SortOption>('name-asc')
   const [reloadToken, setReloadToken] = useState(0)
   const searchRef = useRef<HTMLInputElement>(null)
@@ -168,8 +168,7 @@ export function CatalogPage() {
               Find the right <span>service</span>
             </h1>
             <p>
-              Browse live categories and services from the Khidma catalog.
-              Create a request when you are ready to hire.
+              Browse live categories and services, then book a provider in your city.
             </p>
           </div>
           <div className="catalog-hero-visual">
@@ -288,7 +287,7 @@ export function CatalogPage() {
                   <Icon icon={Lightbulb} size={16} />
                 </span>
                 <h2>Don't see what you need?</h2>
-                <p>Create a request if you need something that is not listed yet.</p>
+                <p>Try another category, or check back as more providers join.</p>
               </section>
             </aside>
 
@@ -350,8 +349,11 @@ export function CatalogPage() {
                     {visibleServices.map((service) => (
                       <ServiceCard
                         key={service.id}
+                        id={service.id}
                         name={service.name}
+                        description={service.description}
                         categoryName={service.categoryName}
+                        hasImage={service.hasImage}
                       />
                     ))}
                   </div>
@@ -364,9 +366,9 @@ export function CatalogPage() {
           <span className="catalog-cta-leaf catalog-cta-leaf-a" aria-hidden="true" />
           <span className="catalog-cta-leaf catalog-cta-leaf-b" aria-hidden="true" />
           <div className="catalog-cta-copy">
-            <span className="eyebrow">Need a service that isn't listed?</span>
-            <h2>Let us know what you need.</h2>
-            <p>Create a service request and eligible local providers can respond.</p>
+            <span className="eyebrow">Ready to book?</span>
+            <h2>Pick a service and choose a provider.</h2>
+            <p>Approved providers in your city can accept the visit and quote a price.</p>
           </div>
           <Button variant="light" icon={Search} onClick={scrollToCatalog}>
             Explore services

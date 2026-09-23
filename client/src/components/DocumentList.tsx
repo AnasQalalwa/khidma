@@ -25,8 +25,9 @@ export function DocumentList({
             <div>
               <strong>{document.originalFileName}</strong>
               <p className="muted">
-                {statusLabel(document.documentType)} · {formatBytes(document.fileSizeBytes)} ·{' '}
-                {formatDate(document.uploadedAt)}
+                {statusLabel(document.documentType)}
+                {document.serviceName ? ` · ${document.serviceName}` : ''} ·{' '}
+                {formatBytes(document.fileSizeBytes)} · {formatDate(document.uploadedAt)}
               </p>
             </div>
             <StatusBadge status={document.reviewStatus} />

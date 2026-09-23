@@ -21,7 +21,8 @@ public sealed class ProviderProfileTests : IClassFixture<KhidmaApiFactory>
         {
             city = "Jenin",
             yearsOfExperience = 8,
-            bio = "Updated bio"
+            bio = "Updated bio",
+            phoneNumber = "+970 0592000000"
         });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -30,6 +31,27 @@ public sealed class ProviderProfileTests : IClassFixture<KhidmaApiFactory>
         Assert.Equal(8, doc.RootElement.GetProperty("yearsOfExperience").GetInt32());
         Assert.Equal("PendingReview", doc.RootElement.GetProperty("verificationStatus").GetString());
         Assert.Equal(0, doc.RootElement.GetProperty("reviewCount").GetInt32());
+    }
+
+    [Fact]
+    public async Task Provider_CanSaveMapCoordinates()
+    {
+        var (provider, _) = await TestHarness.RegisterAsync(_factory, "Provider", "Nablus");
+        var response = await provider.PutAsJsonAsync("/api/providers/me", new
+        {
+            city = "Ramallah",
+            latitude = 31.9038m,
+            longitude = 35.2034m,
+            yearsOfExperience = 4,
+            bio = "Pinned on the map",
+            phoneNumber = "+970 0592000000"
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal("Ramallah", doc.RootElement.GetProperty("city").GetString());
+        Assert.Equal(31.9038m, doc.RootElement.GetProperty("latitude").GetDecimal());
+        Assert.Equal(35.2034m, doc.RootElement.GetProperty("longitude").GetDecimal());
     }
 
     [Fact]
@@ -60,5 +82,6 @@ public sealed class ProviderProfileTests : IClassFixture<KhidmaApiFactory>
         Assert.Equal(HttpStatusCode.OK, publicProfile.StatusCode);
         var body = await publicProfile.Content.ReadAsStringAsync();
         Assert.DoesNotContain(email!, body, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("phone", body, StringComparison.OrdinalIgnoreCase);
     }
 }

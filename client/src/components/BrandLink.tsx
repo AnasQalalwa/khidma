@@ -1,10 +1,7 @@
 import type { MouseEventHandler } from 'react'
 import { NavLink } from 'react-router-dom'
-import compactLogo from '../assets/brand/khidma-logo-compact.svg'
-import compactLogoWhite from '../assets/brand/khidma-logo-compact-white.svg'
-import logo from '../assets/brand/khidma-logo.svg'
-import logoWhite from '../assets/brand/khidma-logo-white.svg'
-import mark from '../assets/brand/khidma-mark.svg'
+import logo from '../assets/brand/khidma-logo.png'
+import mark from '../assets/brand/khidma-mark.png'
 
 export function BrandLink({
   variant = 'onLight',
@@ -16,24 +13,24 @@ export function BrandLink({
   onClick?: MouseEventHandler<HTMLAnchorElement>
 }) {
   const compact = size === 'compact'
-  const wordmark = variant === 'onDark'
-    ? compact
-      ? compactLogoWhite
-      : logoWhite
-    : compact
-      ? compactLogo
-      : logo
-  const height = compact ? 32 : 48
 
   return (
     <NavLink
       to="/"
-      className={compact ? 'brand' : 'brand brand-full'}
+      className={[
+        'brand',
+        compact ? '' : 'brand-full',
+        variant === 'onDark' ? 'brand-on-dark' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
       aria-label="Khidma home"
       onClick={onClick}
     >
-      <img className="brand-logo" src={wordmark} alt="Khidma" height={height} />
-      {compact ? <img className="brand-mark-img" src={mark} alt="Khidma" height={32} /> : null}
+      <span className="brand-tile">
+        <img className="brand-logo" src={logo} alt="Khidma" />
+        {compact ? <img className="brand-mark-img" src={mark} alt="" /> : null}
+      </span>
     </NavLink>
   )
 }

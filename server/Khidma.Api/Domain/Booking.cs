@@ -6,21 +6,37 @@ public class Booking
 {
     public int Id { get; set; }
 
-    public int OfferId { get; set; }
-
-    public int ServiceRequestId { get; set; }
-
     public string CustomerId { get; set; } = default!;
 
     public string ProviderId { get; set; } = default!;
 
-    public DateTimeOffset ScheduledDate { get; set; }
+    public int ServiceId { get; set; }
 
-    public decimal FinalPrice { get; set; }
+    public string City { get; set; } = default!;
+
+    public string? Notes { get; set; }
+
+    public DateOnly RequestedDate { get; set; }
+
+    public DateTimeOffset? ScheduledStart { get; set; }
+
+    public int? DurationHours { get; set; }
+
+    public DateTimeOffset? RescheduledAt { get; set; }
+
+    public string? RescheduleNote { get; set; }
 
     public BookingStatus Status { get; set; }
 
+    public decimal? QuotedPrice { get; set; }
+
+    public string? ProviderMessage { get; set; }
+
+    public string? DeclineReason { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
+
+    public DateTimeOffset? RespondedAt { get; set; }
 
     public DateTimeOffset? StartedAt { get; set; }
 
@@ -32,9 +48,7 @@ public class Booking
 
     public byte[] RowVersion { get; set; } = default!;
 
-    public Offer Offer { get; set; } = default!;
-
-    public ServiceRequest ServiceRequest { get; set; } = default!;
+    public Service Service { get; set; } = default!;
 
     public ApplicationUser Customer { get; set; } = default!;
 

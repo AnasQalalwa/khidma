@@ -53,5 +53,12 @@ public class ProviderVerificationDocumentConfiguration
             .WithMany(p => p.Documents)
             .HasForeignKey(d => d.ProviderProfileId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(d => d.Service)
+            .WithMany()
+            .HasForeignKey(d => d.ServiceId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasIndex(d => d.ServiceId);
     }
 }

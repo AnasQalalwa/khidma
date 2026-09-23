@@ -34,6 +34,7 @@ builder.Services
     {
         options.User.RequireUniqueEmail = true;
         options.SignIn.RequireConfirmedAccount = false;
+        PasswordRules.Apply(options.Password);
     })
     .AddEntityFrameworkStores<AppDbContext>()
     .AddDefaultTokenProviders();
@@ -92,14 +93,14 @@ builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<UserRegistrationService>();
 builder.Services.AddScoped<Khidma.Api.Services.Auth.IAuthService, Khidma.Api.Services.Auth.AuthService>();
 builder.Services.AddScoped<Khidma.Api.Services.Catalog.ICatalogService, Khidma.Api.Services.Catalog.CatalogService>();
-builder.Services.AddScoped<Khidma.Api.Services.ServiceRequests.IServiceRequestService, Khidma.Api.Services.ServiceRequests.ServiceRequestService>();
-builder.Services.AddScoped<Khidma.Api.Services.Offers.IOfferService, Khidma.Api.Services.Offers.OfferService>();
+builder.Services.AddScoped<Khidma.Api.Services.Account.IAccountService, Khidma.Api.Services.Account.AccountService>();
 builder.Services.AddScoped<Khidma.Api.Services.Bookings.IBookingService, Khidma.Api.Services.Bookings.BookingService>();
 builder.Services.AddScoped<Khidma.Api.Services.Reviews.IReviewService, Khidma.Api.Services.Reviews.ReviewService>();
 builder.Services.AddScoped<Khidma.Api.Services.Providers.IProviderProfileService, Khidma.Api.Services.Providers.ProviderProfileService>();
 builder.Services.AddScoped<Khidma.Api.Services.Admin.IAdminService, Khidma.Api.Services.Admin.AdminService>();
 builder.Services.AddScoped<Khidma.Api.Services.Dashboard.IDashboardService, Khidma.Api.Services.Dashboard.DashboardService>();
 builder.Services.AddScoped<Khidma.Api.Services.Verification.IProviderVerificationService, Khidma.Api.Services.Verification.ProviderVerificationService>();
+builder.Services.AddScoped<Khidma.Api.Services.Schedule.IProviderScheduleService, Khidma.Api.Services.Schedule.ProviderScheduleService>();
 
 var app = builder.Build();
 

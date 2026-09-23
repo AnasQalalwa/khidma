@@ -158,5 +158,26 @@ public sealed class ProductionHostFactory : WebApplicationFactory<Program>
             int categoryId,
             CancellationToken cancellationToken) =>
             throw new InvalidOperationException(ExceptionMarker);
+
+        public Task<ServiceResult<ServiceDto>> GetServiceAsync(
+            int serviceId,
+            CancellationToken cancellationToken) =>
+            throw new InvalidOperationException(ExceptionMarker);
+
+        public Task<ServiceResult<IReadOnlyList<ServiceProviderDto>>> GetProvidersForServiceAsync(
+            int serviceId,
+            string? city,
+            CancellationToken cancellationToken) =>
+            throw new InvalidOperationException(ExceptionMarker);
+
+        public Task<ServiceResult<Khidma.Api.Contracts.Verification.DocumentDownloadResult>> GetCategoryImageAsync(
+            int categoryId,
+            CancellationToken cancellationToken) =>
+            throw new InvalidOperationException(ExceptionMarker);
+
+        public Task<ServiceResult<Khidma.Api.Contracts.Verification.DocumentDownloadResult>> GetServiceImageAsync(
+            int serviceId,
+            CancellationToken cancellationToken) =>
+            throw new InvalidOperationException(ExceptionMarker);
     }
 }

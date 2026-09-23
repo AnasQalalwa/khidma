@@ -4,6 +4,8 @@ export type CurrentUser = {
   id: string
   email: string
   fullName: string
+  phoneNumber: string
+  city: string | null
   role: string
 }
 
@@ -11,6 +13,7 @@ export type RegisterPayload = {
   fullName: string
   email: string
   password: string
+  phoneNumber: string
   role: 'Customer' | 'Provider'
   city: string
   yearsOfExperience?: number

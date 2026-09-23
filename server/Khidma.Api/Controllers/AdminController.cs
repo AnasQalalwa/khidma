@@ -2,8 +2,11 @@ using Khidma.Api.Auth;
 using Khidma.Api.Contracts.Admin;
 using Khidma.Api.Contracts.Audit;
 using Khidma.Api.Contracts.Common;
+using Khidma.Api.Contracts.Providers;
 using Khidma.Api.Contracts.Verification;
+using Khidma.Api.Infrastructure;
 using Khidma.Api.Services.Admin;
+using Khidma.Api.Services.Providers;
 using Khidma.Api.Services.Verification;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -16,13 +19,16 @@ public sealed class AdminController : ApiControllerBase
 {
     private readonly IAdminService _admin;
     private readonly IProviderVerificationService _verification;
+    private readonly IProviderProfileService _providers;
 
     public AdminController(
         IAdminService admin,
-        IProviderVerificationService verification)
+        IProviderVerificationService verification,
+        IProviderProfileService providers)
     {
         _admin = admin;
         _verification = verification;
+        _providers = providers;
     }
 
     [HttpGet("stats")]
@@ -121,6 +127,19 @@ public sealed class AdminController : ApiControllerBase
             cancellationToken));
     }
 
+    [HttpPost("profile-changes/{id:int}/review")]
+    public async Task<IActionResult> ReviewProfileChange(
+        int id,
+        [FromBody] ReviewProviderChangeRequest request,
+        CancellationToken cancellationToken)
+    {
+        return FromResult(await _providers.ReviewChangeRequestAsync(
+            id,
+            request,
+            RequireUserId(),
+            cancellationToken));
+    }
+
     [HttpGet("users")]
     public async Task<IActionResult> Users(
         [FromQuery] AdminUserQuery query,
@@ -165,6 +184,12 @@ public sealed class AdminController : ApiControllerBase
         return FromResult(await _admin.GetAuditLogAsync(id, cancellationToken));
     }
 
+    [HttpGet("catalog/usage")]
+    public async Task<IActionResult> CatalogUsage(CancellationToken cancellationToken)
+    {
+        return Ok(await _admin.GetCatalogUsageAsync(cancellationToken));
+    }
+
     [HttpPost("categories")]
     public async Task<IActionResult> CreateCategory(
         [FromBody] SaveCategoryRequest request,
@@ -205,6 +230,28 @@ public sealed class AdminController : ApiControllerBase
         CancellationToken cancellationToken)
     {
         return FromResult(await _admin.UpdateServiceAsync(id, request, cancellationToken));
+    }
+
+    [HttpPost("categories/{id:int}/image")]
+    [RequestSizeLimit(DocumentFileValidator.MaxImageSizeBytes + 256 * 1024)]
+    [RequestFormLimits(MultipartBodyLengthLimit = DocumentFileValidator.MaxImageSizeBytes + 256 * 1024)]
+    public async Task<IActionResult> SetCategoryImage(
+        int id,
+        IFormFile file,
+        CancellationToken cancellationToken)
+    {
+        return FromResult(await _admin.SetCategoryImageAsync(id, file, cancellationToken));
+    }
+
+    [HttpPost("services/{id:int}/image")]
+    [RequestSizeLimit(DocumentFileValidator.MaxImageSizeBytes + 256 * 1024)]
+    [RequestFormLimits(MultipartBodyLengthLimit = DocumentFileValidator.MaxImageSizeBytes + 256 * 1024)]
+    public async Task<IActionResult> SetServiceImage(
+        int id,
+        IFormFile file,
+        CancellationToken cancellationToken)
+    {
+        return FromResult(await _admin.SetServiceImageAsync(id, file, cancellationToken));
     }
 
     [HttpDelete("services/{id:int}")]

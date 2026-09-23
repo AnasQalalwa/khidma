@@ -1,6 +1,6 @@
 import { ShieldAlert } from 'lucide-react'
 import { useAuth } from '../auth/useAuth'
-import { dashboardPath } from '../auth/roles'
+import { dashboardPath, Roles } from '../auth/roles'
 import { Button } from '../components/Button'
 import { IconTile } from '../components/icons'
 
@@ -19,7 +19,7 @@ export function ForbiddenPage() {
         <Button to="/">Back Home</Button>
         {authenticated && user ? (
           <Button variant="secondary" to={dashboardPath(user.role)}>
-            Dashboard
+            {user.role === Roles.Customer ? 'Catalog' : 'Dashboard'}
           </Button>
         ) : null}
       </div>

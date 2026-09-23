@@ -10,9 +10,17 @@ public class ProviderProfile
 
     public string City { get; set; } = default!;
 
+    public decimal? Latitude { get; set; }
+
+    public decimal? Longitude { get; set; }
+
     public int YearsOfExperience { get; set; }
 
     public string? Bio { get; set; }
+
+    public string? PhotoStoredFileName { get; set; }
+
+    public string? PhotoContentType { get; set; }
 
     public ProviderVerificationStatus VerificationStatus { get; set; }
 
@@ -42,6 +50,17 @@ public class ProviderProfile
     public ICollection<ProviderVerificationDocument> Documents { get; set; }
         = new List<ProviderVerificationDocument>();
 
+    public ICollection<ProviderProfileChangeRequest> ChangeRequests { get; set; }
+        = new List<ProviderProfileChangeRequest>();
+
+    public ICollection<ProviderWorkingHour> WorkingHours { get; set; }
+        = new List<ProviderWorkingHour>();
+
+    public bool HasPhoto => !string.IsNullOrWhiteSpace(PhotoStoredFileName);
+
     public bool CanReceiveWork =>
         VerificationStatus == ProviderVerificationStatus.Approved && !IsSuspended;
+
+    public bool IsLocationLocked =>
+        VerificationStatus == ProviderVerificationStatus.Approved;
 }

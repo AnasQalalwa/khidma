@@ -16,8 +16,8 @@ const ITEMS: {
     icon: FileWarning,
   },
   {
-    key: 'staleOpenRequests',
-    label: 'Stale open requests',
+    key: 'stalePendingBookings',
+    label: 'Stale pending bookings',
     href: '/admin/catalog',
     icon: Clock3,
   },

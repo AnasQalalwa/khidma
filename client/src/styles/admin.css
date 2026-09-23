@@ -412,7 +412,11 @@
   padding-block: 0;
   padding-inline: 0.9rem;
   border-radius: var(--radius-md);
-  background: var(--color-surface);
+  background-color: var(--color-surface);
+}
+
+.admin-page .filter-bar select {
+  padding-right: 2.2rem;
 }
 
 .admin-page .filter-bar input[type='search'] {

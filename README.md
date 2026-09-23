@@ -2,13 +2,13 @@
 
 ![Khidma](docs/brand/khidma-logo.png)
 
-Khidma is a local service marketplace. Customers publish requests, eligible providers submit offers, the customer accepts exactly one offer, and the booking is started, completed, and reviewed.
+Khidma is a local service marketplace. A customer opens the catalog, picks a service, chooses an approved provider, and requests a day. The provider calls to agree the time, then accepts with a price, a start time, and a duration. That visit fills the provider's week. The provider can move or extend it later. Phone numbers are required at registration and are visible only to the two people on that booking.
 
 **Deployed URL:** _TBD after Azure deploy_ — see `deploy/AZURE_DEPLOY.md`.
 
 ## Screenshots
 
-Responsive captures (360 / 768 / 1280) live in [`docs/screenshots/`](docs/screenshots/). Recorded 19 September 2026 against the Vite proxy after `./scripts/reset-demo.ps1` and a demo walkthrough.
+Responsive captures (360 / 768 / 1280) live in [`docs/screenshots/`](docs/screenshots/). The 19 September 2026 set shows the earlier request-and-offer screens. The current product is catalog → providers → booking request.
 
 ![Customer request detail at 1280](docs/screenshots/customer-request-detail-1280.png)
 
@@ -111,7 +111,7 @@ cd ..
 dotnet run --project server/Khidma.Api --launch-profile https
 ```
 
-Browse `https://localhost:5001`. Deep links such as `/customer/requests/1` return `index.html`. `/api/*` misses return Problem Details 404.
+Browse `https://localhost:5001`. Deep links such as `/account/bookings/1` return `index.html`. `/api/*` misses return Problem Details 404.
 
 Development startup applies migrations and the idempotent seeder. Production does **not** auto-migrate: multiple instances would race, a failed migration is hard to reverse, and there is no review step. Apply `deploy/migrate.sql` instead.
 
@@ -122,12 +122,12 @@ Passwords come from `Seed:*` user secrets, never from git.
 | Email | Role | Notes |
 | --- | --- | --- |
 | `admin@khidma.local` | Admin | Catalog, verification, suspension, users, audit |
-| `customer@khidma.local` | Customer | Ramallah — demo pair with `provider1` / `provider4` |
-| `customer2@khidma.local` | Customer | Nablus |
-| `provider1@khidma.local` | Provider A | Ramallah, **Approved**, Home Services (Plumbing) |
-| `provider2@khidma.local` | Provider | Hebron, **PendingReview** |
-| `provider3@khidma.local` | Provider B | Bethlehem, **Approved** — ineligible for Ramallah Plumbing (direct URL **404**) |
-| `provider4@khidma.local` | Provider C | Ramallah, **Approved**, Plumbing — second offer on the demo request |
+| `customer@khidma.local` | Customer | Ramallah, phone `+970 0591111111`. Pending plumbing booking with provider1, scheduled plumbing with provider4, completed electrical review |
+| `customer2@khidma.local` | Customer | Nablus, phone `+970 0592222222` |
+| `provider1@khidma.local` | Provider A | Ramallah, **Approved**, phone `+970 0593333333`, Home Services including Plumbing |
+| `provider2@khidma.local` | Provider | Hebron, **PendingReview**, phone `+970 0594444444` |
+| `provider3@khidma.local` | Provider B | Bethlehem, **Approved**, phone `+970 0595555555` — not listed for Ramallah Plumbing |
+| `provider4@khidma.local` | Provider C | Ramallah, **Approved**, phone `+970 0596666666`, Plumbing |
 
 ## Reset local demo data
 
@@ -157,16 +157,18 @@ erDiagram
   ApplicationUser ||--o| CustomerProfile : has
   ApplicationUser ||--o| ProviderProfile : has
   ProviderProfile ||--o{ ProviderService : offers
+  ProviderProfile ||--o{ ProviderWorkingHour : publishes
   ProviderProfile ||--o{ ProviderVerificationDocument : uploads
   Category ||--o{ Service : contains
-  Service ||--o{ ServiceRequest : requested
-  ServiceRequest ||--o{ Offer : receives
-  Offer ||--o| Booking : accepted
+  Service ||--o{ Booking : booked
+  ProviderProfile ||--o{ Booking : receives
   Booking ||--o| Review : rated
   ApplicationUser ||--o{ AuditLog : actor
 ```
 
-Thin controllers parse the caller, call one service, and map `ServiceResult` to Problem Details. Eligibility is one query: `Approved` + not suspended + matching service + exact city + `Open` request.
+Thin controllers parse the caller, call one service, and map `ServiceResult` to Problem Details. A provider can be booked when they are `Approved`, not suspended, and offer the selected service. The catalog provider list can also filter by city. Phone numbers stay off public profiles and appear on the booking for the two participants.
+
+Main routes: `GET /api/catalog/services/{id}` and `GET /api/catalog/services/{id}/providers?city=`, `POST /api/bookings` (`requestedDate` is a calendar day), `POST /api/bookings/{id}/accept` (price, `scheduledStart`, `durationHours`), `POST /api/bookings/{id}/schedule` (move or extend a Scheduled or InProgress visit), `POST /api/bookings/{id}/decline`, plus start, complete, cancel, and review. Providers replace `GET/PUT /api/providers/me/working-hours` and read `GET /api/providers/me/schedule`. Guests read `GET /api/providers/{id}/availability`. Account profile and password are `GET/PUT /api/account/profile` and `POST /api/account/password`. Customers use `/catalog`, `/account`, and `/account/bookings`. Providers use `/provider` and `/provider/schedule`.
 
 ## Tests
 
@@ -190,7 +192,7 @@ dotnet test -c Release --filter FullyQualifiedName~SqlServerIntegrationTests
 
 CI stays on `ubuntu-latest` (no LocalDB). A Windows SQL job is not wired until a runner with a healthy SQL Server exists.
 
-Current automated counts: **133** backend passed (default; **2** SQL Server skipped), **135** when `KHIDMA_SQLSERVER_TESTS=1`, **42** frontend passed. See `docs/TEST_RESULTS.md`. The backend suite includes `AdminOverviewTests`.
+Current automated counts: **139** backend passed (default; **2** SQL Server skipped), **62** frontend passed. See `docs/TEST_RESULTS.md`. The backend suite includes `DirectBookingTests`, `ProviderScheduleTests`, `AccountTests`, and `AdminOverviewTests`.
 
 ## Deviations from plan v2
 
@@ -201,7 +203,9 @@ Plan of record: [`docs/plan-v2.md`](docs/plan-v2.md).
 | Professional verification **uploads** | Trust gate before `Approved` (ADR 19). Not request photos. |
 | Provider **suspension** | Admin kill switch without a complaints domain (ADR 20). |
 | **Audit** logging | Traceability for auth and admin trust actions (ADR 21). |
-| Role **dashboard** endpoints | One round-trip for home counters (ADR 10). |
+| Role **dashboard** endpoints | Provider home counters only. Customers use the catalog and `/account` instead of a dashboard. |
+| **Direct booking** | Replaces the request/offer marketplace. The provider quotes the price when accepting. |
+| **Provider schedule** | Weekly working hours. The customer picks a day. Accept sets start and duration, and later reschedule can move or extend the visit. |
 
 Unchanged cuts: payments, chat, notifications, maps, request photo uploads, JWT, Docker/Redis, favorites, portfolios.
 
@@ -210,7 +214,7 @@ CSRF failures stay **400** (ADR 17). Ineligible provider direct URLs stay **404*
 ## Known limitations
 
 - SQLite tests cannot `ORDER BY DateTimeOffset`; lists sort by `Id`.
-- SQLite filtered indexes are not SQL Server. Concurrent-accept proof is LocalDB (`scripts/concurrency-check.ps1` / `KHIDMA_SQLSERVER_TESTS=1`); both passed on this machine 18 September 2026.
+- SQLite filtered indexes are not SQL Server. Concurrent accept of one pending booking is covered by `SqlServerIntegrationTests` when `KHIDMA_SQLSERVER_TESTS=1`.
 - City match is exact (case-insensitive), not geographic.
 - Verification files live on local disk (`App_Data`); not multi-instance. Successor: Blob Storage.
 - No payments, messaging, email, or maps.

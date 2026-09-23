@@ -5,14 +5,16 @@ import { ApiError } from '../../api/client'
 import {
   decideProviderVerification,
   getAdminVerification,
+  reviewProfileChange,
   reviewVerificationDocument,
 } from '../../api/verification'
-import type { ProviderVerification, VerificationDocument } from '../../api/types'
+import type { ProviderChangeRequest, ProviderVerification, VerificationDocument } from '../../api/types'
 import { Roles } from '../../auth/roles'
 import { Button } from '../../components/Button'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { DocumentList } from '../../components/DocumentList'
 import { AdminPageHeader } from '../../components/admin/AdminPageHeader'
+import { ProviderAvatar } from '../../components/ProviderAvatar'
 import { ReasonDialog } from '../../components/ReasonDialog'
 import { StatusBadge } from '../../components/StatusBadge'
 import { ErrorState, LoadingState } from '../../components/States'
@@ -27,9 +29,12 @@ export function AdminVerificationDetailPage() {
   const [error, setError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const [rejectTarget, setRejectTarget] = useState<'provider' | VerificationDocument | null>(null)
+  const [rejectTarget, setRejectTarget] = useState<
+    'provider' | VerificationDocument | ProviderChangeRequest | null
+  >(null)
   const [approveProviderOpen, setApproveProviderOpen] = useState(false)
   const [approveDocument, setApproveDocument] = useState<VerificationDocument | null>(null)
+  const [approveChange, setApproveChange] = useState<ProviderChangeRequest | null>(null)
 
   const load = useCallback(async () => {
     if (Number.isNaN(id)) {
@@ -111,7 +116,7 @@ export function AdminVerificationDetailPage() {
   }
 
   async function rejectDoc(reason: string) {
-    if (!rejectTarget || rejectTarget === 'provider') {
+    if (!rejectTarget || rejectTarget === 'provider' || !('originalFileName' in rejectTarget)) {
       return
     }
 
@@ -128,11 +133,50 @@ export function AdminVerificationDetailPage() {
     }
   }
 
+  async function approvePendingChange() {
+    if (!approveChange) {
+      return
+    }
+
+    setBusy(true)
+    setActionError(null)
+    try {
+      await reviewProfileChange(approveChange.id, { status: 'Approved' })
+      await load()
+      setApproveChange(null)
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : 'Could not approve this change.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function rejectPendingChange(reason: string) {
+    if (!rejectTarget || rejectTarget === 'provider' || !('type' in rejectTarget)) {
+      return
+    }
+
+    setBusy(true)
+    setActionError(null)
+    try {
+      await reviewProfileChange(rejectTarget.id, { status: 'Rejected', note: reason })
+      await load()
+      setRejectTarget(null)
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : 'Could not reject this change.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const rejectingChange =
+    rejectTarget !== null && rejectTarget !== 'provider' && 'type' in rejectTarget
+
   return (
     <WorkspaceLayout role={Roles.Admin}>
       <AdminPageHeader
         title={data?.fullName ?? 'Verification review'}
-        subtitle="Review professional proof, then approve or reject the provider account."
+        subtitle="Review professional proof, location changes, and new services before they go live."
         actions={
           <Button to="/admin/verifications" variant="secondary">
             Back to queue
@@ -154,20 +198,63 @@ export function AdminVerificationDetailPage() {
       ) : null}
       {!loading && !error && data ? (
         <section className="dashboard-panel">
-          <div className="inline-actions">
-            <StatusBadge status={data.isSuspended ? 'Suspended' : data.verificationStatus} />
-            <p className="muted">{data.email}</p>
+          <div className="public-provider-hero">
+            <ProviderAvatar
+              providerId={data.providerProfileId}
+              name={data.fullName}
+              hasPhoto={data.hasPhoto}
+              size="md"
+            />
+            <div>
+              <div className="inline-actions">
+                <StatusBadge status={data.isSuspended ? 'Suspended' : data.verificationStatus} />
+                <p className="muted">{data.email}</p>
+              </div>
+              <p>
+                {data.city} · {data.yearsOfExperience} years ·{' '}
+                {formatRating(data.averageRating, data.reviewCount)}
+              </p>
+              <p className="muted">{data.services.join(', ') || 'No services listed'}</p>
+              {data.bio ? <p>{data.bio}</p> : null}
+            </div>
           </div>
-          <p>
-            {data.city} · {data.yearsOfExperience} years ·{' '}
-            {formatRating(data.averageRating, data.reviewCount)}
-          </p>
-          <p className="muted">{data.services.join(', ') || 'No services listed'}</p>
           {data.verificationRejectionReason ? (
             <p>Rejection reason: {data.verificationRejectionReason}</p>
           ) : null}
           {data.verificationReviewedAt ? (
             <p className="muted">Last reviewed {formatDate(data.verificationReviewedAt)}</p>
+          ) : null}
+
+          {data.pendingChanges.length > 0 ? (
+            <>
+              <h2>Requested changes</h2>
+              <ul className="profile-service-list">
+                {data.pendingChanges.map((change) => (
+                  <li key={change.id}>
+                    <div>
+                      <strong>
+                        {change.type === 'Location'
+                          ? `Move to ${change.requestedCity}`
+                          : `Add ${change.serviceName}`}
+                      </strong>
+                      <small>
+                        {change.type === 'Location'
+                          ? 'Keeps the current city live until you approve.'
+                          : `Proof: ${change.proofFileName ?? 'document'} (${change.proofReviewStatus ?? 'Pending'})`}
+                      </small>
+                    </div>
+                    <div className="inline-actions">
+                      <Button size="sm" onClick={() => setApproveChange(change)}>
+                        Approve change
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setRejectTarget(change)}>
+                        Reject change
+                      </Button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </>
           ) : null}
 
           <h2>Documents</h2>
@@ -230,7 +317,7 @@ export function AdminVerificationDetailPage() {
       <ConfirmDialog
         open={approveProviderOpen}
         title="Approve this provider?"
-        description="They will become eligible for matching work if they are not suspended."
+        description="They will become eligible for matching work if they are not suspended. Later city and service additions still need review."
         confirmLabel="Approve provider"
         busy={busy}
         onConfirm={() => void approveProvider()}
@@ -239,26 +326,55 @@ export function AdminVerificationDetailPage() {
       <ConfirmDialog
         open={approveDocument !== null}
         title="Approve this document?"
-        description="Approved professional proof is required before the provider account can be approved."
+        description="If this proof is for a new service, approving it also adds that service to their live profile."
         confirmLabel="Approve document"
         busy={busy}
         onConfirm={() => void approveDoc()}
         onClose={() => setApproveDocument(null)}
       />
+      <ConfirmDialog
+        open={approveChange !== null}
+        title="Approve this profile change?"
+        description={
+          approveChange?.type === 'AddService'
+            ? 'The professional proof for this service must already be approved.'
+            : 'Their live city will change and matching will follow the new city.'
+        }
+        confirmLabel="Approve change"
+        busy={busy}
+        onConfirm={() => void approvePendingChange()}
+        onClose={() => setApproveChange(null)}
+      />
       <ReasonDialog
         open={rejectTarget !== null}
-        title={rejectTarget === 'provider' ? 'Reject this provider?' : 'Reject this document?'}
+        title={
+          rejectTarget === 'provider'
+            ? 'Reject this provider?'
+            : rejectingChange
+              ? 'Reject this change?'
+              : 'Reject this document?'
+        }
         description={
           rejectTarget === 'provider'
             ? 'The provider will stay ineligible until they resubmit and an admin approves them.'
             : 'A note is required so the provider knows what to correct.'
         }
-        confirmLabel={rejectTarget === 'provider' ? 'Reject provider' : 'Reject document'}
+        confirmLabel={
+          rejectTarget === 'provider'
+            ? 'Reject provider'
+            : rejectingChange
+              ? 'Reject change'
+              : 'Reject document'
+        }
         label="Reason"
         danger
         busy={busy}
         onConfirm={(reason) =>
-          void (rejectTarget === 'provider' ? rejectProvider(reason) : rejectDoc(reason))
+          void (rejectTarget === 'provider'
+            ? rejectProvider(reason)
+            : rejectingChange
+              ? rejectPendingChange(reason)
+              : rejectDoc(reason))
         }
         onClose={() => setRejectTarget(null)}
       />

@@ -38,6 +38,11 @@ internal static class TestHarness
 
     public static DateTimeOffset FutureDate() => DateTimeOffset.UtcNow.AddDays(7);
 
+    public static string FutureDay() => FutureDate().UtcDateTime.ToString("yyyy-MM-dd");
+
+    public static DateTimeOffset SlotStart(int bookingId) =>
+        DateTimeOffset.UtcNow.AddDays(20 + (bookingId % 200)).AddHours(9);
+
     public static async Task<(HttpClient Client, CurrentUserDto User)> RegisterAsync(
         WebApplicationFactory<Program> factory,
         string role,
@@ -52,6 +57,7 @@ internal static class TestHarness
             fullName = $"Test {role}",
             email,
             password = "ValidPass1!",
+            phoneNumber = "+970 0591000000",
             role,
             city,
             yearsOfExperience = 3,
@@ -153,7 +159,29 @@ internal static class TestHarness
             }
         }
 
+        await EnsureOpenHoursAsync(db, profile.Id);
         await db.SaveChangesAsync();
+    }
+
+    public static async Task EnsureOpenHoursAsync(AppDbContext db, int providerProfileId)
+    {
+        if (await db.ProviderWorkingHours.AnyAsync(h => h.ProviderProfileId == providerProfileId))
+        {
+            return;
+        }
+
+        for (var day = 0; day <= 6; day++)
+        {
+            for (var hour = 8; hour <= 18; hour++)
+            {
+                db.ProviderWorkingHours.Add(new ProviderWorkingHour
+                {
+                    ProviderProfileId = providerProfileId,
+                    DayOfWeek = day,
+                    Hour = hour
+                });
+            }
+        }
     }
 
     public static async Task SetApprovedAsync(
@@ -170,21 +198,18 @@ internal static class TestHarness
         await db.SaveChangesAsync();
     }
 
-    public static async Task<int> CreateRequestAsync(
+    public static async Task<int> CreateBookingAsync(
         HttpClient customer,
+        int providerProfileId,
         int serviceId,
-        string city,
-        string title = "Fix a leaking tap")
+        string? notes = null)
     {
-        var response = await customer.PostAsJsonAsync("/api/service-requests", new
+        var response = await customer.PostAsJsonAsync("/api/bookings", new
         {
+            providerProfileId,
             serviceId,
-            title,
-            description = "Please send a licensed plumber for a kitchen leak.",
-            city,
-            preferredDate = FutureDate(),
-            budgetMin = 50,
-            budgetMax = 120
+            requestedDate = FutureDay(),
+            notes = notes ?? "Please send a licensed plumber for a kitchen leak."
         });
 
         response.EnsureSuccessStatusCode();
@@ -192,23 +217,22 @@ internal static class TestHarness
         return doc.RootElement.GetProperty("id").GetInt32();
     }
 
-    public static async Task<int> SubmitOfferAsync(
+    public static async Task AcceptBookingAsync(
         HttpClient provider,
-        int requestId,
+        int bookingId,
         decimal price = 90)
     {
         var response = await provider.PostAsJsonAsync(
-            $"/api/service-requests/{requestId}/offers",
+            $"/api/bookings/{bookingId}/accept",
             new
             {
                 price,
                 message = "I can complete this job promptly.",
-                estimatedDate = FutureDate()
+                scheduledStart = SlotStart(bookingId),
+                durationHours = 2
             });
 
         response.EnsureSuccessStatusCode();
-        using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-        return doc.RootElement.GetProperty("id").GetInt32();
     }
 
     public static ByteArrayContent PdfContent(string fileName = "certificate.pdf")
@@ -265,6 +289,16 @@ internal static class TestHarness
             $"/api/admin/verification-documents/{documentId}/review",
             new { status = "Approved", note = (string?)null });
         response.EnsureSuccessStatusCode();
+    }
+
+    public static async Task OpenAllHoursAsync(
+        WebApplicationFactory<Program> factory,
+        int providerProfileId)
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await EnsureOpenHoursAsync(db, providerProfileId);
+        await db.SaveChangesAsync();
     }
 
     public static async Task ApproveProviderViaApiAsync(HttpClient admin, int providerProfileId)

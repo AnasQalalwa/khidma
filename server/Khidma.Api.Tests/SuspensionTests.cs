@@ -50,61 +50,49 @@ public sealed class SuspensionTests : IClassFixture<KhidmaApiFactory>
     }
 
     [Fact]
-    public async Task SuspendedProvider_IsExcludedFromFeed_AndCannotOffer()
+    public async Task SuspendedProvider_IsHiddenFromCatalog_AndCannotBeBooked()
     {
         var city = UniqueCity();
         var scenario = await ApprovedProviderAsync(city);
-        var requestId = await TestHarness.CreateRequestAsync(
-            scenario.Customer,
-            scenario.ServiceId,
-            city);
         await scenario.Admin.PostAsJsonAsync(
             $"/api/admin/providers/{scenario.ProfileId}/suspension",
             new { suspended = true, reason = "Conduct review" });
 
-        var available = await scenario.Provider.GetAsync("/api/service-requests/available");
-        available.EnsureSuccessStatusCode();
-        using var doc = JsonDocument.Parse(await available.Content.ReadAsStringAsync());
+        var list = await scenario.Customer.GetAsync(
+            $"/api/catalog/services/{scenario.ServiceId}/providers?city={Uri.EscapeDataString(city)}");
+        list.EnsureSuccessStatusCode();
+        using var doc = JsonDocument.Parse(await list.Content.ReadAsStringAsync());
         Assert.DoesNotContain(
-            doc.RootElement.GetProperty("items").EnumerateArray(),
-            item => item.GetProperty("id").GetInt32() == requestId);
+            doc.RootElement.EnumerateArray(),
+            item => item.GetProperty("id").GetInt32() == scenario.ProfileId);
 
-        var offer = await scenario.Provider.PostAsJsonAsync(
-            $"/api/service-requests/{requestId}/offers",
-            new
-            {
-                price = 80,
-                message = "Should be blocked",
-                estimatedDate = TestHarness.FutureDate()
-            });
-        Assert.Equal(HttpStatusCode.Forbidden, offer.StatusCode);
+        var book = await scenario.Customer.PostAsJsonAsync("/api/bookings", new
+        {
+            providerProfileId = scenario.ProfileId,
+            serviceId = scenario.ServiceId,
+            requestedDate = TestHarness.FutureDay()
+        });
+        Assert.Equal(HttpStatusCode.Conflict, book.StatusCode);
     }
 
     [Fact]
-    public async Task Suspension_RejectsPendingOffers_LeavesAcceptedAndBookings()
+    public async Task Suspension_DeclinesPendingBookings_LeavesScheduled()
     {
         var city = UniqueCity();
         var (admin, _) = await TestHarness.CreateAdminAsync(_factory);
         var (customer, _) = await TestHarness.RegisterAsync(_factory, "Customer", city);
         var (provider, providerUser) = await TestHarness.RegisterAsync(_factory, "Provider", city);
-        var (other, otherUser) = await TestHarness.RegisterAsync(_factory, "Provider", city);
+        var (_, otherUser) = await TestHarness.RegisterAsync(_factory, "Provider", city);
         var serviceId = await TestHarness.GetServiceIdAsync(_factory);
         await TestHarness.ApproveProviderAsync(_factory, providerUser.Id, city, serviceId);
         await TestHarness.ApproveProviderAsync(_factory, otherUser.Id, city, serviceId);
         var profileId = await TestHarness.GetProviderProfileIdAsync(_factory, providerUser.Id);
+        var otherProfileId = await TestHarness.GetProviderProfileIdAsync(_factory, otherUser.Id);
 
-        var openRequest = await TestHarness.CreateRequestAsync(customer, serviceId, city, "Open job");
-        var pendingOffer = await TestHarness.SubmitOfferAsync(provider, openRequest, 70);
-
-        var bookedRequest = await TestHarness.CreateRequestAsync(customer, serviceId, city, "Booked job");
-        var acceptedOffer = await TestHarness.SubmitOfferAsync(provider, bookedRequest, 90);
-        var accept = await customer.PostAsync($"/api/offers/{acceptedOffer}/accept", null);
-        accept.EnsureSuccessStatusCode();
-        using var bookingDoc = JsonDocument.Parse(await accept.Content.ReadAsStringAsync());
-        var bookingId = bookingDoc.RootElement.GetProperty("id").GetInt32();
-
-        var otherRequest = await TestHarness.CreateRequestAsync(customer, serviceId, city, "Other");
-        await TestHarness.SubmitOfferAsync(other, otherRequest, 55);
+        var scheduledId = await TestHarness.CreateBookingAsync(customer, profileId, serviceId);
+        await TestHarness.AcceptBookingAsync(provider, scheduledId);
+        var pendingId = await TestHarness.CreateBookingAsync(customer, profileId, serviceId);
+        var otherPendingId = await TestHarness.CreateBookingAsync(customer, otherProfileId, serviceId);
 
         await admin.PostAsJsonAsync(
             $"/api/admin/providers/{profileId}/suspension",
@@ -112,16 +100,16 @@ public sealed class SuspensionTests : IClassFixture<KhidmaApiFactory>
 
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var pending = await db.Offers.SingleAsync(o => o.Id == pendingOffer);
-        var accepted = await db.Offers.SingleAsync(o => o.Id == acceptedOffer);
-        var booking = await db.Bookings.SingleAsync(b => b.Id == bookingId);
-        Assert.Equal(OfferStatus.Rejected, pending.Status);
-        Assert.Equal(OfferStatus.Accepted, accepted.Status);
-        Assert.Equal(BookingStatus.Scheduled, booking.Status);
+        var pending = await db.Bookings.SingleAsync(b => b.Id == pendingId);
+        var scheduled = await db.Bookings.SingleAsync(b => b.Id == scheduledId);
+        var otherPending = await db.Bookings.SingleAsync(b => b.Id == otherPendingId);
+        Assert.Equal(BookingStatus.Declined, pending.Status);
+        Assert.Equal(BookingStatus.Scheduled, scheduled.Status);
+        Assert.Equal(BookingStatus.Pending, otherPending.Status);
 
-        var start = await provider.PostAsync($"/api/bookings/{bookingId}/start", null);
+        var start = await provider.PostAsync($"/api/bookings/{scheduledId}/start", null);
         Assert.Equal(HttpStatusCode.OK, start.StatusCode);
-        var complete = await provider.PostAsync($"/api/bookings/{bookingId}/complete", null);
+        var complete = await provider.PostAsync($"/api/bookings/{scheduledId}/complete", null);
         Assert.Equal(HttpStatusCode.OK, complete.StatusCode);
     }
 
@@ -130,10 +118,6 @@ public sealed class SuspensionTests : IClassFixture<KhidmaApiFactory>
     {
         var city = UniqueCity();
         var scenario = await ApprovedProviderAsync(city);
-        var requestId = await TestHarness.CreateRequestAsync(
-            scenario.Customer,
-            scenario.ServiceId,
-            city);
         await scenario.Admin.PostAsJsonAsync(
             $"/api/admin/providers/{scenario.ProfileId}/suspension",
             new { suspended = true, reason = "Temporary hold" });
@@ -141,11 +125,12 @@ public sealed class SuspensionTests : IClassFixture<KhidmaApiFactory>
             $"/api/admin/providers/{scenario.ProfileId}/suspension",
             new { suspended = false });
 
-        var available = await scenario.Provider.GetAsync("/api/service-requests/available");
+        var available = await scenario.Customer.GetAsync(
+            $"/api/catalog/services/{scenario.ServiceId}/providers?city={Uri.EscapeDataString(city)}");
         using var doc = JsonDocument.Parse(await available.Content.ReadAsStringAsync());
         Assert.Contains(
-            doc.RootElement.GetProperty("items").EnumerateArray(),
-            item => item.GetProperty("id").GetInt32() == requestId);
+            doc.RootElement.EnumerateArray(),
+            item => item.GetProperty("id").GetInt32() == scenario.ProfileId);
     }
 
     [Fact]
@@ -171,14 +156,11 @@ public sealed class SuspensionTests : IClassFixture<KhidmaApiFactory>
     {
         var city = UniqueCity();
         var scenario = await ApprovedProviderAsync(city);
-        var requestId = await TestHarness.CreateRequestAsync(
+        var bookingId = await TestHarness.CreateBookingAsync(
             scenario.Customer,
-            scenario.ServiceId,
-            city);
-        var offerId = await TestHarness.SubmitOfferAsync(scenario.Provider, requestId);
-        var accept = await scenario.Customer.PostAsync($"/api/offers/{offerId}/accept", null);
-        using var bookingDoc = JsonDocument.Parse(await accept.Content.ReadAsStringAsync());
-        var bookingId = bookingDoc.RootElement.GetProperty("id").GetInt32();
+            scenario.ProfileId,
+            scenario.ServiceId);
+        await TestHarness.AcceptBookingAsync(scenario.Provider, bookingId);
         await scenario.Provider.PostAsync($"/api/bookings/{bookingId}/start", null);
 
         await scenario.Admin.PostAsJsonAsync(

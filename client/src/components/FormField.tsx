@@ -1,19 +1,6 @@
-import {
-  cloneElement,
-  useId,
-  type InputHTMLAttributes,
-  type ReactElement,
-  type SelectHTMLAttributes,
-  type TextareaHTMLAttributes,
-} from 'react'
+import { cloneElement, useId, type ReactElement } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { Icon } from './icons'
-
-type ControlElement = ReactElement<
-  | InputHTMLAttributes<HTMLInputElement>
-  | TextareaHTMLAttributes<HTMLTextAreaElement>
-  | SelectHTMLAttributes<HTMLSelectElement>
->
 
 export function FormField({
   id,
@@ -28,7 +15,7 @@ export function FormField({
   error?: string
   hint?: string
   icon?: LucideIcon
-  children: ControlElement
+  children: ReactElement
 }) {
   const generatedId = useId()
   const fieldId = id ?? generatedId
@@ -38,7 +25,7 @@ export function FormField({
     .filter(Boolean)
     .join(' ')
 
-  const control = cloneElement(children, {
+  const control = cloneElement(children as ReactElement<Record<string, unknown>>, {
     id: fieldId,
     'aria-invalid': error ? true : undefined,
     'aria-describedby': describedBy || undefined,

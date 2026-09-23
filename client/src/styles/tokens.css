@@ -1,4 +1,7 @@
 :root {
+  --color-brand-blue: #1d4e89;
+  --color-brand-green: #14b8a6;
+  --gradient-brand: linear-gradient(120deg, #123a73 0%, #0f766e 58%, #14b8a6 100%);
   --color-primary: #0f766e;
   --color-primary-hover: #0c5f58;
   --color-primary-light: #e6f6f2;
@@ -63,7 +66,8 @@
   --shadow-md: 0 10px 30px rgba(18, 32, 58, 0.08);
   --shadow-lg: 0 24px 60px rgba(18, 32, 58, 0.12);
 
-  --font-sans: "Segoe UI", "Inter", "Helvetica Neue", system-ui, sans-serif;
+  --font-sans: "Inter", "Segoe UI", "Helvetica Neue", system-ui, sans-serif;
+  --font-display: "Plus Jakarta Sans", "Inter", "Segoe UI", system-ui, sans-serif;
   --text-sm: 0.875rem;
   --text-body: 1rem;
   --text-md: 1.0625rem;

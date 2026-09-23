@@ -67,11 +67,9 @@ public sealed class BookingsSeriesPointDto
 
 public sealed class FunnelDto
 {
-    public required int RequestsCreated { get; init; }
+    public required int Requested { get; init; }
 
-    public required int RequestsWithOffer { get; init; }
-
-    public required int Booked { get; init; }
+    public required int Accepted { get; init; }
 
     public required int Completed { get; init; }
 }
@@ -80,7 +78,7 @@ public sealed class AttentionCountsDto
 {
     public required int PendingVerifications { get; init; }
 
-    public required int StaleOpenRequests { get; init; }
+    public required int StalePendingBookings { get; init; }
 
     public required int OverdueBookings { get; init; }
 
@@ -95,7 +93,7 @@ public sealed class SupplyDemandRowDto
 
     public required string ServiceName { get; init; }
 
-    public required int OpenRequests { get; init; }
+    public required int PendingBookings { get; init; }
 
     public required int EligibleProviders { get; init; }
 }

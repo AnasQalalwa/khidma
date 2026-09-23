@@ -65,8 +65,7 @@ export function AdminUserDetailPage() {
           {data.city ? <p>City: {data.city}</p> : null}
           {data.role === 'Customer' ? (
             <p>
-              Requests {data.requestCount} · Bookings {data.bookingCount} · Reviews{' '}
-              {data.reviewCount}
+              Bookings {data.bookingCount} · Reviews {data.reviewCount}
             </p>
           ) : null}
           {data.role === 'Provider' ? (
@@ -86,7 +85,7 @@ export function AdminUserDetailPage() {
               ) : null}
               <p>{formatRating(data.averageRating ?? 0, data.reviewCount ?? 0)}</p>
               <p>
-                Offers {data.offerCount} · Active bookings {data.activeBookingCount} · Completed{' '}
+                Bookings {data.bookingCount} · Active {data.activeBookingCount} · Completed{' '}
                 {data.completedBookingCount}
               </p>
               <p className="muted">{data.services.join(', ') || 'No services listed'}</p>

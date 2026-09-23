@@ -27,7 +27,7 @@ public sealed class AdminStatsDto
 
     public required int Services { get; init; }
 
-    public required int OpenRequests { get; init; }
+    public required int PendingBookings { get; init; }
 
     public required int ActiveBookings { get; init; }
 
@@ -90,11 +90,26 @@ public sealed class AdminProviderQuery : Common.PageQuery
     public string? Search { get; set; }
 }
 
+public sealed class CatalogServiceUsageDto
+{
+    public required int ServiceId { get; init; }
+
+    public required int ProviderCount { get; init; }
+
+    public required int BookingCount { get; init; }
+
+    public string? DeleteBlockReason { get; init; }
+}
+
 public sealed class SaveCategoryRequest
 {
     [Required]
     [StringLength(80, MinimumLength = 2)]
     public string Name { get; set; } = default!;
+
+    [Required]
+    [StringLength(160, MinimumLength = 8)]
+    public string Description { get; set; } = default!;
 }
 
 public sealed class SaveServiceRequest
@@ -102,6 +117,10 @@ public sealed class SaveServiceRequest
     [Required]
     [StringLength(80, MinimumLength = 2)]
     public string Name { get; set; } = default!;
+
+    [Required]
+    [StringLength(240, MinimumLength = 8)]
+    public string Description { get; set; } = default!;
 
     [Required]
     public int CategoryId { get; set; }
@@ -161,8 +180,6 @@ public sealed class AdminUserDetailDto
 
     public string? City { get; set; }
 
-    public int RequestCount { get; set; }
-
     public int BookingCount { get; set; }
 
     public int ReviewCount { get; set; }
@@ -176,8 +193,6 @@ public sealed class AdminUserDetailDto
     public string? SuspensionReason { get; set; }
 
     public decimal? AverageRating { get; set; }
-
-    public int OfferCount { get; set; }
 
     public int ActiveBookingCount { get; set; }
 

@@ -14,126 +14,62 @@ export type PageQuery = {
   status?: string
 }
 
-export type ServiceRequestStatus = 'Open' | 'Booked' | 'Completed' | 'Cancelled'
-export type OfferStatus = 'Pending' | 'Accepted' | 'Rejected' | 'Withdrawn'
-export type BookingStatus = 'Scheduled' | 'InProgress' | 'Completed' | 'Cancelled'
+export type BookingStatus =
+  | 'Pending'
+  | 'Scheduled'
+  | 'InProgress'
+  | 'Completed'
+  | 'Declined'
+  | 'Cancelled'
 
-export type ServiceRequestSummary = {
-  id: number
-  title: string
-  serviceId: number
-  serviceName: string
-  categoryName: string
-  city: string
-  preferredDate: string
-  budgetMin: number | null
-  budgetMax: number | null
-  status: ServiceRequestStatus
-  offerCount: number
-  createdAt: string
+export type WorkingHour = {
+  dayOfWeek: number
+  hour: number
 }
 
-export type OfferForCustomer = {
-  id: number
-  providerId: string
+export type BusyInterval = {
+  start: string
+  end: string
+}
+
+export type ProviderAvailability = {
+  workingHours: WorkingHour[]
+  busy: BusyInterval[]
+}
+
+export type ScheduleEntry = {
+  bookingId: number
+  serviceName: string
+  customerName: string
+  status: BookingStatus
+  start: string | null
+  end: string | null
+  requestedDate: string | null
+}
+
+export type ProviderSchedule = {
+  workingHours: WorkingHour[]
+  items: ScheduleEntry[]
+}
+
+export type CreateBookingPayload = {
   providerProfileId: number
-  providerDisplayName: string
-  providerAverageRating: number
-  providerReviewCount: number
-  price: number
-  message: string
-  estimatedDate: string
-  status: OfferStatus
-  createdAt: string
-  canAccept: boolean
-}
-
-export type OfferSnapshot = {
-  id: number
-  price: number
-  message: string
-  estimatedDate: string
-  status: OfferStatus
-  createdAt: string
-}
-
-export type RequestDetailForCustomer = {
-  id: number
-  title: string
-  description: string
   serviceId: number
-  serviceName: string
-  categoryName: string
-  city: string
-  preferredDate: string
-  budgetMin: number | null
-  budgetMax: number | null
-  status: ServiceRequestStatus
-  offerCount: number
-  createdAt: string
-  canEdit: boolean
-  canCancel: boolean
-  bookingId: number | null
-  offers: OfferForCustomer[]
+  requestedDate: string
+  notes?: string
 }
 
-export type RequestSummaryForProvider = {
-  id: number
-  title: string
-  description: string
-  serviceId: number
-  serviceName: string
-  categoryName: string
-  city: string
-  preferredDate: string
-  budgetMin: number | null
-  budgetMax: number | null
-  status: ServiceRequestStatus
-  createdAt: string
-}
-
-export type RequestDetailForProvider = RequestSummaryForProvider & {
-  canOffer: boolean
-  myOffer: OfferSnapshot | null
-}
-
-export type CreateServiceRequestPayload = {
-  serviceId: number
-  title: string
-  description: string
-  city: string
-  preferredDate: string
-  budgetMin?: number | null
-  budgetMax?: number | null
-}
-
-export type UpdateServiceRequestPayload = {
-  title: string
-  description: string
-  preferredDate: string
-  budgetMin?: number | null
-  budgetMax?: number | null
-}
-
-export type SubmitOfferPayload = {
+export type AcceptBookingPayload = {
   price: number
-  message: string
-  estimatedDate: string
+  message?: string
+  scheduledStart: string
+  durationHours: number
 }
 
-export type OfferMine = {
-  id: number
-  serviceRequestId: number
-  requestTitle: string
-  serviceName: string
-  categoryName: string
-  city: string
-  price: number
-  message: string
-  estimatedDate: string
-  status: OfferStatus
-  requestStatus: ServiceRequestStatus
-  createdAt: string
+export type ReschedulePayload = {
+  scheduledStart: string
+  durationHours: number
+  note?: string
 }
 
 export type Review = {
@@ -153,14 +89,15 @@ export type PublicReview = {
 
 export type BookingSummary = {
   id: number
-  serviceRequestId: number
-  offerId: number
-  title: string
+  serviceId: number
   serviceName: string
   categoryName: string
   city: string
-  scheduledDate: string
-  finalPrice: number
+  requestedDate: string
+  scheduledStart: string | null
+  scheduledEnd: string | null
+  durationHours: number | null
+  quotedPrice: number | null
   status: BookingStatus
   counterpartyName: string
   createdAt: string
@@ -169,36 +106,58 @@ export type BookingSummary = {
 
 export type BookingDetail = {
   id: number
-  serviceRequestId: number
-  offerId: number
+  serviceId: number
   providerProfileId: number
-  title: string
-  description: string
   serviceName: string
   categoryName: string
   city: string
-  scheduledDate: string
-  finalPrice: number
+  notes: string | null
+  requestedDate: string
+  scheduledStart: string | null
+  scheduledEnd: string | null
+  durationHours: number | null
+  rescheduledAt: string | null
+  rescheduleNote: string | null
+  quotedPrice: number | null
+  providerMessage: string | null
+  declineReason: string | null
   status: BookingStatus
   customerId: string
   providerId: string
   customerName: string
   providerName: string
-  customerEmail: string | null
-  providerEmail: string | null
-  customerContact: string | null
+  customerPhone: string | null
+  providerPhone: string | null
   customerCity: string | null
   providerCity: string | null
   createdAt: string
+  respondedAt: string | null
   startedAt: string | null
   completedAt: string | null
   cancelledAt: string | null
   cancellationReason: string | null
+  canAccept: boolean
+  canReschedule: boolean
+  canDecline: boolean
   canStart: boolean
   canComplete: boolean
   canCancel: boolean
   canReview: boolean
   review: Review | null
+}
+
+export type AccountProfile = {
+  fullName: string
+  email: string
+  phoneNumber: string
+  role: string
+  city: string | null
+}
+
+export type UpdateAccountProfilePayload = {
+  fullName: string
+  phoneNumber: string
+  city?: string | null
 }
 
 export type ProviderVerificationStatus = 'PendingReview' | 'Approved' | 'Rejected'
@@ -211,12 +170,34 @@ export type VerificationDocumentType =
   | 'Other'
 export type AuditOutcome = 'Success' | 'Denied' | 'Failed'
 
+export type ProviderChangeRequestType = 'Location' | 'AddService'
+export type ProviderChangeRequestStatus = 'Pending' | 'Approved' | 'Rejected'
+
+export type ProviderChangeRequest = {
+  id: number
+  type: ProviderChangeRequestType
+  status: ProviderChangeRequestStatus
+  requestedCity: string | null
+  requestedLatitude: number | null
+  requestedLongitude: number | null
+  serviceId: number | null
+  serviceName: string | null
+  proofDocumentId: number | null
+  proofFileName: string | null
+  proofReviewStatus: VerificationDocumentStatus | null
+  createdAt: string
+  reviewNote: string | null
+}
+
 export type ProviderMe = {
   id: number
   userId: string
   fullName: string
   email: string
+  phoneNumber: string
   city: string
+  latitude: number | null
+  longitude: number | null
   yearsOfExperience: number
   bio: string | null
   verificationStatus: ProviderVerificationStatus
@@ -226,6 +207,10 @@ export type ProviderMe = {
   averageRating: number
   reviewCount: number
   services: CatalogService[]
+  hasPhoto: boolean
+  canEditLocation: boolean
+  canEditServices: boolean
+  pendingChanges: ProviderChangeRequest[]
 }
 
 export type PublicProvider = {
@@ -239,6 +224,8 @@ export type PublicProvider = {
   reviewCount: number
   services: CatalogService[]
   recentReviews: PublicReview[]
+  hasPhoto: boolean
+  workingHours: WorkingHour[]
 }
 
 export type AdminStats = {
@@ -253,7 +240,7 @@ export type AdminStats = {
   rejectedDocuments: number
   categories: number
   services: number
-  openRequests: number
+  pendingBookings: number
   activeBookings: number
   completedBookings: number
   auditEventsLast24h: number
@@ -302,11 +289,9 @@ export type AdminUser = {
 }
 
 export type AdminUserDetail = AdminUser & {
-  requestCount: number
   bookingCount: number
   reviewCount: number
   suspensionReason: string | null
-  offerCount: number
   activeBookingCount: number
   completedBookingCount: number
   services: string[]
@@ -323,6 +308,8 @@ export type VerificationDocument = {
   reviewStatus: VerificationDocumentStatus
   reviewNote: string | null
   reviewedAt: string | null
+  serviceId: number | null
+  serviceName: string | null
 }
 
 export type ProviderVerification = {
@@ -331,6 +318,8 @@ export type ProviderVerification = {
   fullName: string
   email: string
   city: string
+  latitude: number | null
+  longitude: number | null
   yearsOfExperience: number
   bio: string | null
   verificationStatus: ProviderVerificationStatus
@@ -344,6 +333,8 @@ export type ProviderVerification = {
   services: string[]
   documents: VerificationDocument[]
   hasApprovedDocument: boolean
+  hasPhoto: boolean
+  pendingChanges: ProviderChangeRequest[]
 }
 
 export type AdminVerificationListItem = {
@@ -360,6 +351,7 @@ export type AdminVerificationListItem = {
   approvedDocumentCount: number
   rejectedDocumentCount: number
   services: string[]
+  pendingChangeCount: number
 }
 
 export type AuditLogItem = {
@@ -430,14 +422,13 @@ export type AdminOverview = {
   }
   bookingsSeries: BookingsSeriesPoint[]
   funnel: {
-    requestsCreated: number
-    requestsWithOffer: number
-    booked: number
+    requested: number
+    accepted: number
     completed: number
   }
   attention: {
     pendingVerifications: number
-    staleOpenRequests: number
+    stalePendingBookings: number
     overdueBookings: number
     suspendedProviders: number
   }
@@ -445,7 +436,7 @@ export type AdminOverview = {
     city: string
     serviceId: number
     serviceName: string
-    openRequests: number
+    pendingBookings: number
     eligibleProviders: number
   }[]
   topProviders: {
@@ -463,25 +454,14 @@ export type AdminOverview = {
   }
 }
 
-export type CustomerDashboard = {
-  openRequestCount: number
-  offersAwaitingDecision: number
-  activeBookingCount: number
-  completedAwaitingReview: number
-  recentRequests: ServiceRequestSummary[]
-  activeBookings: BookingSummary[]
-}
-
 export type ProviderDashboard = {
   verificationStatus: ProviderVerificationStatus
   isSuspended: boolean
   suspensionReason: string | null
-  eligibleRequestCount: number
-  pendingOfferCount: number
-  activeBookingCount: number
+  pendingRequestCount: number
+  activeJobCount: number
   averageRating: number
   reviewCount: number
-  recentAvailableRequests: RequestSummaryForProvider[]
-  recentOffers: OfferMine[]
+  recentPendingRequests: BookingSummary[]
   activeJobs: BookingSummary[]
 }

@@ -30,7 +30,7 @@ public sealed class BookingTests : IClassFixture<KhidmaApiFactory>
     }
 
     [Fact]
-    public async Task InProgress_ToCompleted_CompletesRequest()
+    public async Task InProgress_ToCompleted_CompletesBooking()
     {
         var scenario = await BookedAsync();
         await scenario.Provider.PostAsync($"/api/bookings/{scenario.BookingId}/start", null);
@@ -42,13 +42,12 @@ public sealed class BookingTests : IClassFixture<KhidmaApiFactory>
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var booking = await db.Bookings.SingleAsync(b => b.Id == scenario.BookingId);
-        var request = await db.ServiceRequests.SingleAsync(r => r.Id == scenario.RequestId);
         Assert.Equal(BookingStatus.Completed, booking.Status);
-        Assert.Equal(ServiceRequestStatus.Completed, request.Status);
+        Assert.NotNull(booking.CompletedAt);
     }
 
     [Fact]
-    public async Task Scheduled_ToCancelled_CancelsRequest()
+    public async Task Scheduled_ToCancelled_CancelsBooking()
     {
         var scenario = await BookedAsync();
         var response = await scenario.Customer.PostAsJsonAsync(
@@ -59,9 +58,8 @@ public sealed class BookingTests : IClassFixture<KhidmaApiFactory>
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var booking = await db.Bookings.SingleAsync(b => b.Id == scenario.BookingId);
-        var request = await db.ServiceRequests.SingleAsync(r => r.Id == scenario.RequestId);
         Assert.Equal(BookingStatus.Cancelled, booking.Status);
-        Assert.Equal(ServiceRequestStatus.Cancelled, request.Status);
+        Assert.Equal("Plans changed", booking.CancellationReason);
     }
 
     [Fact]
@@ -135,21 +133,14 @@ public sealed class BookingTests : IClassFixture<KhidmaApiFactory>
         var (provider, providerUser) = await TestHarness.RegisterAsync(_factory, "Provider", city);
         var serviceId = await TestHarness.GetServiceIdAsync(_factory);
         await TestHarness.ApproveProviderAsync(_factory, providerUser.Id, city, serviceId);
-        var requestId = await TestHarness.CreateRequestAsync(customer, serviceId, city);
-        var offerId = await TestHarness.SubmitOfferAsync(provider, requestId);
-        var accept = await customer.PostAsync($"/api/offers/{offerId}/accept", null);
-        accept.EnsureSuccessStatusCode();
-        using var doc = JsonDocument.Parse(await accept.Content.ReadAsStringAsync());
-        return new Scenario(
-            customer,
-            provider,
-            requestId,
-            doc.RootElement.GetProperty("id").GetInt32());
+        var profileId = await TestHarness.GetProviderProfileIdAsync(_factory, providerUser.Id);
+        var bookingId = await TestHarness.CreateBookingAsync(customer, profileId, serviceId);
+        await TestHarness.AcceptBookingAsync(provider, bookingId);
+        return new Scenario(customer, provider, bookingId);
     }
 
     private sealed record Scenario(
         HttpClient Customer,
         HttpClient Provider,
-        int RequestId,
         int BookingId);
 }

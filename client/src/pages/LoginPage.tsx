@@ -64,16 +64,16 @@ export function LoginPage() {
       title={
         <>
           <span>Sign in to manage</span>
-          <span>requests, offers,</span>
-          <span>and bookings.</span>
+          <span>bookings, your profile,</span>
+          <span>and upcoming visits.</span>
         </>
       }
       description="Continue to your Khidma account and keep things moving."
       benefits={[
         {
           icon: Users,
-          title: 'Role-based dashboards',
-          description: 'Manage the experience that matches your account.',
+          title: 'A place for every role',
+          description: 'Customers keep a profile and history. Providers run their jobs.',
         },
         {
           icon: CalendarCheck,

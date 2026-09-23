@@ -1,4 +1,5 @@
 using Khidma.Api.Contracts.Admin;
+using Microsoft.AspNetCore.Http;
 using Khidma.Api.Contracts.Audit;
 using Khidma.Api.Contracts.Catalog;
 using Khidma.Api.Contracts.Common;
@@ -48,6 +49,9 @@ public interface IAdminService
         SaveCategoryRequest request,
         CancellationToken cancellationToken);
 
+    Task<IReadOnlyList<CatalogServiceUsageDto>> GetCatalogUsageAsync(
+        CancellationToken cancellationToken);
+
     Task<ServiceResult<bool>> DeleteCategoryAsync(
         int id,
         CancellationToken cancellationToken);
@@ -63,5 +67,15 @@ public interface IAdminService
 
     Task<ServiceResult<bool>> DeleteServiceAsync(
         int id,
+        CancellationToken cancellationToken);
+
+    Task<ServiceResult<CategoryDto>> SetCategoryImageAsync(
+        int id,
+        IFormFile file,
+        CancellationToken cancellationToken);
+
+    Task<ServiceResult<ServiceDto>> SetServiceImageAsync(
+        int id,
+        IFormFile file,
         CancellationToken cancellationToken);
 }

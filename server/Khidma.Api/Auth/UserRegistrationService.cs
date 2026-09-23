@@ -47,6 +47,7 @@ public sealed class UserRegistrationService
                     Email = request.Email.Trim(),
                     EmailConfirmed = true,
                     FullName = request.FullName.Trim(),
+                    PhoneNumber = PhoneRules.Normalize(request.PhoneNumber),
                     CreatedAt = DateTimeOffset.UtcNow
                 };
 
@@ -110,7 +111,10 @@ public sealed class UserRegistrationService
                     await transaction.CommitAsync(cancellationToken);
                 }
 
-                var dto = await CurrentUserMapper.ToDtoAsync(_userManager, user);
+                var dto = await CurrentUserMapper.ToDtoAsync(
+                    _userManager,
+                    user,
+                    request.City.Trim());
                 return new RegistrationWork(RegisterResult.Ok(dto), user);
             }
             catch

@@ -22,6 +22,18 @@ public sealed class BookingsController : ApiControllerBase
         _reviews = reviews;
     }
 
+    [HttpPost]
+    [Authorize(Roles = AppRoles.Customer)]
+    public async Task<IActionResult> Create(
+        [FromBody] CreateBookingRequest request,
+        CancellationToken cancellationToken)
+    {
+        return FromResult(await _bookings.CreateAsync(
+            RequireUserId(),
+            request,
+            cancellationToken));
+    }
+
     [HttpGet("mine")]
     [Authorize(Roles = $"{AppRoles.Customer},{AppRoles.Provider}")]
     public async Task<IActionResult> Mine(
@@ -44,6 +56,48 @@ public sealed class BookingsController : ApiControllerBase
             id,
             RequireUserId(),
             CallerIsAdmin(),
+            cancellationToken));
+    }
+
+    [HttpPost("{id:int}/accept")]
+    [Authorize(Roles = AppRoles.Provider)]
+    public async Task<IActionResult> Accept(
+        int id,
+        [FromBody] AcceptBookingRequest request,
+        CancellationToken cancellationToken)
+    {
+        return FromResult(await _bookings.AcceptAsync(
+            id,
+            RequireUserId(),
+            request,
+            cancellationToken));
+    }
+
+    [HttpPost("{id:int}/decline")]
+    [Authorize(Roles = AppRoles.Provider)]
+    public async Task<IActionResult> Decline(
+        int id,
+        [FromBody] DeclineBookingRequest request,
+        CancellationToken cancellationToken)
+    {
+        return FromResult(await _bookings.DeclineAsync(
+            id,
+            RequireUserId(),
+            request.Reason,
+            cancellationToken));
+    }
+
+    [HttpPost("{id:int}/schedule")]
+    [Authorize(Roles = AppRoles.Provider)]
+    public async Task<IActionResult> Reschedule(
+        int id,
+        [FromBody] RescheduleBookingRequest request,
+        CancellationToken cancellationToken)
+    {
+        return FromResult(await _bookings.RescheduleAsync(
+            id,
+            RequireUserId(),
+            request,
             cancellationToken));
     }
 

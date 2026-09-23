@@ -29,7 +29,8 @@ public sealed class AuditLogTests : IClassFixture<KhidmaApiFactory>
             email,
             password = "ValidPass1!",
             role = "Customer",
-            city = "Ramallah"
+            city = "Ramallah",
+            phoneNumber = "+970 0591234567"
         });
         await AntiforgeryTestHelper.AttachTokenAsync(client);
         await client.PostAsync("/api/auth/logout", null);
@@ -72,20 +73,20 @@ public sealed class AuditLogTests : IClassFixture<KhidmaApiFactory>
         var profileId = await TestHarness.GetProviderProfileIdAsync(_factory, providerUser.Id);
         var documentId = await TestHarness.UploadDocumentAsync(provider);
         await TestHarness.ApproveDocumentAsync(admin, documentId);
-        await TestHarness.ApproveProviderViaApiAsync(admin, profileId);
         await provider.PutAsJsonAsync("/api/providers/me/services", new { serviceIds = new[] { serviceId } });
+        await TestHarness.ApproveProviderViaApiAsync(admin, profileId);
+        await TestHarness.OpenAllHoursAsync(_factory, profileId);
         await provider.PutAsJsonAsync("/api/providers/me", new
         {
             city,
             yearsOfExperience = 4,
-            bio = "Updated"
+            bio = "Updated",
+            phoneNumber = "+970 0592000000"
         });
 
-        var requestId = await TestHarness.CreateRequestAsync(customer, serviceId, city);
-        var offerId = await TestHarness.SubmitOfferAsync(provider, requestId);
-        var accept = await customer.PostAsync($"/api/offers/{offerId}/accept", null);
-        using var bookingDoc = JsonDocument.Parse(await accept.Content.ReadAsStringAsync());
-        var bookingId = bookingDoc.RootElement.GetProperty("id").GetInt32();
+        var profileForBooking = await TestHarness.GetProviderProfileIdAsync(_factory, providerUser.Id);
+        var bookingId = await TestHarness.CreateBookingAsync(customer, profileForBooking, serviceId);
+        await TestHarness.AcceptBookingAsync(provider, bookingId);
         await provider.PostAsync($"/api/bookings/{bookingId}/start", null);
         await provider.PostAsync($"/api/bookings/{bookingId}/complete", null);
         await customer.PostAsJsonAsync($"/api/bookings/{bookingId}/review", new
@@ -94,17 +95,17 @@ public sealed class AuditLogTests : IClassFixture<KhidmaApiFactory>
             comment = "Excellent"
         });
 
-        var cancelCity = $"B{Guid.NewGuid():N}"[..10];
-        var cancelRequest = await TestHarness.CreateRequestAsync(
+        var cancelId = await TestHarness.CreateBookingAsync(
             customer,
+            profileForBooking,
             serviceId,
-            city,
             "Will cancel");
-        await customer.PostAsync($"/api/service-requests/{cancelRequest}/cancel", null);
+        await customer.PostAsJsonAsync($"/api/bookings/{cancelId}/cancel", new { reason = "Changed plans" });
 
         var createCategory = await admin.PostAsJsonAsync("/api/admin/categories", new
         {
-            name = $"Audit {Guid.NewGuid():N}"[..12]
+            name = $"Audit {Guid.NewGuid():N}"[..12],
+            description = "Created during the audit test."
         });
         createCategory.EnsureSuccessStatusCode();
 
@@ -114,11 +115,9 @@ public sealed class AuditLogTests : IClassFixture<KhidmaApiFactory>
         Assert.Contains(AuditActions.ProviderApproved, actions);
         Assert.Contains(AuditActions.ProviderProfileUpdated, actions);
         Assert.Contains(AuditActions.ProviderServicesUpdated, actions);
-        Assert.Contains(AuditActions.RequestCreated, actions);
-        Assert.Contains(AuditActions.RequestCancelled, actions);
-        Assert.Contains(AuditActions.OfferSubmitted, actions);
-        Assert.Contains(AuditActions.OfferAccepted, actions);
-        Assert.Contains(AuditActions.BookingCreated, actions);
+        Assert.Contains(AuditActions.BookingRequested, actions);
+        Assert.Contains(AuditActions.BookingCancelled, actions);
+        Assert.Contains(AuditActions.BookingAccepted, actions);
         Assert.Contains(AuditActions.BookingStarted, actions);
         Assert.Contains(AuditActions.BookingCompleted, actions);
         Assert.Contains(AuditActions.ReviewCreated, actions);
@@ -187,11 +186,10 @@ public sealed class AuditLogTests : IClassFixture<KhidmaApiFactory>
             new { status = "Rejected", reason = "Need a clearer license" });
         reject.EnsureSuccessStatusCode();
 
-        var title = "Kitchen sink leaking under the cabinet";
         await TestHarness.ApproveProviderAsync(_factory, providerUser.Id, city, serviceId);
-        var requestId = await TestHarness.CreateRequestAsync(customer, serviceId, city, title);
-        var offerId = await TestHarness.SubmitOfferAsync(provider, requestId);
-        (await customer.PostAsync($"/api/offers/{offerId}/accept", null)).EnsureSuccessStatusCode();
+        var profileForBooking = await TestHarness.GetProviderProfileIdAsync(_factory, providerUser.Id);
+        var bookingId = await TestHarness.CreateBookingAsync(customer, profileForBooking, serviceId);
+        await TestHarness.AcceptBookingAsync(provider, bookingId);
 
         var list = await admin.GetFromJsonAsync<JsonElement>("/api/admin/audit-logs?pageSize=100");
         var summaries = list.GetProperty("items")
@@ -203,8 +201,8 @@ public sealed class AuditLogTests : IClassFixture<KhidmaApiFactory>
             text.Contains("rejected provider", StringComparison.OrdinalIgnoreCase) &&
             text.Contains("Test Provider", StringComparison.Ordinal));
         Assert.Contains(summaries, text =>
-            text.Contains("accepted an offer", StringComparison.OrdinalIgnoreCase) &&
-            text.Contains(title, StringComparison.Ordinal));
+            text.Contains("accepted a booking", StringComparison.OrdinalIgnoreCase) &&
+            text.Contains("Plumbing", StringComparison.Ordinal));
         Assert.DoesNotContain(
             summaries,
             text => Guid.TryParse(text, out _) || text.Contains(providerUser.Id, StringComparison.Ordinal));
@@ -222,7 +220,8 @@ public sealed class AuditLogTests : IClassFixture<KhidmaApiFactory>
             email,
             password = "ValidPass1!",
             role = "Customer",
-            city = "Ramallah"
+            city = "Ramallah",
+            phoneNumber = "+970 0591234567"
         });
         await AntiforgeryTestHelper.AttachTokenAsync(client);
         await client.PostAsync("/api/auth/logout", null);

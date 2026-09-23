@@ -6,6 +6,11 @@ namespace Khidma.Api.Services.Bookings;
 
 public interface IBookingService
 {
+    Task<ServiceResult<BookingDetailDto>> CreateAsync(
+        string customerId,
+        CreateBookingRequest request,
+        CancellationToken cancellationToken);
+
     Task<ServiceResult<PagedResult<BookingSummaryDto>>> GetMineAsync(
         string userId,
         string role,
@@ -16,6 +21,18 @@ public interface IBookingService
         int id,
         string userId,
         bool isAdmin,
+        CancellationToken cancellationToken);
+
+    Task<ServiceResult<BookingDetailDto>> AcceptAsync(
+        int id,
+        string providerUserId,
+        AcceptBookingRequest request,
+        CancellationToken cancellationToken);
+
+    Task<ServiceResult<BookingDetailDto>> DeclineAsync(
+        int id,
+        string providerUserId,
+        string reason,
         CancellationToken cancellationToken);
 
     Task<ServiceResult<BookingDetailDto>> StartAsync(
@@ -32,6 +49,12 @@ public interface IBookingService
         int id,
         string userId,
         string reason,
+        CancellationToken cancellationToken);
+
+    Task<ServiceResult<BookingDetailDto>> RescheduleAsync(
+        int id,
+        string providerUserId,
+        RescheduleBookingRequest request,
         CancellationToken cancellationToken);
 }
 

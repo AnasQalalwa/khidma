@@ -108,6 +108,11 @@ public sealed class KhidmaApiFactory : WebApplicationFactory<Program>
                 Name = "Plumbing",
                 CategoryId = category.Id
             });
+            db.Services.Add(new Service
+            {
+                Name = "Electrical",
+                CategoryId = category.Id
+            });
             db.SaveChanges();
         }
 

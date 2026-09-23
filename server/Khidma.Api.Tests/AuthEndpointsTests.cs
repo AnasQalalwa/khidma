@@ -58,7 +58,8 @@ public sealed class AuthEndpointsTests : IClassFixture<KhidmaApiFactory>
             email,
             password = "ValidPass1!",
             role = "Customer",
-            city = "Ramallah"
+            city = "Ramallah",
+            phoneNumber = "+970 0591234567"
         });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -86,6 +87,7 @@ public sealed class AuthEndpointsTests : IClassFixture<KhidmaApiFactory>
             password = "ValidPass1!",
             role = "Provider",
             city = "Nablus",
+            phoneNumber = "+970 0591234567",
             yearsOfExperience = 4,
             bio = "Reliable technician"
         });
@@ -109,7 +111,8 @@ public sealed class AuthEndpointsTests : IClassFixture<KhidmaApiFactory>
             email,
             password = "ValidPass1!",
             role = "Customer",
-            city = "Ramallah"
+            city = "Ramallah",
+            phoneNumber = "+970 0591234567"
         });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -140,6 +143,7 @@ public sealed class AuthEndpointsTests : IClassFixture<KhidmaApiFactory>
             password = "ValidPass1!",
             role = "Provider",
             city = "Hebron",
+            phoneNumber = "+970 0591234567",
             yearsOfExperience = 2
         });
 
@@ -172,7 +176,8 @@ public sealed class AuthEndpointsTests : IClassFixture<KhidmaApiFactory>
             email = UniqueEmail("admin"),
             password = "ValidPass1!",
             role,
-            city = "Ramallah"
+            city = "Ramallah",
+            phoneNumber = "+970 0591234567"
         });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -212,7 +217,8 @@ public sealed class AuthEndpointsTests : IClassFixture<KhidmaApiFactory>
             email,
             password = "ValidPass1!",
             role = "Customer",
-            city = "Bethlehem"
+            city = "Bethlehem",
+            phoneNumber = "+970 0591234567"
         });
         Assert.Equal(HttpStatusCode.OK, register.StatusCode);
 
@@ -262,6 +268,75 @@ public sealed class AuthEndpointsTests : IClassFixture<KhidmaApiFactory>
         });
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Register_ShortPassword_ReturnsFriendlyMessage()
+    {
+        var client = CreateClient();
+        await AntiforgeryTestHelper.AttachTokenAsync(client);
+
+        var response = await client.PostAsJsonAsync("/api/auth/register", new
+        {
+            fullName = "Test Customer",
+            email = UniqueEmail("short-pass"),
+            password = "xxxxx",
+            role = "Customer",
+            city = "Ramallah",
+            phoneNumber = "+970 0591234567"
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("string or array type", body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("8 characters", body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("uppercase", body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("special character", body, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Register_PasswordMissingComplexity_ReturnsFriendlyMessage()
+    {
+        var client = CreateClient();
+        await AntiforgeryTestHelper.AttachTokenAsync(client);
+
+        var response = await client.PostAsJsonAsync("/api/auth/register", new
+        {
+            fullName = "Test Customer",
+            email = UniqueEmail("weak-pass"),
+            password = "password",
+            role = "Customer",
+            city = "Ramallah",
+            phoneNumber = "+970 0591234567"
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("string or array type", body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("uppercase", body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("number", body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("special character", body, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Register_InvalidEmail_ReturnsFriendlyMessage()
+    {
+        var client = CreateClient();
+        await AntiforgeryTestHelper.AttachTokenAsync(client);
+
+        var response = await client.PostAsJsonAsync("/api/auth/register", new
+        {
+            fullName = "Test Customer",
+            email = "not-an-email",
+            password = "ValidPass1!",
+            role = "Customer",
+            city = "Ramallah",
+            phoneNumber = "+970 0591234567"
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Contains("you@example.com", body, StringComparison.OrdinalIgnoreCase);
     }
 
     private HttpClient CreateClient()

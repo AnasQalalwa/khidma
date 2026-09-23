@@ -6,6 +6,9 @@ export function ConfirmDialog({
   title,
   description,
   confirmLabel = 'Confirm',
+  closeLabel = 'Cancel',
+  allowConfirm = true,
+  tone = 'default',
   danger = false,
   busy = false,
   onConfirm,
@@ -16,6 +19,9 @@ export function ConfirmDialog({
   title: string
   description: string
   confirmLabel?: string
+  closeLabel?: string
+  allowConfirm?: boolean
+  tone?: 'default' | 'danger'
   danger?: boolean
   busy?: boolean
   onConfirm: () => void
@@ -69,21 +75,29 @@ export function ConfirmDialog({
         onClick={(event) => event.stopPropagation()}
       >
         <h2 id={titleId}>{title}</h2>
-        <p id={descriptionId} className="muted">
-          {description}
-        </p>
+        {tone === 'danger' ? (
+          <div id={descriptionId} className="alert" role="alert">
+            {description}
+          </div>
+        ) : (
+          <p id={descriptionId} className="muted">
+            {description}
+          </p>
+        )}
         {children}
         <div className="dialog-actions">
           <Button variant="secondary" onClick={onClose} disabled={busy}>
-            Cancel
+            {closeLabel}
           </Button>
-          <Button
-            onClick={onConfirm}
-            loading={busy}
-            className={danger ? 'btn-danger' : undefined}
-          >
-            {confirmLabel}
-          </Button>
+          {allowConfirm ? (
+            <Button
+              onClick={onConfirm}
+              loading={busy}
+              className={danger ? 'btn-danger' : undefined}
+            >
+              {confirmLabel}
+            </Button>
+          ) : null}
         </div>
       </div>
     </div>

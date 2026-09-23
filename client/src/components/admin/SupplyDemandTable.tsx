@@ -9,7 +9,7 @@ export function SupplyDemandTable({ rows }: { rows: AdminOverview['supplyDemand'
           <tr>
             <th>City</th>
             <th>Service</th>
-            <th>Open requests</th>
+            <th>Pending bookings</th>
             <th>Eligible providers</th>
           </tr>
         </thead>
@@ -18,7 +18,7 @@ export function SupplyDemandTable({ rows }: { rows: AdminOverview['supplyDemand'
             <tr key={`${row.city}-${row.serviceId}`}>
               <td>{row.city}</td>
               <td>{row.serviceName}</td>
-              <td>{formatCount(row.openRequests)}</td>
+              <td>{formatCount(row.pendingBookings)}</td>
               <td>
                 {formatCount(row.eligibleProviders)}{' '}
                 {row.eligibleProviders === 0 ? <span className="coverage-badge">No coverage</span> : null}

@@ -16,15 +16,6 @@ public sealed class DashboardController : ApiControllerBase
         _dashboard = dashboard;
     }
 
-    [HttpGet("customer")]
-    [Authorize(Roles = AppRoles.Customer)]
-    public async Task<IActionResult> Customer(CancellationToken cancellationToken)
-    {
-        return FromResult(await _dashboard.GetCustomerAsync(
-            RequireUserId(),
-            cancellationToken));
-    }
-
     [HttpGet("provider")]
     [Authorize(Roles = AppRoles.Provider)]
     public async Task<IActionResult> Provider(CancellationToken cancellationToken)
