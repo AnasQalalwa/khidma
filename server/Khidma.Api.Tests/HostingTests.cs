@@ -22,7 +22,7 @@ public sealed class SpaFallbackTests : IClassFixture<KhidmaApiFactory>
         });
         client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("text/html"));
 
-        var response = await client.GetAsync("/customer/requests/1");
+        var response = await client.GetAsync("/account/bookings/1");
         var body = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);

@@ -18,7 +18,7 @@ export function Footer() {
       <div className="container">
         <div className="footer-grid">
           <div className="footer-brand">
-            <BrandLink />
+            <BrandLink variant="onDark" />
             <p>People. Services. A better way to get things done locally.</p>
           </div>
           <div>
@@ -36,13 +36,40 @@ export function Footer() {
             </ul>
           </div>
           <div>
+            <h3>Providers</h3>
+            <ul>
+              <li>
+                <NavLink to="/register">Offer a service</NavLink>
+              </li>
+              <li>
+                <NavLink to="/catalog">Browse the catalog</NavLink>
+              </li>
+              {user?.role === Roles.Provider ? (
+                <li>
+                  <NavLink to="/provider/schedule">Working hours</NavLink>
+                </li>
+              ) : null}
+            </ul>
+          </div>
+          <div>
             <h3>Account</h3>
             <ul>
               {authenticated && user ? (
                 <>
-                  <li>
-                    <NavLink to={dashboardPath(user.role)}>{dashboardLabel}</NavLink>
-                  </li>
+                  {user.role === Roles.Customer ? (
+                    <>
+                      <li>
+                        <NavLink to="/account/bookings">My Bookings</NavLink>
+                      </li>
+                      <li>
+                        <NavLink to="/account">Profile</NavLink>
+                      </li>
+                    </>
+                  ) : (
+                    <li>
+                      <NavLink to={dashboardPath(user.role)}>{dashboardLabel}</NavLink>
+                    </li>
+                  )}
                   <li>
                     <button
                       type="button"

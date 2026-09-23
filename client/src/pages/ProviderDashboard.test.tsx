@@ -20,13 +20,11 @@ describe('ProviderDashboard', () => {
       verificationStatus: 'Approved',
       isSuspended: true,
       suspensionReason: 'Repeated no-shows',
-      eligibleRequestCount: 0,
-      pendingOfferCount: 0,
-      activeBookingCount: 1,
+      pendingRequestCount: 0,
+      activeJobCount: 1,
       averageRating: 4.2,
       reviewCount: 3,
-      recentAvailableRequests: [],
-      recentOffers: [],
+      recentPendingRequests: [],
       activeJobs: [],
     })
 
@@ -39,5 +37,29 @@ describe('ProviderDashboard', () => {
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent('Your account is suspended')
     expect(alert).toHaveTextContent('Repeated no-shows')
+  })
+
+  it('points pending providers to profile document upload', async () => {
+    mockedGetProviderDashboard.mockResolvedValue({
+      verificationStatus: 'PendingReview',
+      isSuspended: false,
+      suspensionReason: null,
+      pendingRequestCount: 0,
+      activeJobCount: 0,
+      averageRating: 0,
+      reviewCount: 0,
+      recentPendingRequests: [],
+      activeJobs: [],
+    })
+
+    renderWithRouter(<ProviderDashboard />, {
+      route: '/provider',
+      path: '/provider',
+      auth: { user: providerUser(), authenticated: true },
+    })
+
+    expect(
+      await screen.findByRole('link', { name: 'Profile → Professional verification' }),
+    ).toHaveAttribute('href', '/provider/profile#verification')
   })
 })

@@ -38,49 +38,56 @@ public static class DbSeeder
             "admin@khidma.local",
             "Khidma Admin",
             AppRoles.Admin,
-            adminPassword);
+            adminPassword,
+            "+970 0590000001");
 
         var customerOne = await EnsureUserAsync(
             userManager,
             "customer@khidma.local",
             "Demo Customer",
             AppRoles.Customer,
-            demoPassword);
+            demoPassword,
+            "+970 0591111111");
 
         var customerTwo = await EnsureUserAsync(
             userManager,
             "customer2@khidma.local",
             "Nablus Customer",
             AppRoles.Customer,
-            demoPassword);
+            demoPassword,
+            "+970 0592222222");
 
         var providerOne = await EnsureUserAsync(
             userManager,
             "provider1@khidma.local",
             "Demo Provider One",
             AppRoles.Provider,
-            demoPassword);
+            demoPassword,
+            "+970 0593333333");
 
         var providerTwo = await EnsureUserAsync(
             userManager,
             "provider2@khidma.local",
             "Demo Provider Two",
             AppRoles.Provider,
-            demoPassword);
+            demoPassword,
+            "+970 0594444444");
 
         var providerThree = await EnsureUserAsync(
             userManager,
             "provider3@khidma.local",
             "Demo Provider Three",
             AppRoles.Provider,
-            demoPassword);
+            demoPassword,
+            "+970 0595555555");
 
         var providerFour = await EnsureUserAsync(
             userManager,
             "provider4@khidma.local",
             "Demo Provider Four",
             AppRoles.Provider,
-            demoPassword);
+            demoPassword,
+            "+970 0596666666");
 
         await EnsureCustomerProfileAsync(
             db,
@@ -126,26 +133,26 @@ public static class DbSeeder
 
         await db.SaveChangesAsync();
 
-        var homeServices = await EnsureCategoryAsync(db, "Home Services");
-        var technology = await EnsureCategoryAsync(db, "Technology");
-        var cleaning = await EnsureCategoryAsync(db, "Cleaning");
-        var tutoring = await EnsureCategoryAsync(db, "Tutoring");
+        var homeServices = await EnsureCategoryAsync(db, "Home Services", "Repairs, installs and more.");
+        var technology = await EnsureCategoryAsync(db, "Technology", "Tech help made easy.");
+        var cleaning = await EnsureCategoryAsync(db, "Cleaning", "A cleaner, healthier home.");
+        var tutoring = await EnsureCategoryAsync(db, "Tutoring", "Learn with expert tutors.");
 
-        var plumbing = await EnsureServiceAsync(db, homeServices.Id, "Plumbing");
-        var electrical = await EnsureServiceAsync(db, homeServices.Id, "Electrical");
-        var painting = await EnsureServiceAsync(db, homeServices.Id, "Painting");
-        var carpentry = await EnsureServiceAsync(db, homeServices.Id, "Carpentry");
+        var plumbing = await EnsureServiceAsync(db, homeServices.Id, "Plumbing", "Fix leaks, installations and more.");
+        var electrical = await EnsureServiceAsync(db, homeServices.Id, "Electrical", "Safe and reliable electrical services for your home.");
+        var painting = await EnsureServiceAsync(db, homeServices.Id, "Painting", "Give your space a fresh new look.");
+        var carpentry = await EnsureServiceAsync(db, homeServices.Id, "Carpentry", "Custom woodwork, repairs and installations.");
 
-        var computerRepair = await EnsureServiceAsync(db, technology.Id, "Computer Repair");
-        var phoneRepair = await EnsureServiceAsync(db, technology.Id, "Phone Repair");
-        var networkSetup = await EnsureServiceAsync(db, technology.Id, "Network Setup");
+        var computerRepair = await EnsureServiceAsync(db, technology.Id, "Computer Repair", "Fast and reliable computer repair services.");
+        var phoneRepair = await EnsureServiceAsync(db, technology.Id, "Phone Repair", "Screen repair, battery replacement and more.");
+        var networkSetup = await EnsureServiceAsync(db, technology.Id, "Network Setup", "Set up and optimize your home or office network.");
 
-        var homeCleaning = await EnsureServiceAsync(db, cleaning.Id, "Home Cleaning");
-        var carpetCleaning = await EnsureServiceAsync(db, cleaning.Id, "Carpet Cleaning");
-        var windowCleaning = await EnsureServiceAsync(db, cleaning.Id, "Window Cleaning");
+        var homeCleaning = await EnsureServiceAsync(db, cleaning.Id, "Home Cleaning", "Reliable home cleaning services for a cleaner space.");
+        var carpetCleaning = await EnsureServiceAsync(db, cleaning.Id, "Carpet Cleaning", "Professional carpet cleaning for a fresher, healthier home.");
+        var windowCleaning = await EnsureServiceAsync(db, cleaning.Id, "Window Cleaning", "Crystal-clear windows inside and out.");
 
-        var mathTutoring = await EnsureServiceAsync(db, tutoring.Id, "Math Tutoring");
-        var englishTutoring = await EnsureServiceAsync(db, tutoring.Id, "English Tutoring");
+        var mathTutoring = await EnsureServiceAsync(db, tutoring.Id, "Math Tutoring", "Get help with math from qualified tutors.");
+        var englishTutoring = await EnsureServiceAsync(db, tutoring.Id, "English Tutoring", "Improve your English with experienced tutors.");
 
         var providerOneProfile =
             await db.ProviderProfiles.SingleAsync(p => p.UserId == providerOne.Id);
@@ -177,6 +184,17 @@ public static class DbSeeder
         await EnsureProviderServiceAsync(db, providerFourProfile.Id, plumbing.Id);
 
         await db.SaveChangesAsync();
+
+        await EnsureWorkingHoursAsync(db);
+
+        await EnsureDemoBookingsAsync(
+            db,
+            customerOne,
+            providerOne,
+            providerFour,
+            plumbing,
+            electrical);
+        await EnsureLegacySlotsAsync(db);
     }
 
     private static async Task EnsureRoleAsync(
@@ -206,7 +224,8 @@ public static class DbSeeder
         string email,
         string fullName,
         string role,
-        string password)
+        string password,
+        string phoneNumber)
     {
         var user = await userManager.FindByEmailAsync(email);
 
@@ -218,6 +237,7 @@ public static class DbSeeder
                 Email = email,
                 EmailConfirmed = true,
                 FullName = fullName,
+                PhoneNumber = phoneNumber,
                 CreatedAt = DateTimeOffset.UtcNow
             };
 
@@ -232,6 +252,20 @@ public static class DbSeeder
                         "; ",
                         createResult.Errors.Select(
                             e => e.Description)));
+            }
+        }
+        else if (string.IsNullOrWhiteSpace(user.PhoneNumber) ||
+                 !user.PhoneNumber.StartsWith("+970 ", StringComparison.Ordinal))
+        {
+            user.PhoneNumber = phoneNumber;
+            var phoneResult = await userManager.UpdateAsync(user);
+            if (!phoneResult.Succeeded)
+            {
+                throw new InvalidOperationException(
+                    $"Could not set phone for '{email}': " +
+                    string.Join(
+                        "; ",
+                        phoneResult.Errors.Select(e => e.Description)));
             }
         }
 
@@ -267,9 +301,136 @@ public static class DbSeeder
         db.CustomerProfiles.Add(new CustomerProfile
         {
             UserId = userId,
-            City = city,
-            DefaultContact = null
+            City = city
         });
+    }
+
+    private static async Task EnsureDemoBookingsAsync(
+        AppDbContext db,
+        ApplicationUser customer,
+        ApplicationUser providerOne,
+        ApplicationUser providerFour,
+        Domain.Service plumbing,
+        Domain.Service electrical)
+    {
+        if (await db.Bookings.AnyAsync())
+        {
+            return;
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        var pending = new Booking
+        {
+            CustomerId = customer.Id,
+            ProviderId = providerOne.Id,
+            ServiceId = plumbing.Id,
+            City = "Ramallah",
+            Notes = "Kitchen sink is leaking under the cabinet.",
+            RequestedDate = DateOnly.FromDateTime(now.UtcDateTime.AddDays(3)),
+            Status = BookingStatus.Pending,
+            CreatedAt = now.AddHours(-2)
+        };
+        var scheduled = new Booking
+        {
+            CustomerId = customer.Id,
+            ProviderId = providerFour.Id,
+            ServiceId = plumbing.Id,
+            City = "Ramallah",
+            Notes = "Replace the bathroom faucet.",
+            RequestedDate = DateOnly.FromDateTime(now.UtcDateTime.AddDays(2)),
+            ScheduledStart = now.AddDays(2),
+            DurationHours = 3,
+            Status = BookingStatus.Scheduled,
+            QuotedPrice = 180,
+            ProviderMessage = "I can bring the parts and finish the same visit.",
+            CreatedAt = now.AddDays(-1),
+            RespondedAt = now.AddHours(-20)
+        };
+        var completed = new Booking
+        {
+            CustomerId = customer.Id,
+            ProviderId = providerOne.Id,
+            ServiceId = electrical.Id,
+            City = "Ramallah",
+            Notes = "Living room outlet stopped working.",
+            RequestedDate = DateOnly.FromDateTime(now.UtcDateTime.AddDays(-4)),
+            ScheduledStart = now.AddDays(-4),
+            DurationHours = 2,
+            Status = BookingStatus.Completed,
+            QuotedPrice = 120,
+            ProviderMessage = "I will check the breaker and the outlet.",
+            CreatedAt = now.AddDays(-6),
+            RespondedAt = now.AddDays(-5),
+            StartedAt = now.AddDays(-4),
+            CompletedAt = now.AddDays(-4).AddHours(2)
+        };
+
+        db.Bookings.AddRange(pending, scheduled, completed);
+        await db.SaveChangesAsync();
+
+        db.Reviews.Add(new Review
+        {
+            BookingId = completed.Id,
+            CustomerId = customer.Id,
+            ProviderId = providerOne.Id,
+            Rating = 5,
+            Comment = "Arrived on time and fixed the outlet the same day.",
+            CreatedAt = now.AddDays(-3)
+        });
+
+        var profile = await db.ProviderProfiles.SingleAsync(p => p.UserId == providerOne.Id);
+        profile.AverageRating = 5;
+        profile.ReviewCount = 1;
+        await db.SaveChangesAsync();
+    }
+
+    private static async Task EnsureWorkingHoursAsync(AppDbContext db)
+    {
+        var profileIds = await db.ProviderProfiles.Select(p => p.Id).ToListAsync();
+        var withHours = await db.ProviderWorkingHours
+            .Select(h => h.ProviderProfileId)
+            .Distinct()
+            .ToListAsync();
+        foreach (var profileId in profileIds.Except(withHours))
+        {
+            for (var day = 0; day <= 4; day++)
+            {
+                for (var hour = 8; hour <= 15; hour++)
+                {
+                    db.ProviderWorkingHours.Add(new ProviderWorkingHour
+                    {
+                        ProviderProfileId = profileId,
+                        DayOfWeek = day,
+                        Hour = hour
+                    });
+                }
+            }
+        }
+
+        await db.SaveChangesAsync();
+    }
+
+    private static async Task EnsureLegacySlotsAsync(AppDbContext db)
+    {
+        var missing = await db.Bookings
+            .Where(b => b.ScheduledStart == null &&
+                (b.Status == BookingStatus.Scheduled ||
+                 b.Status == BookingStatus.InProgress ||
+                 b.Status == BookingStatus.Completed))
+            .ToListAsync();
+        if (missing.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var booking in missing)
+        {
+            var morning = booking.RequestedDate.ToDateTime(new TimeOnly(9, 0));
+            booking.ScheduledStart = new DateTimeOffset(morning, TimeSpan.FromHours(3));
+            booking.DurationHours ??= booking.Status == BookingStatus.Completed ? 2 : 3;
+        }
+
+        await db.SaveChangesAsync();
     }
 
     private static async Task EnsureProviderProfileAsync(
@@ -307,7 +468,8 @@ public static class DbSeeder
 
     private static async Task<Category> EnsureCategoryAsync(
         AppDbContext db,
-        string name)
+        string name,
+        string description)
     {
         var category =
             await db.Categories.SingleOrDefaultAsync(
@@ -315,12 +477,19 @@ public static class DbSeeder
 
         if (category is not null)
         {
+            if (string.IsNullOrWhiteSpace(category.Description))
+            {
+                category.Description = description;
+                await db.SaveChangesAsync();
+            }
+
             return category;
         }
 
         category = new Category
         {
-            Name = name
+            Name = name,
+            Description = description
         };
 
         db.Categories.Add(category);
@@ -333,7 +502,8 @@ public static class DbSeeder
         EnsureServiceAsync(
             AppDbContext db,
             int categoryId,
-            string name)
+            string name,
+            string description)
     {
         var service =
             await db.Services.SingleOrDefaultAsync(
@@ -342,13 +512,20 @@ public static class DbSeeder
 
         if (service is not null)
         {
+            if (string.IsNullOrWhiteSpace(service.Description))
+            {
+                service.Description = description;
+                await db.SaveChangesAsync();
+            }
+
             return service;
         }
 
         service = new Khidma.Api.Domain.Service
         {
             CategoryId = categoryId,
-            Name = name
+            Name = name,
+            Description = description
         };
 
         db.Services.Add(service);

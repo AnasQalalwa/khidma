@@ -145,8 +145,8 @@ export function AdminProvidersPage() {
         subtitle="Operational control: suspend access to new work, or reactivate a provider who is already verified."
       />
       <p className="muted">
-        Suspension rejects pending offers and hides matching requests. Existing bookings stay
-        in place so in-progress jobs can still be completed.
+        Suspension declines pending booking requests and hides the provider from the catalog.
+        Scheduled and in-progress jobs stay in place so they can still be completed.
       </p>
       {actionError ? (
         <div className="alert" role="alert">
@@ -285,7 +285,7 @@ export function AdminProvidersPage() {
       <ReasonDialog
         open={suspendTarget !== null}
         title="Suspend this provider?"
-        description="They will stop receiving new work. Pending offers are rejected. Existing bookings continue."
+        description="They will stop receiving new work. Pending booking requests are declined. Scheduled jobs continue."
         confirmLabel="Suspend provider"
         label="Suspension reason"
         danger

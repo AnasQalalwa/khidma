@@ -189,10 +189,16 @@ namespace Khidma.Api.Migrations
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("CancellationReason")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<DateTimeOffset?>("CancelledAt")
                         .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("City")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
 
                     b.Property<DateTimeOffset?>("CompletedAt")
                         .HasColumnType("datetimeoffset");
@@ -204,16 +210,41 @@ namespace Khidma.Api.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<decimal>("FinalPrice")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
+                    b.Property<string>("DeclineReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
 
-                    b.Property<int>("OfferId")
+                    b.Property<int?>("DurationHours")
                         .HasColumnType("int");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
 
                     b.Property<string>("ProviderId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("ProviderMessage")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<decimal?>("QuotedPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateOnly>("RequestedDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("RescheduleNote")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTimeOffset?>("RescheduledAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("RespondedAt")
+                        .HasColumnType("datetimeoffset");
 
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
@@ -221,10 +252,10 @@ namespace Khidma.Api.Migrations
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("rowversion");
 
-                    b.Property<DateTimeOffset>("ScheduledDate")
+                    b.Property<DateTimeOffset?>("ScheduledStart")
                         .HasColumnType("datetimeoffset");
 
-                    b.Property<int>("ServiceRequestId")
+                    b.Property<int>("ServiceId")
                         .HasColumnType("int");
 
                     b.Property<DateTimeOffset?>("StartedAt")
@@ -237,16 +268,20 @@ namespace Khidma.Api.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("OfferId")
-                        .IsUnique();
-
-                    b.HasIndex("ServiceRequestId");
+                    b.HasIndex("ServiceId");
 
                     b.HasIndex("CustomerId", "Status");
 
                     b.HasIndex("ProviderId", "Status");
 
-                    b.ToTable("Bookings");
+                    b.HasIndex("CustomerId", "ProviderId", "ServiceId")
+                        .IsUnique()
+                        .HasFilter("[Status] = 'Pending'");
+
+                    b.ToTable("Bookings", t =>
+                        {
+                            t.HasCheckConstraint("CK_Bookings_DurationHours", "[DurationHours] IS NULL OR ([DurationHours] >= 1 AND [DurationHours] <= 12)");
+                        });
                 });
 
             modelBuilder.Entity("Khidma.Api.Domain.Category", b =>
@@ -256,6 +291,19 @@ namespace Khidma.Api.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("nvarchar(160)");
+
+                    b.Property<string>("ImageContentType")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("ImageStoredFileName")
+                        .HasMaxLength(260)
+                        .HasColumnType("nvarchar(260)");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -278,9 +326,6 @@ namespace Khidma.Api.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("DefaultContact")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("UserId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
@@ -291,57 +336,6 @@ namespace Khidma.Api.Migrations
                         .IsUnique();
 
                     b.ToTable("CustomerProfiles");
-                });
-
-            modelBuilder.Entity("Khidma.Api.Domain.Offer", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<DateTimeOffset>("EstimatedDate")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<string>("Message")
-                        .IsRequired()
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
-
-                    b.Property<decimal>("Price")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<string>("ProviderId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<int>("ServiceRequestId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ServiceRequestId")
-                        .IsUnique()
-                        .HasDatabaseName("UX_Offer_OneAcceptedPerRequest")
-                        .HasFilter("[Status] = 'Accepted'");
-
-                    b.HasIndex("ProviderId", "Status");
-
-                    b.HasIndex("ServiceRequestId", "ProviderId")
-                        .IsUnique()
-                        .HasFilter("[Status] <> 'Withdrawn'");
-
-                    b.ToTable("Offers");
                 });
 
             modelBuilder.Entity("Khidma.Api.Domain.ProviderProfile", b =>
@@ -367,6 +361,22 @@ namespace Khidma.Api.Migrations
 
                     b.Property<bool>("IsSuspended")
                         .HasColumnType("bit");
+
+                    b.Property<decimal?>("Latitude")
+                        .HasPrecision(9, 6)
+                        .HasColumnType("decimal(9,6)");
+
+                    b.Property<decimal?>("Longitude")
+                        .HasPrecision(9, 6)
+                        .HasColumnType("decimal(9,6)");
+
+                    b.Property<string>("PhotoContentType")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("PhotoStoredFileName")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<int>("ReviewCount")
                         .HasColumnType("int");
@@ -415,6 +425,78 @@ namespace Khidma.Api.Migrations
                     b.HasIndex("VerificationStatus");
 
                     b.ToTable("ProviderProfiles");
+                });
+
+            modelBuilder.Entity("Khidma.Api.Domain.ProviderProfileChangeRequest", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int?>("ProofDocumentId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ProviderProfileId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RequestedCity")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<decimal?>("RequestedLatitude")
+                        .HasPrecision(9, 6)
+                        .HasColumnType("decimal(9,6)");
+
+                    b.Property<decimal?>("RequestedLongitude")
+                        .HasPrecision(9, 6)
+                        .HasColumnType("decimal(9,6)");
+
+                    b.Property<string>("ReviewNote")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTimeOffset?>("ReviewedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("ReviewedByUserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int?>("ServiceId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProofDocumentId");
+
+                    b.HasIndex("ProviderProfileId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_ProviderChange_PendingLocation")
+                        .HasFilter("[Status] = 'Pending' AND [Type] = 'Location'");
+
+                    b.HasIndex("ServiceId");
+
+                    b.HasIndex("ProviderProfileId", "ServiceId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_ProviderChange_PendingService")
+                        .HasFilter("[Status] = 'Pending' AND [Type] = 'AddService' AND [ServiceId] IS NOT NULL");
+
+                    b.ToTable("ProviderProfileChangeRequests");
                 });
 
             modelBuilder.Entity("Khidma.Api.Domain.ProviderService", b =>
@@ -486,6 +568,9 @@ namespace Khidma.Api.Migrations
                         .HasMaxLength(450)
                         .HasColumnType("nvarchar(450)");
 
+                    b.Property<int?>("ServiceId")
+                        .HasColumnType("int");
+
                     b.Property<string>("StoredFileName")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -496,6 +581,8 @@ namespace Khidma.Api.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ServiceId");
+
                     b.HasIndex("StoredFileName")
                         .IsUnique();
 
@@ -504,6 +591,34 @@ namespace Khidma.Api.Migrations
                     b.ToTable("ProviderVerificationDocuments", t =>
                         {
                             t.HasCheckConstraint("CK_ProviderVerificationDocuments_FileSize", "FileSizeBytes > 0");
+                        });
+                });
+
+            modelBuilder.Entity("Khidma.Api.Domain.ProviderWorkingHour", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("DayOfWeek")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Hour")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ProviderProfileId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProviderProfileId", "DayOfWeek", "Hour")
+                        .IsUnique();
+
+                    b.ToTable("ProviderWorkingHours", t =>
+                        {
+                            t.HasCheckConstraint("CK_ProviderWorkingHours_DayAndHour", "[DayOfWeek] >= 0 AND [DayOfWeek] <= 6 AND [Hour] >= 0 AND [Hour] <= 23");
                         });
                 });
 
@@ -562,6 +677,19 @@ namespace Khidma.Api.Migrations
                     b.Property<int>("CategoryId")
                         .HasColumnType("int");
 
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(240)
+                        .HasColumnType("nvarchar(240)");
+
+                    b.Property<string>("ImageContentType")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("ImageStoredFileName")
+                        .HasMaxLength(260)
+                        .HasColumnType("nvarchar(260)");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -571,72 +699,6 @@ namespace Khidma.Api.Migrations
                     b.HasIndex("CategoryId");
 
                     b.ToTable("Services");
-                });
-
-            modelBuilder.Entity("Khidma.Api.Domain.ServiceRequest", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<decimal?>("BudgetMax")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<decimal?>("BudgetMin")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<string>("City")
-                        .IsRequired()
-                        .HasMaxLength(80)
-                        .HasColumnType("nvarchar(80)");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<string>("CustomerId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasMaxLength(2000)
-                        .HasColumnType("nvarchar(2000)");
-
-                    b.Property<DateTimeOffset>("PreferredDate")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<byte[]>("RowVersion")
-                        .IsConcurrencyToken()
-                        .IsRequired()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("rowversion");
-
-                    b.Property<int>("ServiceId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("nvarchar(120)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ServiceId");
-
-                    b.HasIndex("CustomerId", "Status");
-
-                    b.HasIndex("Status", "ServiceId", "City");
-
-                    b.ToTable("ServiceRequests");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
@@ -780,31 +842,23 @@ namespace Khidma.Api.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("Khidma.Api.Domain.Offer", "Offer")
-                        .WithOne("Booking")
-                        .HasForeignKey("Khidma.Api.Domain.Booking", "OfferId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.HasOne("Khidma.Api.Domain.ApplicationUser", "Provider")
                         .WithMany()
                         .HasForeignKey("ProviderId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("Khidma.Api.Domain.ServiceRequest", "ServiceRequest")
-                        .WithMany()
-                        .HasForeignKey("ServiceRequestId")
+                    b.HasOne("Khidma.Api.Domain.Service", "Service")
+                        .WithMany("Bookings")
+                        .HasForeignKey("ServiceId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Customer");
 
-                    b.Navigation("Offer");
-
                     b.Navigation("Provider");
 
-                    b.Navigation("ServiceRequest");
+                    b.Navigation("Service");
                 });
 
             modelBuilder.Entity("Khidma.Api.Domain.CustomerProfile", b =>
@@ -818,25 +872,6 @@ namespace Khidma.Api.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("Khidma.Api.Domain.Offer", b =>
-                {
-                    b.HasOne("Khidma.Api.Domain.ApplicationUser", "Provider")
-                        .WithMany()
-                        .HasForeignKey("ProviderId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("Khidma.Api.Domain.ServiceRequest", "ServiceRequest")
-                        .WithMany("Offers")
-                        .HasForeignKey("ServiceRequestId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Provider");
-
-                    b.Navigation("ServiceRequest");
-                });
-
             modelBuilder.Entity("Khidma.Api.Domain.ProviderProfile", b =>
                 {
                     b.HasOne("Khidma.Api.Domain.ApplicationUser", "User")
@@ -846,6 +881,31 @@ namespace Khidma.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Khidma.Api.Domain.ProviderProfileChangeRequest", b =>
+                {
+                    b.HasOne("Khidma.Api.Domain.ProviderVerificationDocument", "ProofDocument")
+                        .WithMany()
+                        .HasForeignKey("ProofDocumentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Khidma.Api.Domain.ProviderProfile", "ProviderProfile")
+                        .WithMany("ChangeRequests")
+                        .HasForeignKey("ProviderProfileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Khidma.Api.Domain.Service", "Service")
+                        .WithMany()
+                        .HasForeignKey("ServiceId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("ProofDocument");
+
+                    b.Navigation("ProviderProfile");
+
+                    b.Navigation("Service");
                 });
 
             modelBuilder.Entity("Khidma.Api.Domain.ProviderService", b =>
@@ -873,6 +933,24 @@ namespace Khidma.Api.Migrations
                         .WithMany("Documents")
                         .HasForeignKey("ProviderProfileId")
                         .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Khidma.Api.Domain.Service", "Service")
+                        .WithMany()
+                        .HasForeignKey("ServiceId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("ProviderProfile");
+
+                    b.Navigation("Service");
+                });
+
+            modelBuilder.Entity("Khidma.Api.Domain.ProviderWorkingHour", b =>
+                {
+                    b.HasOne("Khidma.Api.Domain.ProviderProfile", "ProviderProfile")
+                        .WithMany("WorkingHours")
+                        .HasForeignKey("ProviderProfileId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("ProviderProfile");
@@ -914,25 +992,6 @@ namespace Khidma.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("Category");
-                });
-
-            modelBuilder.Entity("Khidma.Api.Domain.ServiceRequest", b =>
-                {
-                    b.HasOne("Khidma.Api.Domain.ApplicationUser", "Customer")
-                        .WithMany()
-                        .HasForeignKey("CustomerId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("Khidma.Api.Domain.Service", "Service")
-                        .WithMany("ServiceRequests")
-                        .HasForeignKey("ServiceId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Customer");
-
-                    b.Navigation("Service");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
@@ -1003,28 +1062,22 @@ namespace Khidma.Api.Migrations
                     b.Navigation("Services");
                 });
 
-            modelBuilder.Entity("Khidma.Api.Domain.Offer", b =>
-                {
-                    b.Navigation("Booking");
-                });
-
             modelBuilder.Entity("Khidma.Api.Domain.ProviderProfile", b =>
                 {
+                    b.Navigation("ChangeRequests");
+
                     b.Navigation("Documents");
 
                     b.Navigation("ProviderServices");
+
+                    b.Navigation("WorkingHours");
                 });
 
             modelBuilder.Entity("Khidma.Api.Domain.Service", b =>
                 {
+                    b.Navigation("Bookings");
+
                     b.Navigation("ProviderServices");
-
-                    b.Navigation("ServiceRequests");
-                });
-
-            modelBuilder.Entity("Khidma.Api.Domain.ServiceRequest", b =>
-                {
-                    b.Navigation("Offers");
                 });
 #pragma warning restore 612, 618
         }

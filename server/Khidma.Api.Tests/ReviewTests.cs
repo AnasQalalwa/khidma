@@ -101,12 +101,9 @@ public sealed class ReviewTests : IClassFixture<KhidmaApiFactory>
         }
 
         var serviceId = await TestHarness.GetServiceIdAsync(_factory);
-        var requestId = await TestHarness.CreateRequestAsync(customerTwo, serviceId, city);
-        var offerId = await TestHarness.SubmitOfferAsync(first.Provider, requestId);
-        var accept = await customerTwo.PostAsync($"/api/offers/{offerId}/accept", null);
-        accept.EnsureSuccessStatusCode();
-        using var doc = System.Text.Json.JsonDocument.Parse(await accept.Content.ReadAsStringAsync());
-        var bookingId = doc.RootElement.GetProperty("id").GetInt32();
+        var profileId = await TestHarness.GetProviderProfileIdAsync(_factory, first.ProviderUserId);
+        var bookingId = await TestHarness.CreateBookingAsync(customerTwo, profileId, serviceId);
+        await TestHarness.AcceptBookingAsync(first.Provider, bookingId);
         await first.Provider.PostAsync($"/api/bookings/{bookingId}/start", null);
         await first.Provider.PostAsync($"/api/bookings/{bookingId}/complete", null);
         var secondReview = await customerTwo.PostAsJsonAsync(
@@ -128,12 +125,9 @@ public sealed class ReviewTests : IClassFixture<KhidmaApiFactory>
         var (provider, providerUser) = await TestHarness.RegisterAsync(_factory, "Provider", city);
         var serviceId = await TestHarness.GetServiceIdAsync(_factory);
         await TestHarness.ApproveProviderAsync(_factory, providerUser.Id, city, serviceId);
-        var requestId = await TestHarness.CreateRequestAsync(customer, serviceId, city);
-        var offerId = await TestHarness.SubmitOfferAsync(provider, requestId);
-        var accept = await customer.PostAsync($"/api/offers/{offerId}/accept", null);
-        accept.EnsureSuccessStatusCode();
-        using var doc = System.Text.Json.JsonDocument.Parse(await accept.Content.ReadAsStringAsync());
-        var bookingId = doc.RootElement.GetProperty("id").GetInt32();
+        var profileId = await TestHarness.GetProviderProfileIdAsync(_factory, providerUser.Id);
+        var bookingId = await TestHarness.CreateBookingAsync(customer, profileId, serviceId);
+        await TestHarness.AcceptBookingAsync(provider, bookingId);
         if (complete)
         {
             await provider.PostAsync($"/api/bookings/{bookingId}/start", null);

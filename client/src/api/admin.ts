@@ -49,18 +49,41 @@ export function getAdminUser(userId: string): Promise<AdminUserDetail> {
   return apiRequest(`/api/admin/users/${userId}`)
 }
 
-export function createCategory(name: string): Promise<Category> {
+export function createCategory(payload: {
+  name: string
+  description: string
+}): Promise<Category> {
   return apiRequest('/api/admin/categories', {
     method: 'POST',
-    body: JSON.stringify({ name }),
+    body: JSON.stringify(payload),
   })
 }
 
-export function updateCategory(id: number, name: string): Promise<Category> {
+export function updateCategory(
+  id: number,
+  payload: { name: string; description: string },
+): Promise<Category> {
   return apiRequest(`/api/admin/categories/${id}`, {
     method: 'PUT',
-    body: JSON.stringify({ name }),
+    body: JSON.stringify(payload),
   })
+}
+
+export function uploadCategoryImage(id: number, file: File): Promise<Category> {
+  const body = new FormData()
+  body.append('file', file)
+  return apiRequest(`/api/admin/categories/${id}/image`, { method: 'POST', body })
+}
+
+export type CatalogServiceUsage = {
+  serviceId: number
+  providerCount: number
+  bookingCount: number
+  deleteBlockReason: string | null
+}
+
+export function getCatalogUsage(): Promise<CatalogServiceUsage[]> {
+  return apiRequest('/api/admin/catalog/usage')
 }
 
 export function deleteCategory(id: number): Promise<boolean> {
@@ -69,6 +92,7 @@ export function deleteCategory(id: number): Promise<boolean> {
 
 export function createService(payload: {
   name: string
+  description: string
   categoryId: number
 }): Promise<CatalogService> {
   return apiRequest('/api/admin/services', {
@@ -79,12 +103,18 @@ export function createService(payload: {
 
 export function updateService(
   id: number,
-  payload: { name: string; categoryId: number },
+  payload: { name: string; description: string; categoryId: number },
 ): Promise<CatalogService> {
   return apiRequest(`/api/admin/services/${id}`, {
     method: 'PUT',
     body: JSON.stringify(payload),
   })
+}
+
+export function uploadServiceImage(id: number, file: File): Promise<CatalogService> {
+  const body = new FormData()
+  body.append('file', file)
+  return apiRequest(`/api/admin/services/${id}/image`, { method: 'POST', body })
 }
 
 export function deleteService(id: number): Promise<boolean> {

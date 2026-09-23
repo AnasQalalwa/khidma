@@ -10,6 +10,7 @@ vi.mock('../../api/verification', () => ({
   getAdminVerification: vi.fn(),
   reviewVerificationDocument: vi.fn(),
   decideProviderVerification: vi.fn(),
+  reviewProfileChange: vi.fn(),
 }))
 
 vi.mock('../../api/admin', () => ({
@@ -27,6 +28,8 @@ function verification(
     fullName: 'Sami Provider',
     email: 'provider@khidma.test',
     city: 'Ramallah',
+    latitude: null,
+    longitude: null,
     yearsOfExperience: 5,
     bio: null,
     verificationStatus: 'PendingReview',
@@ -40,6 +43,8 @@ function verification(
     services: ['Plumbing'],
     documents: [],
     hasApprovedDocument: false,
+    hasPhoto: false,
+    pendingChanges: [],
     ...overrides,
   }
 }
@@ -64,6 +69,8 @@ describe('AdminVerificationDetailPage', () => {
             reviewStatus: 'Pending',
             reviewNote: null,
             reviewedAt: null,
+            serviceId: null,
+            serviceName: null,
           },
         ],
       }),
@@ -98,6 +105,8 @@ describe('AdminVerificationDetailPage', () => {
             reviewStatus: 'Approved',
             reviewNote: null,
             reviewedAt: '2026-09-16T09:00:00Z',
+            serviceId: null,
+            serviceName: null,
           },
         ],
       }),

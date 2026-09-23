@@ -10,16 +10,20 @@ import { StatusBadge } from '../../components/StatusBadge'
 import { EmptyState, ErrorState, LoadingState } from '../../components/States'
 import { WorkspaceLayout } from '../../components/WorkspaceLayout'
 
-const TABS: { value: ProviderVerificationStatus | ''; label: string }[] = [
+const TABS: { value: string; label: string }[] = [
   { value: 'PendingReview', label: 'Pending Review' },
   { value: 'Approved', label: 'Approved' },
   { value: 'Rejected', label: 'Rejected' },
+  { value: 'changes', label: 'Profile changes' },
   { value: '', label: 'All' },
 ]
 
 export function AdminVerificationsPage() {
   const [params, setParams] = useSearchParams()
-  const tab = (params.get('verificationStatus') as ProviderVerificationStatus | '') ?? 'PendingReview'
+  const changesTab = params.get('hasPendingChanges') === 'true'
+  const tab = changesTab
+    ? 'changes'
+    : ((params.get('verificationStatus') as ProviderVerificationStatus | '') ?? 'PendingReview')
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -33,8 +37,9 @@ export function AdminVerificationsPage() {
         await getAdminVerifications({
           page,
           pageSize: 12,
-          verificationStatus: tab || undefined,
+          verificationStatus: tab === 'changes' ? undefined : tab || undefined,
           documentStatus: params.get('documentStatus') || undefined,
+          hasPendingChanges: tab === 'changes' ? true : undefined,
         }),
       )
     } catch (err) {
@@ -52,7 +57,7 @@ export function AdminVerificationsPage() {
     <WorkspaceLayout role={Roles.Admin}>
       <AdminPageHeader
         title="Provider verification"
-        subtitle="Review professional proof documents before a provider can receive new work."
+        subtitle="Review professional proof, then location or service changes, before they go live."
       />
       <div className="tabs" role="tablist" aria-label="Verification status">
         {TABS.map((item) => (
@@ -65,7 +70,13 @@ export function AdminVerificationsPage() {
             onClick={() => {
               setPage(1)
               const next = new URLSearchParams(params)
-              next.set('verificationStatus', item.value)
+              if (item.value === 'changes') {
+                next.delete('verificationStatus')
+                next.set('hasPendingChanges', 'true')
+              } else {
+                next.delete('hasPendingChanges')
+                next.set('verificationStatus', item.value)
+              }
               setParams(next)
             }}
           >
@@ -108,6 +119,9 @@ export function AdminVerificationsPage() {
                 <p>
                   Documents {provider.documentCount} · Pending {provider.pendingDocumentCount} ·
                   Approved {provider.approvedDocumentCount} · Rejected {provider.rejectedDocumentCount}
+                  {provider.pendingChangeCount > 0
+                    ? ` · ${provider.pendingChangeCount} profile change${provider.pendingChangeCount === 1 ? '' : 's'}`
+                    : ''}
                 </p>
                 <Link className="btn btn-secondary btn-sm" to={`/admin/verifications/${provider.providerProfileId}`}>
                   Open review

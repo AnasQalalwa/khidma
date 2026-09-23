@@ -60,7 +60,8 @@ public sealed class AdminUserMonitoringTests : IClassFixture<KhidmaApiFactory>
             email,
             password = "ValidPass1!",
             role = "Customer",
-            city = "Ramallah"
+            city = "Ramallah",
+            phoneNumber = "+970 0591234567"
         });
 
         using (var scope = _factory.Services.CreateScope())

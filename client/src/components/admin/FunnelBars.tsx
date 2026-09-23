@@ -2,14 +2,13 @@ import type { AdminOverview } from '../../api/types'
 import { formatCount, formatPercent } from '../../utils/format'
 
 const STEPS: { key: keyof AdminOverview['funnel']; label: string }[] = [
-  { key: 'requestsCreated', label: 'Requests' },
-  { key: 'requestsWithOffer', label: 'With offer' },
-  { key: 'booked', label: 'Booked' },
+  { key: 'requested', label: 'Requested' },
+  { key: 'accepted', label: 'Accepted' },
   { key: 'completed', label: 'Completed' },
 ]
 
 export function FunnelBars({ funnel }: { funnel: AdminOverview['funnel'] }) {
-  const max = Math.max(funnel.requestsCreated, 1)
+  const max = Math.max(funnel.requested, 1)
   return (
     <div aria-label="Marketplace funnel">
       <title>Marketplace funnel</title>

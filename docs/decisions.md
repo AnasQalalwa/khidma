@@ -227,4 +227,17 @@ Live `Executed DbCommand` capture against SQL Server was not repeated in Phase 9
 
 **Why.** Operator screenshots should look like a marketplace, not a test harness. Compact chrome keeps the header from clipping Arabic; bars and pts deltas are readable at a glance; the hide-auth checkbox stays on one line with Apply filters.
 
+## ADR 25 — Approved profile changes need review
+
+**Decision.** While a provider is `PendingReview` or `Rejected`, they may freely set city, map pin, photo, bio, years, and services, then upload professional proof. After `Approved`:
+
+1. **Bio, years, and photo** stay self-serve. Photos are JPEG/PNG, 5 MB, stored with the same private GUID storage as documents, and served at `GET /api/providers/{id}/photo`.
+2. **City and map pin** are locked. A provider submits `POST /api/providers/me/location-changes`. The live city (eligibility key, ADR 2) does not change until an admin approves the request.
+3. **Adding a service** is locked. The provider must attach proof (`POST /api/providers/me/service-changes`). The service is not offered until that document is **Approved** (which also completes the change request) or an admin explicitly approves the change after the document is approved. Removing a service is allowed immediately — it only reduces eligibility.
+4. Direct `PUT /api/providers/me` with a new city, or `PUT /api/providers/me/services` with new service ids, returns **409**.
+
+**Why.** Approving “home cleaning” must not let the provider later claim plumbing with no new proof, and moving city would silently retarget the request feed.
+
+**Tests.** `ProviderProfileChangeTests`.
+
 

@@ -15,19 +15,17 @@ export function dashboardPath(role: string): string {
     return '/provider'
   }
 
-  return '/customer'
+  return '/catalog'
 }
 
 export const CUSTOMER_WORKSPACE_LINKS = [
-  { to: '/customer', label: 'Overview', end: true },
-  { to: '/customer/requests', label: 'My Requests' },
-  { to: '/customer/bookings', label: 'Bookings' },
+  { to: '/account', label: 'Profile', end: true },
+  { to: '/account/bookings', label: 'My Bookings' },
 ] as const
 
 export const PROVIDER_WORKSPACE_LINKS = [
   { to: '/provider', label: 'Overview', end: true },
-  { to: '/provider/requests', label: 'Available Requests' },
-  { to: '/provider/offers', label: 'My Offers' },
+  { to: '/provider/schedule', label: 'Schedule' },
   { to: '/provider/bookings', label: 'Bookings' },
   { to: '/provider/profile', label: 'Profile' },
 ] as const

@@ -12,5 +12,17 @@ public class CategoryConfiguration : IEntityTypeConfiguration<Category>
 
         builder.Property(c => c.Name)
             .IsRequired();
+
+        builder.Property(c => c.Description)
+            .HasMaxLength(160)
+            .IsRequired();
+
+        builder.Property(c => c.ImageStoredFileName)
+            .HasMaxLength(260);
+
+        builder.Property(c => c.ImageContentType)
+            .HasMaxLength(100);
+
+        builder.Ignore(c => c.HasImage);
     }
 }

@@ -62,13 +62,12 @@ public sealed class AdminOverviewEndpointTests : IClassFixture<KhidmaApiFactory>
         var (customer, _) = await TestHarness.RegisterAsync(_factory, "Customer", "Ramallah");
         var serviceId = await TestHarness.GetServiceIdAsync(_factory);
         customer.DefaultRequestHeaders.Remove("X-XSRF-TOKEN");
-        var missing = await customer.PostAsJsonAsync("/api/service-requests", new
+        var missing = await customer.PostAsJsonAsync("/api/bookings", new
         {
+            providerProfileId = 1,
             serviceId,
-            title = "Missing CSRF",
-            description = "This mutation must be rejected without an anti-forgery token.",
-            city = "Ramallah",
-            preferredDate = TestHarness.FutureDate()
+            requestedDate = TestHarness.FutureDay(),
+            notes = "This mutation must be rejected without an anti-forgery token."
         });
         Assert.Equal(HttpStatusCode.BadRequest, missing.StatusCode);
 
@@ -100,40 +99,36 @@ public sealed class AdminOverviewConversionTests : IAsyncLifetime
         var city = $"C{Guid.NewGuid():N}"[..10];
         var (admin, _) = await TestHarness.CreateAdminAsync(_factory);
         var (customer, _) = await TestHarness.RegisterAsync(_factory, "Customer", city);
-        var (provider, providerUser) = await TestHarness.RegisterAsync(_factory, "Provider", city);
+        var providers = new List<(HttpClient Client, int ProfileId)>();
         var serviceId = await TestHarness.GetServiceIdAsync(_factory);
-        await TestHarness.ApproveProviderAsync(_factory, providerUser.Id, city, serviceId);
+        for (var i = 0; i < 4; i++)
+        {
+            var (provider, providerUser) = await TestHarness.RegisterAsync(_factory, "Provider", city);
+            await TestHarness.ApproveProviderAsync(_factory, providerUser.Id, city, serviceId);
+            var profileId = await TestHarness.GetProviderProfileIdAsync(_factory, providerUser.Id);
+            providers.Add((provider, profileId));
+        }
 
-        var openNoOffer = await TestHarness.CreateRequestAsync(customer, serviceId, city, "Open no offer");
-        var openWithOffer = await TestHarness.CreateRequestAsync(customer, serviceId, city, "Open with offer");
-        var bookedId = await TestHarness.CreateRequestAsync(customer, serviceId, city, "Booked request");
-        var completedId = await TestHarness.CreateRequestAsync(
-            customer,
-            serviceId,
-            city,
-            "Completed request");
+        var pendingId = await TestHarness.CreateBookingAsync(customer, providers[0].ProfileId, serviceId);
+        var declinedId = await TestHarness.CreateBookingAsync(customer, providers[1].ProfileId, serviceId);
+        (await providers[1].Client.PostAsJsonAsync(
+            $"/api/bookings/{declinedId}/decline",
+            new { reason = "Fully booked" })).EnsureSuccessStatusCode();
+        var scheduledId = await TestHarness.CreateBookingAsync(customer, providers[2].ProfileId, serviceId);
+        await TestHarness.AcceptBookingAsync(providers[2].Client, scheduledId);
+        var completedId = await TestHarness.CreateBookingAsync(customer, providers[3].ProfileId, serviceId);
+        await TestHarness.AcceptBookingAsync(providers[3].Client, completedId);
+        (await providers[3].Client.PostAsync($"/api/bookings/{completedId}/start", null)).EnsureSuccessStatusCode();
+        (await providers[3].Client.PostAsync($"/api/bookings/{completedId}/complete", null)).EnsureSuccessStatusCode();
 
-        await TestHarness.SubmitOfferAsync(provider, openWithOffer);
-        var bookedOffer = await TestHarness.SubmitOfferAsync(provider, bookedId);
-        var completedOffer = await TestHarness.SubmitOfferAsync(provider, completedId);
-
-        (await customer.PostAsync($"/api/offers/{bookedOffer}/accept", null)).EnsureSuccessStatusCode();
-        var acceptCompleted = await customer.PostAsync($"/api/offers/{completedOffer}/accept", null);
-        acceptCompleted.EnsureSuccessStatusCode();
-        using var bookingDoc = JsonDocument.Parse(await acceptCompleted.Content.ReadAsStringAsync());
-        var bookingId = bookingDoc.RootElement.GetProperty("id").GetInt32();
-        (await provider.PostAsync($"/api/bookings/{bookingId}/start", null)).EnsureSuccessStatusCode();
-        (await provider.PostAsync($"/api/bookings/{bookingId}/complete", null)).EnsureSuccessStatusCode();
-
-        Assert.NotEqual(0, openNoOffer);
+        Assert.NotEqual(0, pendingId);
 
         var response = await admin.GetAsync("/api/admin/stats/overview?range=7d");
         response.EnsureSuccessStatusCode();
         using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         var funnel = doc.RootElement.GetProperty("funnel");
-        Assert.Equal(4, funnel.GetProperty("requestsCreated").GetInt32());
-        Assert.Equal(3, funnel.GetProperty("requestsWithOffer").GetInt32());
-        Assert.Equal(2, funnel.GetProperty("booked").GetInt32());
+        Assert.Equal(4, funnel.GetProperty("requested").GetInt32());
+        Assert.Equal(2, funnel.GetProperty("accepted").GetInt32());
         Assert.Equal(1, funnel.GetProperty("completed").GetInt32());
 
         var kpis = doc.RootElement.GetProperty("kpis");
@@ -158,48 +153,31 @@ public sealed class AdminOverviewAttentionTests : IAsyncLifetime
         var city = $"T{Guid.NewGuid():N}"[..10];
         var (admin, _) = await TestHarness.CreateAdminAsync(_factory);
         var (customer, _) = await TestHarness.RegisterAsync(_factory, "Customer", city);
-        var (provider, providerUser) = await TestHarness.RegisterAsync(_factory, "Provider", city);
-        var (_, pendingUser) = await TestHarness.RegisterAsync(_factory, "Provider", city);
         var serviceId = await TestHarness.GetServiceIdAsync(_factory);
-        await TestHarness.ApproveProviderAsync(_factory, providerUser.Id, city, serviceId);
+        var providers = new List<(HttpClient Client, string UserId, int ProfileId)>();
+        for (var i = 0; i < 4; i++)
+        {
+            var (provider, providerUser) = await TestHarness.RegisterAsync(_factory, "Provider", city);
+            await TestHarness.ApproveProviderAsync(_factory, providerUser.Id, city, serviceId);
+            var profileId = await TestHarness.GetProviderProfileIdAsync(_factory, providerUser.Id);
+            providers.Add((provider, providerUser.Id, profileId));
+        }
 
-        var freshOpen = await TestHarness.CreateRequestAsync(customer, serviceId, city, "Fresh open");
-        var staleOpen = await TestHarness.CreateRequestAsync(customer, serviceId, city, "Stale open");
-        var staleWithOffer = await TestHarness.CreateRequestAsync(
-            customer,
-            serviceId,
-            city,
-            "Stale with offer");
-        var staleWithdrawn = await TestHarness.CreateRequestAsync(
-            customer,
-            serviceId,
-            city,
-            "Stale withdrawn");
-        var overdueRequest = await TestHarness.CreateRequestAsync(
-            customer,
-            serviceId,
-            city,
-            "Overdue booking");
-
-        await TestHarness.SubmitOfferAsync(provider, staleWithOffer);
-        var withdrawnOffer = await TestHarness.SubmitOfferAsync(provider, staleWithdrawn);
-        (await provider.PostAsync($"/api/offers/{withdrawnOffer}/withdraw", null)).EnsureSuccessStatusCode();
-
-        var overdueOffer = await TestHarness.SubmitOfferAsync(provider, overdueRequest);
-        var accept = await customer.PostAsync($"/api/offers/{overdueOffer}/accept", null);
-        accept.EnsureSuccessStatusCode();
-        using var bookingDoc = JsonDocument.Parse(await accept.Content.ReadAsStringAsync());
-        var bookingId = bookingDoc.RootElement.GetProperty("id").GetInt32();
+        var (_, pendingUser) = await TestHarness.RegisterAsync(_factory, "Provider", city);
+        var freshPending = await TestHarness.CreateBookingAsync(customer, providers[0].ProfileId, serviceId);
+        var stalePending = await TestHarness.CreateBookingAsync(customer, providers[1].ProfileId, serviceId);
+        var secondStale = await TestHarness.CreateBookingAsync(customer, providers[2].ProfileId, serviceId);
+        var overdueId = await TestHarness.CreateBookingAsync(customer, providers[3].ProfileId, serviceId);
+        await TestHarness.AcceptBookingAsync(providers[3].Client, overdueId);
 
         var staleAt = DateTimeOffset.UtcNow.AddHours(-49);
-        await SetRequestCreatedAt(staleOpen, staleAt);
-        await SetRequestCreatedAt(staleWithOffer, staleAt);
-        await SetRequestCreatedAt(staleWithdrawn, staleAt);
-        await SetBookingScheduledDate(bookingId, DateTimeOffset.UtcNow.AddHours(-2));
+        await SetBookingCreatedAt(stalePending, staleAt);
+        await SetBookingCreatedAt(secondStale, staleAt);
+        await SetBookingScheduledStart(overdueId, DateTimeOffset.UtcNow.AddHours(-2));
 
-        var profileId = await TestHarness.GetProviderProfileIdAsync(_factory, pendingUser.Id);
+        var pendingProfileId = await TestHarness.GetProviderProfileIdAsync(_factory, pendingUser.Id);
         (await admin.PostAsJsonAsync(
-            $"/api/admin/providers/{profileId}/suspension",
+            $"/api/admin/providers/{pendingProfileId}/suspension",
             new { suspended = true, reason = "Hold for review" })).EnsureSuccessStatusCode();
 
         var response = await admin.GetAsync("/api/admin/stats/overview?range=7d");
@@ -207,27 +185,28 @@ public sealed class AdminOverviewAttentionTests : IAsyncLifetime
         using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         var attention = doc.RootElement.GetProperty("attention");
         Assert.Equal(1, attention.GetProperty("pendingVerifications").GetInt32());
-        Assert.Equal(2, attention.GetProperty("staleOpenRequests").GetInt32());
+        Assert.Equal(2, attention.GetProperty("stalePendingBookings").GetInt32());
         Assert.Equal(1, attention.GetProperty("overdueBookings").GetInt32());
         Assert.Equal(1, attention.GetProperty("suspendedProviders").GetInt32());
-        Assert.NotEqual(0, freshOpen);
+        Assert.NotEqual(0, freshPending);
     }
 
-    private async Task SetRequestCreatedAt(int requestId, DateTimeOffset createdAt)
-    {
-        using var scope = _factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var request = await db.ServiceRequests.SingleAsync(r => r.Id == requestId);
-        request.CreatedAt = createdAt;
-        await db.SaveChangesAsync();
-    }
-
-    private async Task SetBookingScheduledDate(int bookingId, DateTimeOffset scheduledDate)
+    private async Task SetBookingCreatedAt(int bookingId, DateTimeOffset createdAt)
     {
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var booking = await db.Bookings.SingleAsync(b => b.Id == bookingId);
-        booking.ScheduledDate = scheduledDate;
+        booking.CreatedAt = createdAt;
+        await db.SaveChangesAsync();
+    }
+
+    private async Task SetBookingScheduledStart(int bookingId, DateTimeOffset scheduledStart)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var booking = await db.Bookings.SingleAsync(b => b.Id == bookingId);
+        booking.ScheduledStart = scheduledStart;
+        booking.DurationHours = 2;
         await db.SaveChangesAsync();
     }
 }
@@ -246,7 +225,7 @@ public sealed class AdminOverviewSupplyDemandTests : IAsyncLifetime
         var city = $"S{Guid.NewGuid():N}"[..10];
         var otherCity = $"O{Guid.NewGuid():N}"[..10];
         var (admin, _) = await TestHarness.CreateAdminAsync(_factory);
-        var (customer, _) = await TestHarness.RegisterAsync(_factory, "Customer", city);
+        var (customer, customerUser) = await TestHarness.RegisterAsync(_factory, "Customer", city);
         var (eligible, eligibleUser) = await TestHarness.RegisterAsync(_factory, "Provider", city);
         var (pending, pendingUser) = await TestHarness.RegisterAsync(_factory, "Provider", city);
         var (suspended, suspendedUser) = await TestHarness.RegisterAsync(_factory, "Provider", city);
@@ -262,6 +241,7 @@ public sealed class AdminOverviewSupplyDemandTests : IAsyncLifetime
         var createElectrical = await admin.PostAsJsonAsync("/api/admin/services", new
         {
             name = $"Electrical {Guid.NewGuid():N}"[..14],
+            description = "Safe electrical checks and repairs.",
             categoryId
         });
         createElectrical.EnsureSuccessStatusCode();
@@ -273,6 +253,14 @@ public sealed class AdminOverviewSupplyDemandTests : IAsyncLifetime
         await TestHarness.ApproveProviderAsync(_factory, wrongCityUser.Id, otherCity, plumbingId);
         await TestHarness.ApproveProviderAsync(_factory, wrongServiceUser.Id, city, electricalId);
         await TestHarness.ApproveProviderAsync(_factory, pendingUser.Id, city, plumbingId);
+
+        var bookable = new[] { eligibleUser, suspendedUser, wrongCityUser };
+        foreach (var user in bookable)
+        {
+            var profileId = await TestHarness.GetProviderProfileIdAsync(_factory, user.Id);
+            await TestHarness.CreateBookingAsync(customer, profileId, plumbingId);
+        }
+
         using (var scope = _factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -281,14 +269,13 @@ public sealed class AdminOverviewSupplyDemandTests : IAsyncLifetime
             var suspendedProfile = await db.ProviderProfiles.SingleAsync(
                 p => p.UserId == suspendedUser.Id);
             suspendedProfile.IsSuspended = true;
+            var mixed = await db.Bookings
+                .Where(b => b.CustomerId == customerUser.Id)
+                .OrderByDescending(b => b.Id)
+                .FirstAsync();
+            mixed.City = city.ToUpperInvariant();
             await db.SaveChangesAsync();
         }
-
-        await TestHarness.CreateRequestAsync(customer, plumbingId, city, "Need plumber one");
-        await TestHarness.CreateRequestAsync(customer, plumbingId, city, "Need plumber two");
-
-        var mixedCity = city.ToUpperInvariant();
-        await TestHarness.CreateRequestAsync(customer, plumbingId, mixedCity, "Need plumber mixed");
 
         var response = await admin.GetAsync("/api/admin/stats/overview?range=7d");
         response.EnsureSuccessStatusCode();
@@ -297,7 +284,7 @@ public sealed class AdminOverviewSupplyDemandTests : IAsyncLifetime
         var match = rows.Single(row =>
             row.GetProperty("serviceId").GetInt32() == plumbingId &&
             string.Equals(row.GetProperty("city").GetString(), city, StringComparison.OrdinalIgnoreCase));
-        Assert.Equal(3, match.GetProperty("openRequests").GetInt32());
+        Assert.Equal(3, match.GetProperty("pendingBookings").GetInt32());
         Assert.Equal(1, match.GetProperty("eligibleProviders").GetInt32());
         Assert.NotNull(eligible);
     }
@@ -327,14 +314,13 @@ public sealed class AdminOverviewEmptyDatabaseTests : IAsyncLifetime
         Assert.Equal(0, kpis.GetProperty("avgProviderRating").GetProperty("value").GetDecimal());
 
         var funnel = root.GetProperty("funnel");
-        Assert.Equal(0, funnel.GetProperty("requestsCreated").GetInt32());
-        Assert.Equal(0, funnel.GetProperty("requestsWithOffer").GetInt32());
-        Assert.Equal(0, funnel.GetProperty("booked").GetInt32());
+        Assert.Equal(0, funnel.GetProperty("requested").GetInt32());
+        Assert.Equal(0, funnel.GetProperty("accepted").GetInt32());
         Assert.Equal(0, funnel.GetProperty("completed").GetInt32());
 
         var attention = root.GetProperty("attention");
         Assert.Equal(0, attention.GetProperty("pendingVerifications").GetInt32());
-        Assert.Equal(0, attention.GetProperty("staleOpenRequests").GetInt32());
+        Assert.Equal(0, attention.GetProperty("stalePendingBookings").GetInt32());
         Assert.Equal(0, attention.GetProperty("overdueBookings").GetInt32());
         Assert.Equal(0, attention.GetProperty("suspendedProviders").GetInt32());
 

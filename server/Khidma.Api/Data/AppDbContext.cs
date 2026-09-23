@@ -23,10 +23,6 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
 
     public DbSet<ProviderService> ProviderServices => Set<ProviderService>();
 
-    public DbSet<ServiceRequest> ServiceRequests => Set<ServiceRequest>();
-
-    public DbSet<Offer> Offers => Set<Offer>();
-
     public DbSet<Booking> Bookings => Set<Booking>();
 
     public DbSet<Review> Reviews => Set<Review>();
@@ -34,7 +30,12 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<ProviderVerificationDocument> ProviderVerificationDocuments =>
         Set<ProviderVerificationDocument>();
 
+    public DbSet<ProviderProfileChangeRequest> ProviderProfileChangeRequests =>
+        Set<ProviderProfileChangeRequest>();
+
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+
+    public DbSet<ProviderWorkingHour> ProviderWorkingHours => Set<ProviderWorkingHour>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

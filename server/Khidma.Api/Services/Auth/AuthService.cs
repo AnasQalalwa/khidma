@@ -1,9 +1,11 @@
 using Khidma.Api.Auth;
 using Khidma.Api.Contracts.Auth;
+using Khidma.Api.Data;
 using Khidma.Api.Domain;
 using Khidma.Api.Services;
 using Khidma.Api.Services.Audit;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 
 namespace Khidma.Api.Services.Auth;
 
@@ -29,17 +31,20 @@ public sealed class AuthService : IAuthService
     private readonly UserRegistrationService _registration;
     private readonly SignInManager<ApplicationUser> _signInManager;
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly AppDbContext _db;
     private readonly IAuditService _audit;
 
     public AuthService(
         UserRegistrationService registration,
         SignInManager<ApplicationUser> signInManager,
         UserManager<ApplicationUser> userManager,
+        AppDbContext db,
         IAuditService audit)
     {
         _registration = registration;
         _signInManager = signInManager;
         _userManager = userManager;
+        _db = db;
         _audit = audit;
     }
 
@@ -133,7 +138,10 @@ public sealed class AuthService : IAuthService
         await _userManager.UpdateAsync(user);
 
         cancellationToken.ThrowIfCancellationRequested();
-        var dto = await CurrentUserMapper.ToDtoAsync(_userManager, user);
+        var dto = await CurrentUserMapper.ToDtoAsync(
+            _userManager,
+            user,
+            await CityOfAsync(user.Id, cancellationToken));
 
         await _audit.RecordAsync(new AuditEntry
         {
@@ -175,7 +183,29 @@ public sealed class AuthService : IAuthService
         }
 
         cancellationToken.ThrowIfCancellationRequested();
-        var dto = await CurrentUserMapper.ToDtoAsync(_userManager, user);
+        var dto = await CurrentUserMapper.ToDtoAsync(
+            _userManager,
+            user,
+            await CityOfAsync(user.Id, cancellationToken));
         return ServiceResult<CurrentUserDto>.Success(dto);
+    }
+
+    private async Task<string?> CityOfAsync(string userId, CancellationToken cancellationToken)
+    {
+        var customerCity = await _db.CustomerProfiles
+            .AsNoTracking()
+            .Where(p => p.UserId == userId)
+            .Select(p => p.City)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (customerCity is not null)
+        {
+            return customerCity;
+        }
+
+        return await _db.ProviderProfiles
+            .AsNoTracking()
+            .Where(p => p.UserId == userId)
+            .Select(p => p.City)
+            .FirstOrDefaultAsync(cancellationToken);
     }
 }

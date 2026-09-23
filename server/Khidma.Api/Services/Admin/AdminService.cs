@@ -6,7 +6,9 @@ using Khidma.Api.Contracts.Common;
 using Khidma.Api.Data;
 using Khidma.Api.Domain;
 using Khidma.Api.Domain.Enums;
+using Khidma.Api.Infrastructure;
 using Khidma.Api.Services.Audit;
+using Khidma.Api.Services.Documents;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -17,15 +19,18 @@ public sealed partial class AdminService : IAdminService
     private readonly AppDbContext _db;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IAuditService _audit;
+    private readonly IProviderDocumentStorage _storage;
 
     public AdminService(
         AppDbContext db,
         UserManager<ApplicationUser> userManager,
-        IAuditService audit)
+        IAuditService audit,
+        IProviderDocumentStorage storage)
     {
         _db = db;
         _userManager = userManager;
         _audit = audit;
+        _storage = storage;
     }
 
     public async Task<AdminStatsDto> GetStatsAsync(CancellationToken cancellationToken)
@@ -56,8 +61,8 @@ public sealed partial class AdminService : IAdminService
                 cancellationToken),
             Categories = await _db.Categories.CountAsync(cancellationToken),
             Services = await _db.Services.CountAsync(cancellationToken),
-            OpenRequests = await _db.ServiceRequests
-                .CountAsync(r => r.Status == ServiceRequestStatus.Open, cancellationToken),
+            PendingBookings = await _db.Bookings
+                .CountAsync(b => b.Status == BookingStatus.Pending, cancellationToken),
             ActiveBookings = await _db.Bookings.CountAsync(
                 b => b.Status == BookingStatus.Scheduled ||
                      b.Status == BookingStatus.InProgress,
@@ -98,6 +103,20 @@ public sealed partial class AdminService : IAdminService
                 Title = "Documents waiting for review",
                 Detail = $"{pendingDocs} professional document{(pendingDocs == 1 ? "" : "s")} still pending.",
                 Href = "/admin/verifications?documentStatus=Pending"
+            });
+        }
+
+        var pendingChanges = await _db.ProviderProfileChangeRequests.CountAsync(
+            c => c.Status == ProviderChangeRequestStatus.Pending,
+            cancellationToken);
+        if (pendingChanges > 0)
+        {
+            items.Add(new AdminAttentionItemDto
+            {
+                Kind = "PendingProfileChanges",
+                Title = "Profile changes waiting for review",
+                Detail = $"{pendingChanges} location or service change{(pendingChanges == 1 ? "" : "s")} need approval.",
+                Href = "/admin/verifications?hasPendingChanges=true"
             });
         }
 
@@ -344,9 +363,6 @@ public sealed partial class AdminService : IAdminService
 
         if (role == AppRoles.Customer)
         {
-            dto.RequestCount = await _db.ServiceRequests.CountAsync(
-                r => r.CustomerId == user.Id,
-                cancellationToken);
             dto.BookingCount = await _db.Bookings.CountAsync(
                 b => b.CustomerId == user.Id,
                 cancellationToken);
@@ -363,9 +379,6 @@ public sealed partial class AdminService : IAdminService
             dto.SuspensionReason = profile.SuspensionReason;
             dto.AverageRating = profile.AverageRating;
             dto.ReviewCount = profile.ReviewCount;
-            dto.OfferCount = await _db.Offers.CountAsync(
-                o => o.ProviderId == user.Id,
-                cancellationToken);
             dto.ActiveBookingCount = await _db.Bookings.CountAsync(
                 b => b.ProviderId == user.Id &&
                      (b.Status == BookingStatus.Scheduled ||
@@ -374,10 +387,9 @@ public sealed partial class AdminService : IAdminService
             dto.CompletedBookingCount = await _db.Bookings.CountAsync(
                 b => b.ProviderId == user.Id && b.Status == BookingStatus.Completed,
                 cancellationToken);
-            dto.BookingCount = dto.ActiveBookingCount + dto.CompletedBookingCount +
-                await _db.Bookings.CountAsync(
-                    b => b.ProviderId == user.Id && b.Status == BookingStatus.Cancelled,
-                    cancellationToken);
+            dto.BookingCount = await _db.Bookings.CountAsync(
+                b => b.ProviderId == user.Id,
+                cancellationToken);
             dto.Services = profile.ProviderServices
                 .OrderBy(ps => ps.Service.Name)
                 .Select(ps => ps.Service.Name)
@@ -552,7 +564,11 @@ public sealed partial class AdminService : IAdminService
                 "A category with this name already exists.");
         }
 
-        var category = new Category { Name = name };
+        var category = new Category
+        {
+            Name = name,
+            Description = request.Description.Trim()
+        };
         _db.Categories.Add(category);
         await _db.SaveChangesAsync(cancellationToken);
         await RecordCatalogAsync(
@@ -561,11 +577,7 @@ public sealed partial class AdminService : IAdminService
             category.Id.ToString(),
             "Admin created a category.",
             cancellationToken);
-        return ServiceResult<CategoryDto>.Success(new CategoryDto
-        {
-            Id = category.Id,
-            Name = category.Name
-        });
+        return ServiceResult<CategoryDto>.Success(ToCategoryDto(category));
     }
 
     public async Task<ServiceResult<CategoryDto>> UpdateCategoryAsync(
@@ -589,6 +601,7 @@ public sealed partial class AdminService : IAdminService
         }
 
         category.Name = name;
+        category.Description = request.Description.Trim();
         await _db.SaveChangesAsync(cancellationToken);
         await RecordCatalogAsync(
             AuditActions.CategoryUpdated,
@@ -596,11 +609,31 @@ public sealed partial class AdminService : IAdminService
             category.Id.ToString(),
             "Admin updated a category.",
             cancellationToken);
-        return ServiceResult<CategoryDto>.Success(new CategoryDto
-        {
-            Id = category.Id,
-            Name = category.Name
-        });
+        return ServiceResult<CategoryDto>.Success(ToCategoryDto(category));
+    }
+
+    public async Task<IReadOnlyList<CatalogServiceUsageDto>> GetCatalogUsageAsync(
+        CancellationToken cancellationToken)
+    {
+        var rows = await _db.Services
+            .AsNoTracking()
+            .Select(service => new
+            {
+                service.Id,
+                ProviderCount = service.ProviderServices.Count,
+                BookingCount = service.Bookings.Count,
+            })
+            .ToListAsync(cancellationToken);
+
+        return rows
+            .Select(row => new CatalogServiceUsageDto
+            {
+                ServiceId = row.Id,
+                ProviderCount = row.ProviderCount,
+                BookingCount = row.BookingCount,
+                DeleteBlockReason = ServiceDeleteBlockReason(row.ProviderCount, row.BookingCount),
+            })
+            .ToList();
     }
 
     public async Task<ServiceResult<bool>> DeleteCategoryAsync(
@@ -619,11 +652,16 @@ public sealed partial class AdminService : IAdminService
         if (category.Services.Count > 0)
         {
             return ServiceResult<bool>.Conflict(
-                "This category cannot be deleted while it still has services.");
+                CategoryDeleteBlockReason(category.Services.Select(service => service.Name)));
         }
 
+        var image = category.ImageStoredFileName;
         _db.Categories.Remove(category);
         await _db.SaveChangesAsync(cancellationToken);
+        if (!string.IsNullOrWhiteSpace(image))
+        {
+            await _storage.DeleteAsync(image, cancellationToken);
+        }
         await RecordCatalogAsync(
             AuditActions.CategoryDeleted,
             nameof(Category),
@@ -657,6 +695,7 @@ public sealed partial class AdminService : IAdminService
         var service = new Domain.Service
         {
             Name = name,
+            Description = request.Description.Trim(),
             CategoryId = request.CategoryId
         };
         _db.Services.Add(service);
@@ -668,13 +707,7 @@ public sealed partial class AdminService : IAdminService
             "Admin created a service.",
             cancellationToken);
 
-        return ServiceResult<ServiceDto>.Success(new ServiceDto
-        {
-            Id = service.Id,
-            Name = service.Name,
-            CategoryId = service.CategoryId,
-            CategoryName = category.Name
-        });
+        return ServiceResult<ServiceDto>.Success(ToServiceDto(service, category.Name));
     }
 
     public async Task<ServiceResult<ServiceDto>> UpdateServiceAsync(
@@ -708,6 +741,7 @@ public sealed partial class AdminService : IAdminService
         }
 
         service.Name = name;
+        service.Description = request.Description.Trim();
         service.CategoryId = request.CategoryId;
         await _db.SaveChangesAsync(cancellationToken);
         await RecordCatalogAsync(
@@ -717,13 +751,7 @@ public sealed partial class AdminService : IAdminService
             "Admin updated a service.",
             cancellationToken);
 
-        return ServiceResult<ServiceDto>.Success(new ServiceDto
-        {
-            Id = service.Id,
-            Name = service.Name,
-            CategoryId = service.CategoryId,
-            CategoryName = category.Name
-        });
+        return ServiceResult<ServiceDto>.Success(ToServiceDto(service, category.Name));
     }
 
     public async Task<ServiceResult<bool>> DeleteServiceAsync(
@@ -732,7 +760,7 @@ public sealed partial class AdminService : IAdminService
     {
         var service = await _db.Services
             .Include(s => s.ProviderServices)
-            .Include(s => s.ServiceRequests)
+            .Include(s => s.Bookings)
             .FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
 
         if (service is null)
@@ -740,14 +768,21 @@ public sealed partial class AdminService : IAdminService
             return ServiceResult<bool>.NotFound("Service not found.");
         }
 
-        if (service.ProviderServices.Count > 0 || service.ServiceRequests.Count > 0)
+        var blockReason = ServiceDeleteBlockReason(
+            service.ProviderServices.Count,
+            service.Bookings.Count);
+        if (blockReason is not null)
         {
-            return ServiceResult<bool>.Conflict(
-                "This service cannot be deleted because it is used by providers or requests.");
+            return ServiceResult<bool>.Conflict(blockReason);
         }
 
+        var image = service.ImageStoredFileName;
         _db.Services.Remove(service);
         await _db.SaveChangesAsync(cancellationToken);
+        if (!string.IsNullOrWhiteSpace(image))
+        {
+            await _storage.DeleteAsync(image, cancellationToken);
+        }
         await RecordCatalogAsync(
             AuditActions.ServiceDeleted,
             nameof(Domain.Service),
@@ -755,6 +790,192 @@ public sealed partial class AdminService : IAdminService
             "Admin deleted a service.",
             cancellationToken);
         return ServiceResult<bool>.Success(true);
+    }
+
+    public async Task<ServiceResult<CategoryDto>> SetCategoryImageAsync(
+        int id,
+        IFormFile file,
+        CancellationToken cancellationToken)
+    {
+        var category = await _db.Categories.FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
+        if (category is null)
+        {
+            return ServiceResult<CategoryDto>.NotFound("Category not found.");
+        }
+
+        var stored = await StoreCatalogImageAsync(file, cancellationToken);
+        if (!stored.Succeeded)
+        {
+            return ServiceResult<CategoryDto>.Validation(stored.Errors);
+        }
+
+        var previous = category.ImageStoredFileName;
+        category.ImageStoredFileName = stored.Value!.FileName;
+        category.ImageContentType = stored.Value.ContentType;
+        try
+        {
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+        catch
+        {
+            await _storage.DeleteAsync(stored.Value.FileName, cancellationToken);
+            throw;
+        }
+
+        if (!string.IsNullOrWhiteSpace(previous))
+        {
+            await _storage.DeleteAsync(previous, cancellationToken);
+        }
+
+        await RecordCatalogAsync(
+            AuditActions.CategoryUpdated,
+            nameof(Category),
+            category.Id.ToString(),
+            "Admin updated a category image.",
+            cancellationToken);
+        return ServiceResult<CategoryDto>.Success(ToCategoryDto(category));
+    }
+
+    public async Task<ServiceResult<ServiceDto>> SetServiceImageAsync(
+        int id,
+        IFormFile file,
+        CancellationToken cancellationToken)
+    {
+        var service = await _db.Services
+            .Include(s => s.Category)
+            .FirstOrDefaultAsync(s => s.Id == id, cancellationToken);
+        if (service is null)
+        {
+            return ServiceResult<ServiceDto>.NotFound("Service not found.");
+        }
+
+        var stored = await StoreCatalogImageAsync(file, cancellationToken);
+        if (!stored.Succeeded)
+        {
+            return ServiceResult<ServiceDto>.Validation(stored.Errors);
+        }
+
+        var previous = service.ImageStoredFileName;
+        service.ImageStoredFileName = stored.Value!.FileName;
+        service.ImageContentType = stored.Value.ContentType;
+        try
+        {
+            await _db.SaveChangesAsync(cancellationToken);
+        }
+        catch
+        {
+            await _storage.DeleteAsync(stored.Value.FileName, cancellationToken);
+            throw;
+        }
+
+        if (!string.IsNullOrWhiteSpace(previous))
+        {
+            await _storage.DeleteAsync(previous, cancellationToken);
+        }
+
+        await RecordCatalogAsync(
+            AuditActions.ServiceUpdated,
+            nameof(Domain.Service),
+            service.Id.ToString(),
+            "Admin updated a service image.",
+            cancellationToken);
+        return ServiceResult<ServiceDto>.Success(ToServiceDto(service, service.Category.Name));
+    }
+
+    private async Task<ServiceResult<StoredCatalogImage>> StoreCatalogImageAsync(
+        IFormFile file,
+        CancellationToken cancellationToken)
+    {
+        var validation = DocumentFileValidator.ValidateCatalogImage(file);
+        if (!validation.Succeeded)
+        {
+            return ServiceResult<StoredCatalogImage>.Validation("image", validation.Error!);
+        }
+
+        await using var buffer = new MemoryStream();
+        await file.CopyToAsync(buffer, cancellationToken);
+        buffer.Position = 0;
+        var storedFileName = await _storage.SaveAsync(
+            buffer,
+            validation.CanonicalExtension,
+            cancellationToken);
+        return ServiceResult<StoredCatalogImage>.Success(new StoredCatalogImage(
+            storedFileName,
+            validation.CanonicalContentType));
+    }
+
+    private static CategoryDto ToCategoryDto(Category category) => new()
+    {
+        Id = category.Id,
+        Name = category.Name,
+        Description = category.Description,
+        HasImage = category.HasImage
+    };
+
+    private static ServiceDto ToServiceDto(Domain.Service service, string categoryName) => new()
+    {
+        Id = service.Id,
+        Name = service.Name,
+        Description = service.Description,
+        CategoryId = service.CategoryId,
+        CategoryName = categoryName,
+        HasImage = service.HasImage
+    };
+
+    private sealed record StoredCatalogImage(string FileName, string ContentType);
+
+    private static string CategoryDeleteBlockReason(IEnumerable<string> serviceNames)
+    {
+        var names = serviceNames.OrderBy(name => name, StringComparer.OrdinalIgnoreCase).ToList();
+        var noun = names.Count == 1 ? "service" : "services";
+        var those = names.Count == 1 ? "that service" : "those services";
+        return
+            $"This category cannot be deleted because it still has {names.Count} {noun}: {FormatNameList(names)}. Move or delete {those} first.";
+    }
+
+    private static string? ServiceDeleteBlockReason(int providerCount, int bookingCount)
+    {
+        if (providerCount == 0 && bookingCount == 0)
+        {
+            return null;
+        }
+
+        var parts = new List<string>();
+        if (providerCount > 0)
+        {
+            parts.Add(providerCount == 1
+                ? "1 provider offers it"
+                : $"{providerCount} providers offer it");
+        }
+
+        if (bookingCount > 0)
+        {
+            parts.Add(bookingCount == 1
+                ? "1 booking uses it"
+                : $"{bookingCount} bookings use it");
+        }
+
+        return $"This service cannot be deleted because {string.Join(" and ", parts)}.";
+    }
+
+    private static string FormatNameList(IReadOnlyList<string> names)
+    {
+        if (names.Count <= 1)
+        {
+            return names.Count == 0 ? "" : names[0];
+        }
+
+        if (names.Count == 2)
+        {
+            return $"{names[0]} and {names[1]}";
+        }
+
+        if (names.Count == 3)
+        {
+            return $"{names[0]}, {names[1]}, and {names[2]}";
+        }
+
+        return $"{names[0]}, {names[1]}, and {names.Count - 2} more";
     }
 
     private Task RecordCatalogAsync(

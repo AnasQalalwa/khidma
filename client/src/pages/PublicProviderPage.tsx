@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { ApiError } from '../api/client'
 import { getPublicProvider } from '../api/providers'
 import type { PublicProvider } from '../api/types'
-import { PageHeader } from '../components/PageHeader'
+import { Button } from '../components/Button'
+import { ProviderAvatar } from '../components/ProviderAvatar'
 import { StatusBadge } from '../components/StatusBadge'
 import { EmptyState, ErrorState, LoadingState } from '../components/States'
+import { WorkingHoursSummary } from '../components/schedule/WorkingHoursSummary'
 import { formatDate, formatRating } from '../utils/format'
 
 export function PublicProviderPage() {
@@ -53,16 +55,26 @@ export function PublicProviderPage() {
 
   return (
     <>
-      <PageHeader
-        eyebrow={data.city}
-        title={data.fullName}
-        description={data.bio ?? 'Local Khidma provider.'}
-        actions={
-          <StatusBadge status={data.isVerified ? 'Approved' : 'PendingReview'} />
-        }
-      />
-      <p className="lead">{formatRating(data.averageRating, data.reviewCount)}</p>
-      <p className="muted">{data.yearsOfExperience} years of experience</p>
+      <section className="public-provider-hero">
+        <ProviderAvatar
+          providerId={data.id}
+          name={data.fullName}
+          hasPhoto={data.hasPhoto}
+          size="lg"
+        />
+        <div>
+          <p className="muted">{data.city}</p>
+          <h1>{data.fullName}</h1>
+          <div className="provider-hero-badges">
+            <StatusBadge status={data.isVerified ? 'Approved' : 'PendingReview'} />
+            <p className="muted" style={{ margin: 0 }}>
+              {formatRating(data.averageRating, data.reviewCount)} · {data.yearsOfExperience} years
+            </p>
+          </div>
+          <p>{data.bio ?? 'Local Khidma provider.'}</p>
+          <WorkingHoursSummary hours={data.workingHours ?? []} />
+        </div>
+      </section>
       <section className="dashboard-panel">
         <h2>Services</h2>
         {data.services.length === 0 ? (
@@ -71,10 +83,16 @@ export function PublicProviderPage() {
             description="This provider has not chosen services yet."
           />
         ) : (
-          <ul className="chip-list">
+          <ul className="plain-list">
             {data.services.map((service) => (
-              <li key={service.id}>
-                <Link to={`/catalog?category=${service.categoryId}`}>{service.name}</Link>
+              <li key={service.id} className="plain-row">
+                <div>
+                  <strong>{service.name}</strong>
+                  <p className="muted">{service.categoryName}</p>
+                </div>
+                <Button to={`/book/${data.id}/${service.id}`} size="sm">
+                  Book
+                </Button>
               </li>
             ))}
           </ul>
@@ -83,7 +101,10 @@ export function PublicProviderPage() {
       <section className="dashboard-panel">
         <h2>Recent reviews</h2>
         {data.recentReviews.length === 0 ? (
-          <EmptyState title="No reviews yet" description="Completed jobs will appear here after customers leave a rating." />
+          <EmptyState
+            title="No reviews yet"
+            description="Completed jobs will appear here after customers leave a rating."
+          />
         ) : (
           <ul className="plain-list">
             {data.recentReviews.map((review, index) => (

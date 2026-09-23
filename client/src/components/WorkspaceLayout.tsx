@@ -12,7 +12,7 @@ export function WorkspaceLayout({
   return (
     <div className={role === Roles.Admin ? 'workspace admin-page' : 'workspace'}>
       <WorkspaceNav role={role} />
-      {children}
+      <div className="workspace-main">{children}</div>
     </div>
   )
 }

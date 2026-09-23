@@ -38,6 +38,8 @@ public static class DocumentFileValidator
 {
     public const long MaxFileSizeBytes = 10 * 1024 * 1024;
 
+    public const long MaxImageSizeBytes = 5 * 1024 * 1024;
+
     private static readonly byte[] PdfSignature = "%PDF"u8.ToArray();
     private static readonly byte[] JpegSignature = [0xFF, 0xD8, 0xFF];
     private static readonly byte[] PngSignature =
@@ -62,6 +64,53 @@ public static class DocumentFileValidator
         }
 
         return Validate(file.FileName, file.ContentType, file.Length, header[..read]);
+    }
+
+    public static DocumentValidationResult ValidateImage(IFormFile file)
+    {
+        var result = Validate(file);
+        if (!result.Succeeded)
+        {
+            return result;
+        }
+
+        if (result.CanonicalContentType is not "image/jpeg" and not "image/png")
+        {
+            return DocumentValidationResult.Fail("Profile photos must be a JPEG or PNG.");
+        }
+
+        if (result.FileSizeBytes > MaxImageSizeBytes)
+        {
+            return DocumentValidationResult.Fail("Profile photos must be 5 MB or smaller.");
+        }
+
+        return result;
+    }
+
+    public static DocumentValidationResult ValidateCatalogImage(IFormFile file)
+    {
+        if (file is null)
+        {
+            return DocumentValidationResult.Fail("An image file is required.");
+        }
+
+        var result = Validate(file);
+        if (!result.Succeeded)
+        {
+            return result;
+        }
+
+        if (result.CanonicalContentType is not "image/jpeg" and not "image/png")
+        {
+            return DocumentValidationResult.Fail("Images must be a JPEG or PNG.");
+        }
+
+        if (result.FileSizeBytes > MaxImageSizeBytes)
+        {
+            return DocumentValidationResult.Fail("Images must be 5 MB or smaller.");
+        }
+
+        return result;
     }
 
     public static DocumentValidationResult Validate(

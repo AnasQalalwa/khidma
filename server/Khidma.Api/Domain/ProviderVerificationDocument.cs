@@ -8,6 +8,8 @@ public class ProviderVerificationDocument
 
     public int ProviderProfileId { get; set; }
 
+    public int? ServiceId { get; set; }
+
     public VerificationDocumentType DocumentType { get; set; }
 
     public string OriginalFileName { get; set; } = default!;
@@ -29,4 +31,6 @@ public class ProviderVerificationDocument
     public string? ReviewedByUserId { get; set; }
 
     public ProviderProfile ProviderProfile { get; set; } = default!;
+
+    public Service? Service { get; set; }
 }

@@ -97,28 +97,6 @@ public static class AuditSummaryBuilder
                                 d.ProviderProfile.User.FullName)),
                         cancellationToken);
                     break;
-                case nameof(ServiceRequest):
-                    await AddIntNames(
-                        names,
-                        nameof(ServiceRequest),
-                        ParseInts(group),
-                        ids => db.ServiceRequests
-                            .AsNoTracking()
-                            .Where(r => ids.Contains(r.Id))
-                            .Select(r => new IdName(r.Id.ToString(), r.Title)),
-                        cancellationToken);
-                    break;
-                case nameof(Offer):
-                    await AddIntNames(
-                        names,
-                        nameof(Offer),
-                        ParseInts(group),
-                        ids => db.Offers
-                            .AsNoTracking()
-                            .Where(o => ids.Contains(o.Id))
-                            .Select(o => new IdName(o.Id.ToString(), o.ServiceRequest.Title)),
-                        cancellationToken);
-                    break;
                 case nameof(Booking):
                     await AddIntNames(
                         names,
@@ -127,7 +105,7 @@ public static class AuditSummaryBuilder
                         ids => db.Bookings
                             .AsNoTracking()
                             .Where(b => ids.Contains(b.Id))
-                            .Select(b => new IdName(b.Id.ToString(), b.ServiceRequest.Title)),
+                            .Select(b => new IdName(b.Id.ToString(), b.Service.Name)),
                         cancellationToken);
                     break;
                 case nameof(Review):
@@ -241,6 +219,18 @@ public static class AuditSummaryBuilder
                 string.IsNullOrWhiteSpace(name)
                     ? $"{actor} updated provider services."
                     : $"{name} updated their services.",
+            AuditActions.ProviderPhotoUpdated =>
+                string.IsNullOrWhiteSpace(name)
+                    ? $"{actor} updated a profile photo."
+                    : $"{name} updated their profile photo.",
+            AuditActions.ProviderChangeRequested =>
+                string.IsNullOrWhiteSpace(name)
+                    ? $"{actor} requested a profile change."
+                    : $"{name} requested a profile change.",
+            AuditActions.AdminChangeReviewed =>
+                string.IsNullOrWhiteSpace(name)
+                    ? "Admin reviewed a provider profile change."
+                    : $"Admin reviewed a profile change for {name}.",
             AuditActions.DocumentUploaded =>
                 string.IsNullOrWhiteSpace(name)
                     ? $"{actor} uploaded a verification document."
@@ -277,34 +267,22 @@ public static class AuditSummaryBuilder
                 string.IsNullOrWhiteSpace(name)
                     ? "Admin reactivated a provider."
                     : $"Admin reactivated provider {name}",
-            AuditActions.RequestCreated =>
+            AuditActions.AccountProfileUpdated =>
+                $"{actor} updated their profile.",
+            AuditActions.AccountPasswordChanged =>
+                $"{actor} changed their password.",
+            AuditActions.BookingRequested =>
                 quoted is null
-                    ? $"{actor} created a request."
-                    : $"{actor} created request {quoted}",
-            AuditActions.RequestUpdated =>
+                    ? $"{actor} requested a booking."
+                    : $"{actor} requested a booking for {quoted}",
+            AuditActions.BookingAccepted =>
                 quoted is null
-                    ? $"{actor} updated a request."
-                    : $"{actor} updated request {quoted}",
-            AuditActions.RequestCancelled =>
+                    ? $"{actor} accepted a booking."
+                    : $"{actor} accepted a booking for {quoted}",
+            AuditActions.BookingDeclined =>
                 quoted is null
-                    ? $"{actor} cancelled a request."
-                    : $"{actor} cancelled request {quoted}",
-            AuditActions.OfferSubmitted =>
-                quoted is null
-                    ? $"{actor} submitted an offer."
-                    : $"{actor} submitted an offer on {quoted}",
-            AuditActions.OfferWithdrawn =>
-                quoted is null
-                    ? $"{actor} withdrew an offer."
-                    : $"{actor} withdrew an offer on {quoted}",
-            AuditActions.OfferAccepted =>
-                quoted is null
-                    ? $"{actor} accepted an offer."
-                    : $"{actor} accepted an offer on {quoted}",
-            AuditActions.BookingCreated =>
-                quoted is null
-                    ? $"{actor} created a booking."
-                    : $"{actor} created a booking for {quoted}",
+                    ? $"{actor} declined a booking."
+                    : $"{actor} declined a booking for {quoted}",
             AuditActions.BookingStarted =>
                 quoted is null
                     ? $"{actor} started a booking."
@@ -317,6 +295,10 @@ public static class AuditSummaryBuilder
                 quoted is null
                     ? $"{actor} cancelled a booking."
                     : $"{actor} cancelled a booking for {quoted}",
+            AuditActions.BookingRescheduled =>
+                quoted is null
+                    ? $"{actor} rescheduled a booking."
+                    : $"{actor} rescheduled a booking for {quoted}",
             AuditActions.ReviewCreated =>
                 string.IsNullOrWhiteSpace(name)
                     ? $"{actor} left a review."

@@ -1,23 +1,24 @@
 import type { BookingStatus } from '../api/types'
 import { statusLabel } from '../utils/format'
 
-const STEPS: BookingStatus[] = ['Scheduled', 'InProgress', 'Completed']
+const STEPS: BookingStatus[] = ['Pending', 'Scheduled', 'InProgress', 'Completed']
 
 export function BookingTimeline({ status }: { status: BookingStatus }) {
+  const declined = status === 'Declined'
   const cancelled = status === 'Cancelled'
-  const currentIndex = cancelled ? -1 : STEPS.indexOf(status)
+  const ended = declined || cancelled
+  const currentIndex = ended ? -1 : STEPS.indexOf(status)
 
   return (
-    <ol className={cancelled ? 'timeline timeline-cancelled' : 'timeline'}>
+    <ol className={ended ? 'timeline timeline-cancelled' : 'timeline'}>
       {STEPS.map((step, index) => {
-        const state =
-          cancelled
-            ? 'is-idle'
-            : index < currentIndex
-              ? 'is-done'
-              : index === currentIndex
-                ? 'is-current'
-                : 'is-idle'
+        const state = ended
+          ? 'is-idle'
+          : index < currentIndex
+            ? 'is-done'
+            : index === currentIndex
+              ? 'is-current'
+              : 'is-idle'
         return (
           <li key={step} className={`timeline-step ${state}`}>
             <span className="timeline-dot" aria-hidden="true" />
@@ -25,6 +26,12 @@ export function BookingTimeline({ status }: { status: BookingStatus }) {
           </li>
         )
       })}
+      {declined ? (
+        <li className="timeline-step is-cancelled">
+          <span className="timeline-dot" aria-hidden="true" />
+          <span>Declined</span>
+        </li>
+      ) : null}
       {cancelled ? (
         <li className="timeline-step is-cancelled">
           <span className="timeline-dot" aria-hidden="true" />

@@ -10,22 +10,18 @@ import { AdminUserDetailPage } from './pages/admin/AdminUserDetailPage'
 import { AdminUsersPage } from './pages/admin/AdminUsersPage'
 import { AdminVerificationDetailPage } from './pages/admin/AdminVerificationDetailPage'
 import { AdminVerificationsPage } from './pages/admin/AdminVerificationsPage'
+import { BookProviderPage } from './pages/BookProviderPage'
 import { CatalogPage } from './pages/CatalogPage'
-import { CustomerDashboard } from './pages/CustomerDashboard'
-import { CustomerEditRequestPage } from './pages/customer/CustomerEditRequestPage'
-import { CustomerNewRequestPage } from './pages/customer/CustomerNewRequestPage'
-import { CustomerRequestDetailPage } from './pages/customer/CustomerRequestDetailPage'
-import { CustomerRequestsPage } from './pages/customer/CustomerRequestsPage'
+import { CustomerProfilePage } from './pages/customer/CustomerProfilePage'
 import { ForbiddenPage } from './pages/ForbiddenPage'
 import { HomePage } from './pages/HomePage'
 import { LoginPage } from './pages/LoginPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { ProviderDashboard } from './pages/ProviderDashboard'
-import { ProviderOffersPage } from './pages/provider/ProviderOffersPage'
 import { ProviderProfilePage } from './pages/provider/ProviderProfilePage'
-import { ProviderRequestDetailPage } from './pages/provider/ProviderRequestDetailPage'
-import { ProviderRequestsPage } from './pages/provider/ProviderRequestsPage'
+import { ProviderSchedulePage } from './pages/provider/ProviderSchedulePage'
 import { PublicProviderPage } from './pages/PublicProviderPage'
+import { ServiceProvidersPage } from './pages/ServiceProvidersPage'
 import { RegisterPage } from './pages/RegisterPage'
 import { BookingDetailPage } from './pages/shared/BookingDetailPage'
 import { BookingsListPage } from './pages/shared/BookingsListPage'
@@ -38,49 +34,26 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/catalog" element={<CatalogPage />} />
+        <Route path="/catalog/services/:id" element={<ServiceProvidersPage />} />
         <Route path="/providers/:id" element={<PublicProviderPage />} />
         <Route
-          path="/customer"
+          path="/book/:providerId/:serviceId"
           element={
             <RequireRole role={Roles.Customer}>
-              <CustomerDashboard />
+              <BookProviderPage />
             </RequireRole>
           }
         />
         <Route
-          path="/customer/requests"
+          path="/account"
           element={
             <RequireRole role={Roles.Customer}>
-              <CustomerRequestsPage />
+              <CustomerProfilePage />
             </RequireRole>
           }
         />
         <Route
-          path="/customer/requests/new"
-          element={
-            <RequireRole role={Roles.Customer}>
-              <CustomerNewRequestPage />
-            </RequireRole>
-          }
-        />
-        <Route
-          path="/customer/requests/:id"
-          element={
-            <RequireRole role={Roles.Customer}>
-              <CustomerRequestDetailPage />
-            </RequireRole>
-          }
-        />
-        <Route
-          path="/customer/requests/:id/edit"
-          element={
-            <RequireRole role={Roles.Customer}>
-              <CustomerEditRequestPage />
-            </RequireRole>
-          }
-        />
-        <Route
-          path="/customer/bookings"
+          path="/account/bookings"
           element={
             <RequireRole role={Roles.Customer}>
               <BookingsListPage role="Customer" />
@@ -88,7 +61,7 @@ export default function App() {
           }
         />
         <Route
-          path="/customer/bookings/:id"
+          path="/account/bookings/:id"
           element={
             <RequireRole role={Roles.Customer}>
               <BookingDetailPage role="Customer" />
@@ -104,26 +77,10 @@ export default function App() {
           }
         />
         <Route
-          path="/provider/requests"
+          path="/provider/schedule"
           element={
             <RequireRole role={Roles.Provider}>
-              <ProviderRequestsPage />
-            </RequireRole>
-          }
-        />
-        <Route
-          path="/provider/requests/:id"
-          element={
-            <RequireRole role={Roles.Provider}>
-              <ProviderRequestDetailPage />
-            </RequireRole>
-          }
-        />
-        <Route
-          path="/provider/offers"
-          element={
-            <RequireRole role={Roles.Provider}>
-              <ProviderOffersPage />
+              <ProviderSchedulePage />
             </RequireRole>
           }
         />

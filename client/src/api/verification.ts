@@ -4,6 +4,7 @@ import type {
   AdminVerificationListItem,
   PageQuery,
   PagedResult,
+  ProviderChangeRequest,
   ProviderVerification,
   VerificationDocument,
   VerificationDocumentType,
@@ -16,10 +17,14 @@ export function getMyVerification(): Promise<ProviderVerification> {
 export function uploadVerificationDocument(
   documentType: VerificationDocumentType,
   file: File,
+  serviceId?: number | null,
 ): Promise<ProviderVerification> {
   const body = new FormData()
   body.set('documentType', documentType)
   body.set('file', file)
+  if (serviceId) {
+    body.set('serviceId', String(serviceId))
+  }
   return apiRequest('/api/providers/me/verification-documents', {
     method: 'POST',
     body,
@@ -47,6 +52,7 @@ export function getAdminVerifications(
     verificationStatus?: string
     documentStatus?: string
     search?: string
+    hasPendingChanges?: boolean
   } = {},
 ): Promise<PagedResult<AdminVerificationListItem>> {
   return apiRequest(`/api/admin/verifications${toQuery(query)}`)
@@ -71,6 +77,16 @@ export function decideProviderVerification(
   payload: { status: 'Approved' | 'Rejected' | 'PendingReview'; reason?: string },
 ): Promise<ProviderVerification> {
   return apiRequest(`/api/admin/providers/${providerId}/verification`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function reviewProfileChange(
+  changeId: number,
+  payload: { status: 'Approved' | 'Rejected'; note?: string },
+): Promise<ProviderChangeRequest> {
+  return apiRequest(`/api/admin/profile-changes/${changeId}/review`, {
     method: 'POST',
     body: JSON.stringify(payload),
   })

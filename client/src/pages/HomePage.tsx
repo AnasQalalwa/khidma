@@ -18,8 +18,14 @@ import {
   Workflow,
   Zap,
 } from 'lucide-react'
-import { Link, useLocation } from 'react-router-dom'
-import { getCategories, getServices, type CatalogService, type Category } from '../api/catalog'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import {
+  categoryImageUrl,
+  getCategories,
+  getServices,
+  type CatalogService,
+  type Category,
+} from '../api/catalog'
 import heroProfessional from '../assets/hero-professional.webp'
 import { Button } from '../components/Button'
 import { CategoryCard } from '../components/CategoryCard'
@@ -59,6 +65,8 @@ function HomeSection({
 
 export function HomePage() {
   const location = useLocation()
+  const navigate = useNavigate()
+  const [homeQuery, setHomeQuery] = useState('')
   const [categories, setCategories] = useState<Category[]>([])
   const [services, setServices] = useState<CatalogService[]>([])
   const [loading, setLoading] = useState(true)
@@ -127,10 +135,31 @@ export function HomePage() {
                 </span>
               </h1>
               <p className="lead hero-copy">
-                Find verified local professionals, compare offers, and book with
-                confidence. Khidma makes it simple to get things done — at home,
+                Find verified local professionals, pick a day, and send a booking
+                request. Khidma makes it simple to get things done — at home,
                 at work, and in your community.
               </p>
+              <form
+                className="hero-search"
+                role="search"
+                onSubmit={(event) => {
+                  event.preventDefault()
+                  const q = homeQuery.trim()
+                  navigate(q ? `/catalog?q=${encodeURIComponent(q)}` : '/catalog')
+                }}
+              >
+                <label className="sr-only" htmlFor="home-search">
+                  Search services
+                </label>
+                <input
+                  id="home-search"
+                  type="search"
+                  placeholder="Try plumbing, cleaning, tutoring"
+                  value={homeQuery}
+                  onChange={(event) => setHomeQuery(event.target.value)}
+                />
+                <Button type="submit">Search</Button>
+              </form>
               <div className="hero-actions">
                 <Button to="/catalog" iconRight={ArrowRight}>
                   Find a Service
@@ -188,7 +217,7 @@ export function HomePage() {
                 </span>
                 <div>
                   <strong>Fast booking</strong>
-                  <span>Request and compare offers easily</span>
+                  <span>Book a verified provider directly</span>
                 </div>
               </article>
               <article className="trust-item">
@@ -235,6 +264,8 @@ export function HomePage() {
               <CategoryCard
                 key={category.id}
                 name={category.name}
+                description={category.description}
+                imageUrl={category.hasImage ? categoryImageUrl(category.id) : null}
                 serviceCount={
                   services.filter((service) => service.categoryId === category.id)
                     .length
@@ -249,7 +280,7 @@ export function HomePage() {
       <HomeSection
         id="how-it-works"
         title="How Khidma Works"
-        subtitle="From request to review — getting help is simple and secure."
+        subtitle="From catalog to review — getting help is simple and secure."
       >
         <div className="step-grid">
           <article className="step-card">
@@ -257,8 +288,8 @@ export function HomePage() {
               <span className="step-index">1</span>
               <IconTile icon={FilePenLine} accent="home" />
             </div>
-            <h3>Request a service</h3>
-            <p className="muted">Tell us what you need.</p>
+            <h3>Choose a service</h3>
+            <p className="muted">Browse the catalog and open a service.</p>
           </article>
           <span className="step-chevron" aria-hidden="true">
             <Icon icon={ChevronRight} size={20} />
@@ -268,8 +299,8 @@ export function HomePage() {
               <span className="step-index">2</span>
               <IconTile icon={MessagesSquare} accent="technology" />
             </div>
-            <h3>Receive offers</h3>
-            <p className="muted">Providers respond with offers.</p>
+            <h3>Pick a provider</h3>
+            <p className="muted">See who offers it in your city.</p>
           </article>
           <span className="step-chevron" aria-hidden="true">
             <Icon icon={ChevronRight} size={20} />
@@ -279,8 +310,8 @@ export function HomePage() {
               <span className="step-index">3</span>
               <IconTile icon={UserCheck} accent="education" />
             </div>
-            <h3>Choose a provider</h3>
-            <p className="muted">Compare your available options.</p>
+            <h3>Send a request</h3>
+            <p className="muted">Pick a day. You and the provider agree the time on a call.</p>
           </article>
           <span className="step-chevron" aria-hidden="true">
             <Icon icon={ChevronRight} size={20} />
@@ -313,9 +344,9 @@ export function HomePage() {
           <article className="why-card">
             <IconTile icon={Scale} accent="technology" />
             <div>
-              <h3>Compare offers</h3>
+              <h3>Clear pricing</h3>
               <p className="muted">
-                Review price, timing, and details before you choose.
+                The provider quotes a price when they accept the visit.
               </p>
             </div>
           </article>
@@ -340,7 +371,7 @@ export function HomePage() {
             <IconTile icon={Users} accent="home" />
             <div>
               <h3>Customers</h3>
-              <p className="muted">Post what you need and compare offers.</p>
+              <p className="muted">Browse services, pick a day, and keep your history in your profile.</p>
             </div>
           </article>
           <article className="confidence-card">

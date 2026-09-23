@@ -12,6 +12,7 @@ const TONES: Record<string, string> = {
   Withdrawn: 'muted',
   Scheduled: 'booked',
   InProgress: 'pending',
+  Declined: 'danger',
   Approved: 'success',
   Suspended: 'danger',
   Success: 'success',

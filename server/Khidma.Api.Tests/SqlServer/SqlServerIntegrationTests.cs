@@ -1,10 +1,8 @@
 using System.Net;
 using System.Net.Http.Json;
-using System.Text.Json;
 using Khidma.Api.Data;
 using Khidma.Api.Domain;
 using Khidma.Api.Domain.Enums;
-using Khidma.Api.Services.Offers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -35,22 +33,23 @@ public sealed class SqlServerIntegrationTests : IAsyncLifetime
     }
 
     [SqlServerFact]
-    public async Task ConcurrentAccept_ProducesOneBooking_And409ForLoser()
+    public async Task ConcurrentAccept_OneSucceeds_AndLoserConflicts()
     {
         var factory = RequireFactory();
         var city = UniqueCity();
         var (customer, _) = await TestHarness.RegisterAsync(factory, "Customer", city);
-        var (providerOne, userOne) = await TestHarness.RegisterAsync(factory, "Provider", city);
-        var (providerTwo, userTwo) = await TestHarness.RegisterAsync(factory, "Provider", city);
+        var (provider, providerUser) = await TestHarness.RegisterAsync(factory, "Provider", city);
         var serviceId = await TestHarness.GetServiceIdAsync(factory);
-        await TestHarness.ApproveProviderAsync(factory, userOne.Id, city, serviceId);
-        await TestHarness.ApproveProviderAsync(factory, userTwo.Id, city, serviceId);
-        var requestId = await TestHarness.CreateRequestAsync(customer, serviceId, city);
-        var offerOne = await TestHarness.SubmitOfferAsync(providerOne, requestId, 90);
-        var offerTwo = await TestHarness.SubmitOfferAsync(providerTwo, requestId, 80);
+        await TestHarness.ApproveProviderAsync(factory, providerUser.Id, city, serviceId);
+        var profileId = await TestHarness.GetProviderProfileIdAsync(factory, providerUser.Id);
+        var bookingId = await TestHarness.CreateBookingAsync(customer, profileId, serviceId);
 
-        var first = customer.PostAsync($"/api/offers/{offerOne}/accept", null);
-        var second = customer.PostAsync($"/api/offers/{offerOne}/accept", null);
+        var first = provider.PostAsJsonAsync(
+            $"/api/bookings/{bookingId}/accept",
+            new { price = 90, message = "First", scheduledStart = TestHarness.SlotStart(bookingId), durationHours = 2 });
+        var second = provider.PostAsJsonAsync(
+            $"/api/bookings/{bookingId}/accept",
+            new { price = 80, message = "Second", scheduledStart = TestHarness.SlotStart(bookingId), durationHours = 2 });
         await Task.WhenAll(first, second);
 
         var statuses = new[] { first.Result.StatusCode, second.Result.StatusCode }
@@ -59,50 +58,35 @@ public sealed class SqlServerIntegrationTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.OK, statuses[0]);
         Assert.Equal(HttpStatusCode.Conflict, statuses[1]);
 
-        var loser = first.Result.StatusCode == HttpStatusCode.Conflict
-            ? first.Result
-            : second.Result;
-        var loserBody = await loser.Content.ReadAsStringAsync();
-        Assert.Contains(
-            OfferService.AnotherOfferAcceptedFirst,
-            loserBody,
-            StringComparison.OrdinalIgnoreCase);
-
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var bookings = await db.Bookings
-            .Where(b => b.ServiceRequestId == requestId)
-            .ToListAsync();
-        Assert.Single(bookings);
-
-        var accepted = await db.Offers.SingleAsync(o => o.Id == offerOne);
-        var sibling = await db.Offers.SingleAsync(o => o.Id == offerTwo);
-        Assert.Equal(OfferStatus.Accepted, accepted.Status);
-        Assert.Equal(OfferStatus.Rejected, sibling.Status);
+        var booking = await db.Bookings.SingleAsync(b => b.Id == bookingId);
+        Assert.Equal(BookingStatus.Scheduled, booking.Status);
+        Assert.NotNull(booking.QuotedPrice);
     }
 
     [SqlServerFact]
-    public async Task DuplicateNonWithdrawnOffer_IsRejectedByFilteredIndex()
+    public async Task DuplicatePendingBooking_IsRejectedByFilteredIndex()
     {
         var factory = RequireFactory();
         var city = UniqueCity();
-        var (customer, _) = await TestHarness.RegisterAsync(factory, "Customer", city);
-        var (provider, providerUser) = await TestHarness.RegisterAsync(factory, "Provider", city);
+        var (customer, customerUser) = await TestHarness.RegisterAsync(factory, "Customer", city);
+        var (_, providerUser) = await TestHarness.RegisterAsync(factory, "Provider", city);
         var serviceId = await TestHarness.GetServiceIdAsync(factory);
         await TestHarness.ApproveProviderAsync(factory, providerUser.Id, city, serviceId);
-        var requestId = await TestHarness.CreateRequestAsync(customer, serviceId, city);
-        await TestHarness.SubmitOfferAsync(provider, requestId);
+        var profileId = await TestHarness.GetProviderProfileIdAsync(factory, providerUser.Id);
+        await TestHarness.CreateBookingAsync(customer, profileId, serviceId);
 
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        db.Offers.Add(new Offer
+        db.Bookings.Add(new Booking
         {
-            ServiceRequestId = requestId,
+            CustomerId = customerUser.Id,
             ProviderId = providerUser.Id,
-            Price = 70,
-            Message = "Duplicate non-withdrawn offer.",
-            EstimatedDate = TestHarness.FutureDate(),
-            Status = OfferStatus.Pending,
+            ServiceId = serviceId,
+            City = city,
+            RequestedDate = DateOnly.Parse(TestHarness.FutureDay()),
+            Status = BookingStatus.Pending,
             CreatedAt = DateTimeOffset.UtcNow
         });
 

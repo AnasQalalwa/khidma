@@ -44,14 +44,13 @@ function overview(overrides: Partial<AdminOverview> = {}): AdminOverview {
       { date: '2026-09-17T00:00:00Z', created: 2, completed: 1, cancelled: 0 },
     ],
     funnel: {
-      requestsCreated: 10,
-      requestsWithOffer: 7,
-      booked: 4,
+      requested: 10,
+      accepted: 4,
       completed: 2,
     },
     attention: {
       pendingVerifications: 2,
-      staleOpenRequests: 1,
+      stalePendingBookings: 1,
       overdueBookings: 0,
       suspendedProviders: 0,
     },
@@ -60,7 +59,7 @@ function overview(overrides: Partial<AdminOverview> = {}): AdminOverview {
         city: 'Ramallah',
         serviceId: 1,
         serviceName: 'Plumbing',
-        openRequests: 3,
+        pendingBookings: 3,
         eligibleProviders: 0,
       },
     ],
@@ -136,7 +135,7 @@ describe('AdminOverviewPage', () => {
   it('shows empty states when the overview has no activity', async () => {
     mockedGetAdminOverview.mockResolvedValue(
       overview({
-        funnel: { requestsCreated: 0, requestsWithOffer: 0, booked: 0, completed: 0 },
+        funnel: { requested: 0, accepted: 0, completed: 0 },
         bookingsSeries: [],
         supplyDemand: [],
         topProviders: [],
@@ -156,8 +155,8 @@ describe('AdminOverviewPage', () => {
       auth: { user: adminUser(), authenticated: true },
     })
 
-    expect(await screen.findByText('No requests were created in this range.')).toBeInTheDocument()
-    expect(screen.getByText('There are no open requests right now.')).toBeInTheDocument()
+    expect(await screen.findByText('No bookings were requested in this range.')).toBeInTheDocument()
+    expect(screen.getByText('There are no pending bookings right now.')).toBeInTheDocument()
     expect(screen.getByText('No rated providers yet.')).toBeInTheDocument()
     expect(screen.getByText('No recent activity.')).toBeInTheDocument()
   })
@@ -167,7 +166,7 @@ describe('AdminOverviewPage', () => {
       overview({
         attention: {
           pendingVerifications: 0,
-          staleOpenRequests: 0,
+          stalePendingBookings: 0,
           overdueBookings: 0,
           suspendedProviders: 0,
         },

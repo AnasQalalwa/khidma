@@ -8,7 +8,8 @@ public static class CurrentUserMapper
 {
     public static async Task<CurrentUserDto> ToDtoAsync(
         UserManager<ApplicationUser> userManager,
-        ApplicationUser user)
+        ApplicationUser user,
+        string? city)
     {
         var roles = await userManager.GetRolesAsync(user);
 
@@ -17,6 +18,8 @@ public static class CurrentUserMapper
             Id = user.Id,
             Email = user.Email ?? string.Empty,
             FullName = user.FullName,
+            PhoneNumber = user.PhoneNumber ?? string.Empty,
+            City = city,
             Role = roles.FirstOrDefault() ?? string.Empty
         };
     }

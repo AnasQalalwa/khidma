@@ -1,6 +1,7 @@
 import { useId, useState } from 'react'
-import { Eye, EyeOff, LockKeyhole } from 'lucide-react'
+import { Check, Eye, EyeOff, LockKeyhole } from 'lucide-react'
 import { Icon } from './icons'
+import { PASSWORD_RULES, passwordRuleState } from '../utils/validation'
 
 export function PasswordField({
   id,
@@ -11,6 +12,7 @@ export function PasswordField({
   error,
   required,
   placeholder,
+  showRules = false,
 }: {
   id?: string
   label: string
@@ -20,11 +22,17 @@ export function PasswordField({
   error?: string
   required?: boolean
   placeholder?: string
+  showRules?: boolean
 }) {
   const generatedId = useId()
   const fieldId = id ?? generatedId
   const errorId = `${fieldId}-error`
+  const rulesId = `${fieldId}-rules`
   const [visible, setVisible] = useState(false)
+  const rules = passwordRuleState(value)
+  const describedBy = [error ? errorId : null, showRules ? rulesId : null]
+    .filter(Boolean)
+    .join(' ')
 
   return (
     <div className="field">
@@ -40,7 +48,7 @@ export function PasswordField({
           required={required}
           placeholder={placeholder}
           aria-invalid={error ? true : undefined}
-          aria-describedby={error ? errorId : undefined}
+          aria-describedby={describedBy || undefined}
         />
         <button
           type="button"
@@ -51,6 +59,24 @@ export function PasswordField({
           <Icon icon={visible ? EyeOff : Eye} size={16} />
         </button>
       </div>
+      {showRules ? (
+        <ul id={rulesId} className="password-rules">
+          {PASSWORD_RULES.map((rule) => {
+            const met = rules[rule.id]
+            return (
+              <li
+                key={rule.id}
+                className={met ? 'password-rule is-met' : 'password-rule'}
+              >
+                <span className="password-rule-mark" aria-hidden="true">
+                  {met ? <Icon icon={Check} size={16} /> : null}
+                </span>
+                <span>{rule.label}</span>
+              </li>
+            )
+          })}
+        </ul>
+      ) : null}
       {error ? (
         <p id={errorId} className="field-error">
           {error}

@@ -16,8 +16,31 @@ public class BookingConfiguration : IEntityTypeConfiguration<Booking>
         builder.Property(b => b.ProviderId)
             .IsRequired();
 
-        builder.Property(b => b.FinalPrice)
+        builder.Property(b => b.City)
+            .IsRequired()
+            .HasMaxLength(80);
+
+        builder.Property(b => b.Notes)
+            .HasMaxLength(1000);
+
+        builder.Property(b => b.QuotedPrice)
             .HasPrecision(18, 2);
+
+        builder.Property(b => b.ProviderMessage)
+            .HasMaxLength(1000);
+
+        builder.Property(b => b.DeclineReason)
+            .HasMaxLength(500);
+
+        builder.Property(b => b.CancellationReason)
+            .HasMaxLength(500);
+
+        builder.Property(b => b.RescheduleNote)
+            .HasMaxLength(500);
+
+        builder.ToTable(t => t.HasCheckConstraint(
+            "CK_Bookings_DurationHours",
+            "[DurationHours] IS NULL OR ([DurationHours] >= 1 AND [DurationHours] <= 12)"));
 
         builder.Property(b => b.Status)
             .HasConversion<string>()
@@ -26,14 +49,9 @@ public class BookingConfiguration : IEntityTypeConfiguration<Booking>
         builder.Property(b => b.RowVersion)
             .IsRowVersion();
 
-        builder.HasOne(b => b.Offer)
-            .WithOne(o => o.Booking)
-            .HasForeignKey<Booking>(b => b.OfferId)
-            .OnDelete(DeleteBehavior.Restrict);
-
-        builder.HasOne(b => b.ServiceRequest)
-            .WithMany()
-            .HasForeignKey(b => b.ServiceRequestId)
+        builder.HasOne(b => b.Service)
+            .WithMany(s => s.Bookings)
+            .HasForeignKey(b => b.ServiceId)
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasOne(b => b.Customer)
@@ -46,8 +64,14 @@ public class BookingConfiguration : IEntityTypeConfiguration<Booking>
             .HasForeignKey(b => b.ProviderId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        builder.HasIndex(b => b.OfferId)
-            .IsUnique();
+        builder.HasIndex(b => new
+            {
+                b.CustomerId,
+                b.ProviderId,
+                b.ServiceId
+            })
+            .IsUnique()
+            .HasFilter("[Status] = 'Pending'");
 
         builder.HasIndex(b => new
         {

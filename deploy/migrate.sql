@@ -786,3 +786,514 @@ END;
 COMMIT;
 GO
 
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260922214120_AddProviderMapLocation'
+)
+BEGIN
+    ALTER TABLE [ProviderProfiles] ADD [Latitude] decimal(9,6) NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260922214120_AddProviderMapLocation'
+)
+BEGIN
+    ALTER TABLE [ProviderProfiles] ADD [Longitude] decimal(9,6) NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260922214120_AddProviderMapLocation'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20260922214120_AddProviderMapLocation', N'10.0.11');
+END;
+
+COMMIT;
+GO
+
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260922220946_AddProviderPhotoAndChangeRequests'
+)
+BEGIN
+    ALTER TABLE [ProviderVerificationDocuments] ADD [ServiceId] int NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260922220946_AddProviderPhotoAndChangeRequests'
+)
+BEGIN
+    ALTER TABLE [ProviderProfiles] ADD [PhotoContentType] nvarchar(100) NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260922220946_AddProviderPhotoAndChangeRequests'
+)
+BEGIN
+    ALTER TABLE [ProviderProfiles] ADD [PhotoStoredFileName] nvarchar(100) NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260922220946_AddProviderPhotoAndChangeRequests'
+)
+BEGIN
+    CREATE TABLE [ProviderProfileChangeRequests] (
+        [Id] int NOT NULL IDENTITY,
+        [ProviderProfileId] int NOT NULL,
+        [Type] nvarchar(32) NOT NULL,
+        [Status] nvarchar(20) NOT NULL,
+        [RequestedCity] nvarchar(80) NULL,
+        [RequestedLatitude] decimal(9,6) NULL,
+        [RequestedLongitude] decimal(9,6) NULL,
+        [ServiceId] int NULL,
+        [ProofDocumentId] int NULL,
+        [CreatedAt] datetimeoffset NOT NULL,
+        [ReviewedAt] datetimeoffset NULL,
+        [ReviewedByUserId] nvarchar(450) NULL,
+        [ReviewNote] nvarchar(1000) NULL,
+        CONSTRAINT [PK_ProviderProfileChangeRequests] PRIMARY KEY ([Id]),
+        CONSTRAINT [FK_ProviderProfileChangeRequests_ProviderProfiles_ProviderProfileId] FOREIGN KEY ([ProviderProfileId]) REFERENCES [ProviderProfiles] ([Id]) ON DELETE CASCADE,
+        CONSTRAINT [FK_ProviderProfileChangeRequests_ProviderVerificationDocuments_ProofDocumentId] FOREIGN KEY ([ProofDocumentId]) REFERENCES [ProviderVerificationDocuments] ([Id]) ON DELETE NO ACTION,
+        CONSTRAINT [FK_ProviderProfileChangeRequests_Services_ServiceId] FOREIGN KEY ([ServiceId]) REFERENCES [Services] ([Id]) ON DELETE NO ACTION
+    );
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260922220946_AddProviderPhotoAndChangeRequests'
+)
+BEGIN
+    CREATE INDEX [IX_ProviderVerificationDocuments_ServiceId] ON [ProviderVerificationDocuments] ([ServiceId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260922220946_AddProviderPhotoAndChangeRequests'
+)
+BEGIN
+    CREATE INDEX [IX_ProviderProfileChangeRequests_ProofDocumentId] ON [ProviderProfileChangeRequests] ([ProofDocumentId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260922220946_AddProviderPhotoAndChangeRequests'
+)
+BEGIN
+    CREATE INDEX [IX_ProviderProfileChangeRequests_ServiceId] ON [ProviderProfileChangeRequests] ([ServiceId]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260922220946_AddProviderPhotoAndChangeRequests'
+)
+BEGIN
+    EXEC(N'CREATE UNIQUE INDEX [UX_ProviderChange_PendingLocation] ON [ProviderProfileChangeRequests] ([ProviderProfileId]) WHERE [Status] = ''Pending'' AND [Type] = ''Location''');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260922220946_AddProviderPhotoAndChangeRequests'
+)
+BEGIN
+    EXEC(N'CREATE UNIQUE INDEX [UX_ProviderChange_PendingService] ON [ProviderProfileChangeRequests] ([ProviderProfileId], [ServiceId]) WHERE [Status] = ''Pending'' AND [Type] = ''AddService'' AND [ServiceId] IS NOT NULL');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260922220946_AddProviderPhotoAndChangeRequests'
+)
+BEGIN
+    ALTER TABLE [ProviderVerificationDocuments] ADD CONSTRAINT [FK_ProviderVerificationDocuments_Services_ServiceId] FOREIGN KEY ([ServiceId]) REFERENCES [Services] ([Id]) ON DELETE NO ACTION;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260922220946_AddProviderPhotoAndChangeRequests'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20260922220946_AddProviderPhotoAndChangeRequests', N'10.0.11');
+END;
+
+COMMIT;
+GO
+
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260922225911_DirectBookingRedesign'
+)
+BEGIN
+    IF OBJECT_ID(N'[Reviews]', N'U') IS NOT NULL DELETE FROM [Reviews];
+    IF OBJECT_ID(N'[Bookings]', N'U') IS NOT NULL DELETE FROM [Bookings];
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260922225911_DirectBookingRedesign'
+)
+BEGIN
+    ALTER TABLE [Bookings] DROP CONSTRAINT [FK_Bookings_Offers_OfferId];
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260922225911_DirectBookingRedesign'
+)
+BEGIN
+    ALTER TABLE [Bookings] DROP CONSTRAINT [FK_Bookings_ServiceRequests_ServiceRequestId];
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260922225911_DirectBookingRedesign'
+)
+BEGIN
+    DROP TABLE [Offers];
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260922225911_DirectBookingRedesign'
+)
+BEGIN
+    DROP TABLE [ServiceRequests];
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260922225911_DirectBookingRedesign'
+)
+BEGIN
+    DROP INDEX [IX_Bookings_OfferId] ON [Bookings];
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260922225911_DirectBookingRedesign'
+)
+BEGIN
+    DECLARE @var4 nvarchar(max);
+    SELECT @var4 = QUOTENAME([d].[name])
+    FROM [sys].[default_constraints] [d]
+    INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
+    WHERE ([d].[parent_object_id] = OBJECT_ID(N'[CustomerProfiles]') AND [c].[name] = N'DefaultContact');
+    IF @var4 IS NOT NULL EXEC(N'ALTER TABLE [CustomerProfiles] DROP CONSTRAINT ' + @var4 + ';');
+    ALTER TABLE [CustomerProfiles] DROP COLUMN [DefaultContact];
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260922225911_DirectBookingRedesign'
+)
+BEGIN
+    DECLARE @var5 nvarchar(max);
+    SELECT @var5 = QUOTENAME([d].[name])
+    FROM [sys].[default_constraints] [d]
+    INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
+    WHERE ([d].[parent_object_id] = OBJECT_ID(N'[Bookings]') AND [c].[name] = N'FinalPrice');
+    IF @var5 IS NOT NULL EXEC(N'ALTER TABLE [Bookings] DROP CONSTRAINT ' + @var5 + ';');
+    ALTER TABLE [Bookings] DROP COLUMN [FinalPrice];
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260922225911_DirectBookingRedesign'
+)
+BEGIN
+    DECLARE @var6 nvarchar(max);
+    SELECT @var6 = QUOTENAME([d].[name])
+    FROM [sys].[default_constraints] [d]
+    INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
+    WHERE ([d].[parent_object_id] = OBJECT_ID(N'[Bookings]') AND [c].[name] = N'OfferId');
+    IF @var6 IS NOT NULL EXEC(N'ALTER TABLE [Bookings] DROP CONSTRAINT ' + @var6 + ';');
+    ALTER TABLE [Bookings] DROP COLUMN [OfferId];
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260922225911_DirectBookingRedesign'
+)
+BEGIN
+    EXEC sp_rename N'[Bookings].[ServiceRequestId]', N'ServiceId', 'COLUMN';
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260922225911_DirectBookingRedesign'
+)
+BEGIN
+    EXEC sp_rename N'[Bookings].[ScheduledDate]', N'RequestedDate', 'COLUMN';
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260922225911_DirectBookingRedesign'
+)
+BEGIN
+    EXEC sp_rename N'[Bookings].[IX_Bookings_ServiceRequestId]', N'IX_Bookings_ServiceId', 'INDEX';
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260922225911_DirectBookingRedesign'
+)
+BEGIN
+    DECLARE @var7 nvarchar(max);
+    SELECT @var7 = QUOTENAME([d].[name])
+    FROM [sys].[default_constraints] [d]
+    INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
+    WHERE ([d].[parent_object_id] = OBJECT_ID(N'[Bookings]') AND [c].[name] = N'CancellationReason');
+    IF @var7 IS NOT NULL EXEC(N'ALTER TABLE [Bookings] DROP CONSTRAINT ' + @var7 + ';');
+    ALTER TABLE [Bookings] ALTER COLUMN [CancellationReason] nvarchar(500) NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260922225911_DirectBookingRedesign'
+)
+BEGIN
+    ALTER TABLE [Bookings] ADD [City] nvarchar(80) NOT NULL DEFAULT N'';
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260922225911_DirectBookingRedesign'
+)
+BEGIN
+    DECLARE @var8 nvarchar(max);
+    SELECT @var8 = QUOTENAME([d].[name])
+    FROM [sys].[default_constraints] [d]
+    INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
+    WHERE ([d].[parent_object_id] = OBJECT_ID(N'[Bookings]') AND [c].[name] = N'City');
+    IF @var8 IS NOT NULL EXEC(N'ALTER TABLE [Bookings] DROP CONSTRAINT ' + @var8 + ';');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260922225911_DirectBookingRedesign'
+)
+BEGIN
+    ALTER TABLE [Bookings] ADD [DeclineReason] nvarchar(500) NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260922225911_DirectBookingRedesign'
+)
+BEGIN
+    ALTER TABLE [Bookings] ADD [Notes] nvarchar(1000) NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260922225911_DirectBookingRedesign'
+)
+BEGIN
+    ALTER TABLE [Bookings] ADD [ProviderMessage] nvarchar(1000) NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260922225911_DirectBookingRedesign'
+)
+BEGIN
+    ALTER TABLE [Bookings] ADD [QuotedPrice] decimal(18,2) NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260922225911_DirectBookingRedesign'
+)
+BEGIN
+    ALTER TABLE [Bookings] ADD [RespondedAt] datetimeoffset NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260922225911_DirectBookingRedesign'
+)
+BEGIN
+    EXEC(N'CREATE UNIQUE INDEX [IX_Bookings_CustomerId_ProviderId_ServiceId] ON [Bookings] ([CustomerId], [ProviderId], [ServiceId]) WHERE [Status] = ''Pending''');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260922225911_DirectBookingRedesign'
+)
+BEGIN
+    ALTER TABLE [Bookings] ADD CONSTRAINT [FK_Bookings_Services_ServiceId] FOREIGN KEY ([ServiceId]) REFERENCES [Services] ([Id]) ON DELETE NO ACTION;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260922225911_DirectBookingRedesign'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20260922225911_DirectBookingRedesign', N'10.0.11');
+END;
+
+COMMIT;
+GO
+
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260923080251_AddProviderScheduleAndBookingSlots'
+)
+BEGIN
+    DECLARE @var9 nvarchar(max);
+    SELECT @var9 = QUOTENAME([d].[name])
+    FROM [sys].[default_constraints] [d]
+    INNER JOIN [sys].[columns] [c] ON [d].[parent_column_id] = [c].[column_id] AND [d].[parent_object_id] = [c].[object_id]
+    WHERE ([d].[parent_object_id] = OBJECT_ID(N'[Bookings]') AND [c].[name] = N'RequestedDate');
+    IF @var9 IS NOT NULL EXEC(N'ALTER TABLE [Bookings] DROP CONSTRAINT ' + @var9 + ';');
+    ALTER TABLE [Bookings] ALTER COLUMN [RequestedDate] date NOT NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260923080251_AddProviderScheduleAndBookingSlots'
+)
+BEGIN
+    ALTER TABLE [Bookings] ADD [DurationHours] int NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260923080251_AddProviderScheduleAndBookingSlots'
+)
+BEGIN
+    ALTER TABLE [Bookings] ADD [RescheduleNote] nvarchar(500) NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260923080251_AddProviderScheduleAndBookingSlots'
+)
+BEGIN
+    ALTER TABLE [Bookings] ADD [RescheduledAt] datetimeoffset NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260923080251_AddProviderScheduleAndBookingSlots'
+)
+BEGIN
+    ALTER TABLE [Bookings] ADD [ScheduledStart] datetimeoffset NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260923080251_AddProviderScheduleAndBookingSlots'
+)
+BEGIN
+    CREATE TABLE [ProviderWorkingHours] (
+        [Id] int NOT NULL IDENTITY,
+        [ProviderProfileId] int NOT NULL,
+        [DayOfWeek] int NOT NULL,
+        [Hour] int NOT NULL,
+        CONSTRAINT [PK_ProviderWorkingHours] PRIMARY KEY ([Id]),
+        CONSTRAINT [CK_ProviderWorkingHours_DayAndHour] CHECK ([DayOfWeek] >= 0 AND [DayOfWeek] <= 6 AND [Hour] >= 0 AND [Hour] <= 23),
+        CONSTRAINT [FK_ProviderWorkingHours_ProviderProfiles_ProviderProfileId] FOREIGN KEY ([ProviderProfileId]) REFERENCES [ProviderProfiles] ([Id]) ON DELETE CASCADE
+    );
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260923080251_AddProviderScheduleAndBookingSlots'
+)
+BEGIN
+    EXEC(N'ALTER TABLE [Bookings] ADD CONSTRAINT [CK_Bookings_DurationHours] CHECK ([DurationHours] IS NULL OR ([DurationHours] >= 1 AND [DurationHours] <= 12))');
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260923080251_AddProviderScheduleAndBookingSlots'
+)
+BEGIN
+    CREATE UNIQUE INDEX [IX_ProviderWorkingHours_ProviderProfileId_DayOfWeek_Hour] ON [ProviderWorkingHours] ([ProviderProfileId], [DayOfWeek], [Hour]);
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260923080251_AddProviderScheduleAndBookingSlots'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20260923080251_AddProviderScheduleAndBookingSlots', N'10.0.11');
+END;
+
+COMMIT;
+GO
+
+BEGIN TRANSACTION;
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260923092044_AddCatalogDescriptionsAndImages'
+)
+BEGIN
+    ALTER TABLE [Services] ADD [Description] nvarchar(240) NOT NULL DEFAULT N'';
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260923092044_AddCatalogDescriptionsAndImages'
+)
+BEGIN
+    ALTER TABLE [Services] ADD [ImageContentType] nvarchar(100) NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260923092044_AddCatalogDescriptionsAndImages'
+)
+BEGIN
+    ALTER TABLE [Services] ADD [ImageStoredFileName] nvarchar(260) NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260923092044_AddCatalogDescriptionsAndImages'
+)
+BEGIN
+    ALTER TABLE [Categories] ADD [Description] nvarchar(160) NOT NULL DEFAULT N'';
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260923092044_AddCatalogDescriptionsAndImages'
+)
+BEGIN
+    ALTER TABLE [Categories] ADD [ImageContentType] nvarchar(100) NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260923092044_AddCatalogDescriptionsAndImages'
+)
+BEGIN
+    ALTER TABLE [Categories] ADD [ImageStoredFileName] nvarchar(260) NULL;
+END;
+
+IF NOT EXISTS (
+    SELECT * FROM [__EFMigrationsHistory]
+    WHERE [MigrationId] = N'20260923092044_AddCatalogDescriptionsAndImages'
+)
+BEGIN
+    INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+    VALUES (N'20260923092044_AddCatalogDescriptionsAndImages', N'10.0.11');
+END;
+
+COMMIT;
+GO
+

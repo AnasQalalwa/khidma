@@ -5,8 +5,6 @@ public static class AuditCategories
     public const string Auth = "Auth";
     public const string Provider = "Provider";
     public const string Admin = "Admin";
-    public const string Request = "Request";
-    public const string Offer = "Offer";
     public const string Booking = "Booking";
     public const string Review = "Review";
 }
@@ -25,9 +23,14 @@ public static class AuditActions
     public const string LoginFailed = "Auth.LoginFailed";
     public const string Logout = "Auth.Logout";
     public const string CsrfRejected = "Auth.CsrfRejected";
+    public const string AccountProfileUpdated = "Auth.ProfileUpdated";
+    public const string AccountPasswordChanged = "Auth.PasswordChanged";
 
     public const string ProviderProfileUpdated = "Provider.ProfileUpdated";
     public const string ProviderServicesUpdated = "Provider.ServicesUpdated";
+    public const string ProviderPhotoUpdated = "Provider.PhotoUpdated";
+    public const string ProviderChangeRequested = "Provider.ChangeRequested";
+    public const string AdminChangeReviewed = "Admin.ChangeReviewed";
     public const string DocumentUploaded = "Provider.DocumentUploaded";
     public const string DocumentDeleted = "Provider.DocumentDeleted";
     public const string DocumentDownloaded = "Provider.DocumentDownloaded";
@@ -39,18 +42,13 @@ public static class AuditActions
     public const string ProviderSuspended = "Admin.ProviderSuspended";
     public const string ProviderReactivated = "Admin.ProviderReactivated";
 
-    public const string RequestCreated = "Request.Created";
-    public const string RequestUpdated = "Request.Updated";
-    public const string RequestCancelled = "Request.Cancelled";
-
-    public const string OfferSubmitted = "Offer.Submitted";
-    public const string OfferWithdrawn = "Offer.Withdrawn";
-    public const string OfferAccepted = "Offer.Accepted";
-
-    public const string BookingCreated = "Booking.Created";
+    public const string BookingRequested = "Booking.Requested";
+    public const string BookingAccepted = "Booking.Accepted";
+    public const string BookingDeclined = "Booking.Declined";
     public const string BookingStarted = "Booking.Started";
     public const string BookingCompleted = "Booking.Completed";
     public const string BookingCancelled = "Booking.Cancelled";
+    public const string BookingRescheduled = "Booking.Rescheduled";
 
     public const string ReviewCreated = "Review.Created";
 

@@ -80,6 +80,8 @@ describe('AdminProvidersPage', () => {
       fullName: 'Sami Provider',
       email: 'provider@khidma.test',
       city: 'Ramallah',
+      latitude: 31.9,
+      longitude: 35.2,
       yearsOfExperience: 5,
       bio: null,
       verificationStatus: 'Approved',
@@ -93,6 +95,8 @@ describe('AdminProvidersPage', () => {
       services: ['Plumbing'],
       documents: [],
       hasApprovedDocument: true,
+      hasPhoto: false,
+      pendingChanges: [],
     })
     const user = userEvent.setup()
 

@@ -10,6 +10,7 @@ export function tokenColor(name: string, fallback: string): string {
 export function chartColors() {
   return {
     primary: tokenColor('--color-primary', '#0f766e'),
+    brandBlue: tokenColor('--color-brand-blue', '#1d4e89'),
     heading: tokenColor('--color-heading', '#12203a'),
     muted: tokenColor('--color-text-muted', '#5b6b7a'),
     danger: tokenColor('--color-danger', '#b42318'),

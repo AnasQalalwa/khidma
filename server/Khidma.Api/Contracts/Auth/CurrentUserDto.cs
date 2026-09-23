@@ -8,5 +8,9 @@ public sealed class CurrentUserDto
 
     public required string FullName { get; init; }
 
+    public required string PhoneNumber { get; init; }
+
+    public string? City { get; init; }
+
     public required string Role { get; init; }
 }

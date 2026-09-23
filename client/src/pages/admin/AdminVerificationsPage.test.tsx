@@ -76,6 +76,7 @@ describe('AdminVerificationsPage', () => {
           approvedDocumentCount: 0,
           rejectedDocumentCount: 0,
           services: ['Plumbing'],
+          pendingChangeCount: 0,
         },
       ],
       page: 1,

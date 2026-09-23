@@ -14,6 +14,10 @@ public sealed class ProviderVerificationDto
 
     public required string City { get; init; }
 
+    public decimal? Latitude { get; init; }
+
+    public decimal? Longitude { get; init; }
+
     public required int YearsOfExperience { get; init; }
 
     public string? Bio { get; init; }
@@ -39,6 +43,10 @@ public sealed class ProviderVerificationDto
     public required IReadOnlyList<VerificationDocumentDto> Documents { get; init; }
 
     public required bool HasApprovedDocument { get; init; }
+
+    public required bool HasPhoto { get; init; }
+
+    public required IReadOnlyList<Providers.ProviderChangeRequestDto> PendingChanges { get; init; }
 }
 
 public sealed class VerificationDocumentDto
@@ -60,6 +68,10 @@ public sealed class VerificationDocumentDto
     public string? ReviewNote { get; init; }
 
     public DateTimeOffset? ReviewedAt { get; init; }
+
+    public int? ServiceId { get; init; }
+
+    public string? ServiceName { get; init; }
 }
 
 public sealed class AdminVerificationQuery : Common.PageQuery
@@ -69,6 +81,8 @@ public sealed class AdminVerificationQuery : Common.PageQuery
     public string? DocumentStatus { get; set; }
 
     public string? Search { get; set; }
+
+    public bool? HasPendingChanges { get; set; }
 }
 
 public sealed class AdminVerificationListItemDto
@@ -98,6 +112,8 @@ public sealed class AdminVerificationListItemDto
     public required int RejectedDocumentCount { get; init; }
 
     public required IReadOnlyList<string> Services { get; init; }
+
+    public required int PendingChangeCount { get; init; }
 }
 
 public sealed class ReviewVerificationDocumentRequest

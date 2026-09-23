@@ -10,6 +10,7 @@ import { Button, IconButton } from './Button'
 export function Header() {
   const { authenticated, user, logout } = useAuth()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [accountOpen, setAccountOpen] = useState(false)
 
   function closeMenu() {
     setMenuOpen(false)
@@ -64,6 +65,7 @@ export function Header() {
 
   const dashboardLabel =
     user?.role === Roles.Admin ? 'Admin Dashboard' : 'Dashboard'
+  const isCustomer = user?.role === Roles.Customer
 
   return (
     <header className="header">
@@ -94,16 +96,48 @@ export function Header() {
           <div className="nav-actions">
             {authenticated && user ? (
               <>
-                <div className="user-chip">
-                  <div className="user-chip-copy">
-                    <strong>{user.fullName}</strong>
-                  </div>
-                  <RoleBadge role={user.role} />
+                <div className="user-menu">
+                  <button
+                    type="button"
+                    className="user-chip"
+                    aria-expanded={accountOpen}
+                    aria-haspopup="menu"
+                    onClick={() => setAccountOpen((open) => !open)}
+                  >
+                    <div className="user-chip-copy">
+                      <strong>{user.fullName}</strong>
+                    </div>
+                    <RoleBadge role={user.role} />
+                  </button>
+                  {accountOpen ? (
+                    <div className="user-menu-panel" role="menu">
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => void handleLogout()}
+                      >
+                        Logout
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
-                <NavLink to={dashboardPath(user.role)} className="nav-link">
-                  {dashboardLabel}
-                </NavLink>
-                {workspaceLinks(user.role)
+                {isCustomer ? (
+                  <>
+                    <NavLink to="/account/bookings" className="nav-link">
+                      My Bookings
+                    </NavLink>
+                    <NavLink to="/account" className="nav-link">
+                      Profile
+                    </NavLink>
+                  </>
+                ) : (
+                  <NavLink to={dashboardPath(user.role)} className="nav-link">
+                    {dashboardLabel}
+                  </NavLink>
+                )}
+                {isCustomer
+                  ? null
+                  : workspaceLinks(user.role)
                   .filter((link) => link.to !== dashboardPath(user.role))
                   .map((link) => (
                     <NavLink
@@ -115,6 +149,7 @@ export function Header() {
                     </NavLink>
                   ))}
                 <Button
+                  className="nav-mobile-only"
                   variant="ghost"
                   icon={LogOut}
                   onClick={() => void handleLogout()}

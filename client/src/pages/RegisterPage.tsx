@@ -3,6 +3,7 @@ import {
   ChartNoAxesColumnIncreasing,
   Mail,
   MapPin,
+  Phone,
   ShieldCheck,
   UserRound,
   UsersRound,
@@ -13,15 +14,28 @@ import { useAuth } from '../auth/useAuth'
 import { dashboardPath } from '../auth/roles'
 import { AuthShell } from '../components/AuthShell'
 import { Button } from '../components/Button'
+import { CitySelect } from '../components/CitySelect'
 import { FormField } from '../components/FormField'
+import { PhoneInput } from '../components/PhoneInput'
 import { PasswordField } from '../components/PasswordField'
 import { RoleSelector, type PublicRole } from '../components/RoleSelector'
+import { findCity } from '../data/cities'
+import {
+  isStrongPassword,
+  isValidEmail,
+  isValidPhone,
+  PASSWORD_REQUIREMENT_MESSAGE,
+  PHONE_REQUIREMENT_MESSAGE,
+} from '../utils/validation'
+
+const GENERIC_VALIDATION_TITLE = 'One or more validation errors occurred.'
 
 export function RegisterPage() {
   const { authenticated, user, register } = useAuth()
   const navigate = useNavigate()
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
+  const [phoneNumber, setPhoneNumber] = useState('')
   const [password, setPassword] = useState('')
   const [role, setRole] = useState<PublicRole>('Customer')
   const [city, setCity] = useState('')
@@ -32,12 +46,56 @@ export function RegisterPage() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({})
 
   if (authenticated && user) {
-    return <Navigate to={dashboardPath(user.role)} replace />
+    const next =
+      user.role === 'Provider'
+        ? '/provider/profile#verification'
+        : dashboardPath(user.role)
+    return <Navigate to={next} replace />
+  }
+
+  function validate(): Record<string, string[]> {
+    const next: Record<string, string[]> = {}
+
+    if (fullName.trim().length < 2) {
+      next.fullName = ['Enter your full name.']
+    }
+
+    if (!isValidEmail(email)) {
+      next.email = ['Enter a valid email like you@example.com.']
+    }
+
+    if (!isValidPhone(phoneNumber)) {
+      next.phoneNumber = [PHONE_REQUIREMENT_MESSAGE]
+    }
+
+    if (!isStrongPassword(password)) {
+      next.password = [PASSWORD_REQUIREMENT_MESSAGE]
+    }
+
+    if (!findCity(city)) {
+      next.city = ['Choose your city.']
+    }
+
+    if (role === 'Provider') {
+      const years = Number(yearsOfExperience)
+      if (!Number.isInteger(years) || years < 0 || years > 80) {
+        next.yearsOfExperience = ['Years of experience must be between 0 and 80.']
+      }
+    }
+
+    return next
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (submitting) {
+      return
+    }
+
+    const localErrors = validate()
+    if (Object.keys(localErrors).length > 0) {
+      setFieldErrors(localErrors)
+      setError(null)
       return
     }
 
@@ -47,11 +105,12 @@ export function RegisterPage() {
 
     try {
       const payload = {
-        fullName,
-        email,
+        fullName: fullName.trim(),
+        email: email.trim(),
+        phoneNumber: phoneNumber.trim(),
         password,
         role,
-        city,
+        city: city.trim(),
         ...(role === 'Provider'
           ? {
               yearsOfExperience: Number(yearsOfExperience) || 0,
@@ -61,11 +120,18 @@ export function RegisterPage() {
       }
 
       const current = await register(payload)
-      navigate(dashboardPath(current.role), { replace: true })
+      const next =
+        current.role === 'Provider'
+          ? '/provider/profile#verification'
+          : dashboardPath(current.role)
+      navigate(next, { replace: true })
     } catch (err) {
       if (err instanceof ApiError) {
-        setError(err.message)
         setFieldErrors(err.validationErrors)
+        const hasFields = Object.keys(err.validationErrors).length > 0
+        setError(
+          hasFields && err.message === GENERIC_VALIDATION_TITLE ? null : err.message,
+        )
       } else {
         setError('Registration failed.')
       }
@@ -111,7 +177,11 @@ export function RegisterPage() {
           Choose how you will use Khidma, then complete your profile.
         </p>
       </div>
-      <form className="form" onSubmit={(event) => void handleSubmit(event)}>
+      <form
+        className="form"
+        noValidate
+        onSubmit={(event) => void handleSubmit(event)}
+      >
         {error ? (
           <div className="alert" role="alert">
             {error}
@@ -135,6 +205,7 @@ export function RegisterPage() {
           label="Email"
           icon={Mail}
           error={fieldError(fieldErrors, 'email')}
+          hint="Use an email like you@example.com."
         >
           <input
             type="email"
@@ -145,6 +216,14 @@ export function RegisterPage() {
             required
           />
         </FormField>
+        <FormField
+          label="Phone number"
+          icon={Phone}
+          error={fieldError(fieldErrors, 'phoneNumber')}
+          hint="Choose a country code, then type the local number. Palestine numbers look like 0598969367."
+        >
+          <PhoneInput value={phoneNumber} onChange={setPhoneNumber} required />
+        </FormField>
         <PasswordField
           label="Password"
           value={password}
@@ -152,20 +231,16 @@ export function RegisterPage() {
           autoComplete="new-password"
           placeholder="Create a password"
           required
+          showRules
           error={fieldError(fieldErrors, 'password')}
         />
         <FormField
           label="City"
           icon={MapPin}
           error={fieldError(fieldErrors, 'city')}
+          hint="Choose the city where you live or work. Providers can pin an exact map location later on their profile."
         >
-          <input
-            value={city}
-            onChange={(event) => setCity(event.target.value)}
-            autoComplete="address-level2"
-            placeholder="Enter your city"
-            required
-          />
+          <CitySelect value={city} onChange={setCity} required />
         </FormField>
 
         <RoleSelector
@@ -176,6 +251,12 @@ export function RegisterPage() {
 
         {role === 'Provider' ? (
           <div className="provider-fields">
+            <p className="auth-verify-note" role="note">
+              After you create this account, open{' '}
+              <strong>Profile → Professional verification</strong> and upload a
+              license, certificate, or other proof (PDF, JPEG, or PNG). An admin
+              reviews it before you can take new jobs.
+            </p>
             <FormField
               label="Years of experience"
               error={fieldError(fieldErrors, 'yearsOfExperience')}

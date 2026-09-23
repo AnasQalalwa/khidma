@@ -1,12 +1,22 @@
 import { apiRequest } from './client'
 import { toQuery } from './query'
 import type {
+  AcceptBookingPayload,
   BookingDetail,
   BookingSummary,
+  CreateBookingPayload,
+  ReschedulePayload,
   PageQuery,
   PagedResult,
   Review,
 } from './types'
+
+export function createBooking(payload: CreateBookingPayload): Promise<BookingDetail> {
+  return apiRequest('/api/bookings', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
 
 export function getMyBookings(
   query: PageQuery = {},
@@ -16,6 +26,33 @@ export function getMyBookings(
 
 export function getBooking(id: number): Promise<BookingDetail> {
   return apiRequest(`/api/bookings/${id}`)
+}
+
+export function acceptBooking(
+  id: number,
+  payload: AcceptBookingPayload,
+): Promise<BookingDetail> {
+  return apiRequest(`/api/bookings/${id}/accept`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function rescheduleBooking(
+  id: number,
+  payload: ReschedulePayload,
+): Promise<BookingDetail> {
+  return apiRequest(`/api/bookings/${id}/schedule`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function declineBooking(id: number, reason: string): Promise<BookingDetail> {
+  return apiRequest(`/api/bookings/${id}/decline`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  })
 }
 
 export function startBooking(id: number): Promise<BookingDetail> {

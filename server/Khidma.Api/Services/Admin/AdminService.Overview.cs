@@ -47,18 +47,9 @@ public sealed partial class AdminService
                 b.CreatedAt,
                 b.CompletedAt,
                 b.CancelledAt,
-                b.ScheduledDate,
+                b.ScheduledStart,
                 b.Status,
-                b.FinalPrice))
-            .ToListAsync(cancellationToken);
-
-        var requestRows = await _db.ServiceRequests
-            .AsNoTracking()
-            .Where(r => r.CreatedAt >= prevFrom && r.CreatedAt < to)
-            .Select(r => new RequestRow(
-                r.CreatedAt,
-                r.Status,
-                r.Offers.Any(o => o.Status != OfferStatus.Withdrawn)))
+                b.QuotedPrice))
             .ToListAsync(cancellationToken);
 
         var reviewRows = await _db.Reviews
@@ -71,10 +62,8 @@ public sealed partial class AdminService
             p => p.VerificationStatus == ProviderVerificationStatus.PendingReview,
             cancellationToken);
 
-        var staleOpenRequests = await _db.ServiceRequests.CountAsync(
-            r => r.Status == ServiceRequestStatus.Open &&
-                 r.CreatedAt < staleBefore &&
-                 !r.Offers.Any(o => o.Status != OfferStatus.Withdrawn),
+        var stalePendingBookings = await _db.Bookings.CountAsync(
+            b => b.Status == BookingStatus.Pending && b.CreatedAt < staleBefore,
             cancellationToken);
 
         var suspendedProviders = await _db.ProviderProfiles.CountAsync(
@@ -132,29 +121,29 @@ public sealed partial class AdminService
 
         var buckets = BuildBuckets(from, to, bucket);
 
-        var currentRequests = requestRows.Where(r => InRange(r.CreatedAt, from, to)).ToList();
-        var previousRequests = requestRows.Where(r => InRange(r.CreatedAt, prevFrom, prevTo)).ToList();
+        var currentBookings = bookingRows.Where(b => InRange(b.CreatedAt, from, to)).ToList();
+        var previousBookings = bookingRows.Where(b => InRange(b.CreatedAt, prevFrom, prevTo)).ToList();
 
         var funnel = new FunnelDto
         {
-            RequestsCreated = currentRequests.Count,
-            RequestsWithOffer = currentRequests.Count(r => r.HasOffer),
-            Booked = currentRequests.Count(ReachedBooked),
-            Completed = currentRequests.Count(r => r.Status == ServiceRequestStatus.Completed)
+            Requested = currentBookings.Count,
+            Accepted = currentBookings.Count(WasAccepted),
+            Completed = currentBookings.Count(b => b.Status == BookingStatus.Completed)
         };
 
         var bookingValue = SumCompletedValue(bookingRows, from, to);
         var previousBookingValue = SumCompletedValue(bookingRows, prevFrom, prevTo);
         var bookingsCompleted = CountCompleted(bookingRows, from, to);
         var previousBookingsCompleted = CountCompleted(bookingRows, prevFrom, prevTo);
-        var conversion = ConversionRate(currentRequests);
-        var previousConversion = ConversionRate(previousRequests);
+        var conversion = ConversionRate(currentBookings);
+        var previousConversion = ConversionRate(previousBookings);
         var rating = AverageRating(reviewRows, from, to);
         var previousRating = AverageRating(reviewRows, prevFrom, prevTo);
 
         var overdueBookings = bookingRows.Count(b =>
             b.Status == BookingStatus.Scheduled &&
-            b.ScheduledDate < now);
+            b.ScheduledStart != null &&
+            b.ScheduledStart < now);
 
         return ServiceResult<AdminOverviewDto>.Success(new AdminOverviewDto
         {
@@ -192,7 +181,7 @@ public sealed partial class AdminService
                             Value = bookingRows.Count(b =>
                                 (b.Status == BookingStatus.Scheduled ||
                                  b.Status == BookingStatus.InProgress) &&
-                                InRange(b.ScheduledDate, date, BucketEnd(date, bucket)))
+                                InRange(b.ScheduledStart, date, BucketEnd(date, bucket)))
                         })
                         .ToList()
                 },
@@ -218,8 +207,8 @@ public sealed partial class AdminService
                     Series = buckets
                         .Select(date =>
                         {
-                            var inBucket = requestRows
-                                .Where(r => InRange(r.CreatedAt, date, BucketEnd(date, bucket)))
+                            var inBucket = bookingRows
+                                .Where(b => InRange(b.CreatedAt, date, BucketEnd(date, bucket)))
                                 .ToList();
                             return new SeriesPointDto
                             {
@@ -263,7 +252,7 @@ public sealed partial class AdminService
             Attention = new AttentionCountsDto
             {
                 PendingVerifications = pendingVerifications,
-                StaleOpenRequests = staleOpenRequests,
+                StalePendingBookings = stalePendingBookings,
                 OverdueBookings = overdueBookings,
                 SuspendedProviders = suspendedProviders
             },
@@ -276,18 +265,18 @@ public sealed partial class AdminService
     private async Task<IReadOnlyList<SupplyDemandRowDto>> LoadSupplyDemandAsync(
         CancellationToken cancellationToken)
     {
-        var openPairs = await _db.ServiceRequests
+        var pendingPairs = await _db.Bookings
             .AsNoTracking()
-            .Where(r => r.Status == ServiceRequestStatus.Open)
-            .Select(r => new
+            .Where(b => b.Status == BookingStatus.Pending)
+            .Select(b => new
             {
-                r.City,
-                r.ServiceId,
-                ServiceName = r.Service.Name
+                b.City,
+                b.ServiceId,
+                ServiceName = b.Service.Name
             })
             .ToListAsync(cancellationToken);
 
-        var top = openPairs
+        var top = pendingPairs
             .GroupBy(row => (CityKey: row.City.ToLowerInvariant(), row.ServiceId))
             .Select(group => new
             {
@@ -295,9 +284,9 @@ public sealed partial class AdminService
                 CityKey = group.Key.CityKey,
                 group.Key.ServiceId,
                 ServiceName = group.First().ServiceName,
-                OpenRequests = group.Count()
+                PendingBookings = group.Count()
             })
-            .OrderByDescending(row => row.OpenRequests)
+            .OrderByDescending(row => row.PendingBookings)
             .ThenBy(row => row.City)
             .Take(8)
             .ToList();
@@ -325,7 +314,7 @@ public sealed partial class AdminService
                 City = row.City,
                 ServiceId = row.ServiceId,
                 ServiceName = row.ServiceName,
-                OpenRequests = row.OpenRequests,
+                PendingBookings = row.PendingBookings,
                 EligibleProviders = eligible.Count(provider =>
                     provider.ServiceId == row.ServiceId &&
                     provider.City == row.CityKey)
@@ -435,7 +424,7 @@ public sealed partial class AdminService
             .Where(row =>
                 row.Status == BookingStatus.Completed &&
                 InRange(row.CompletedAt, start, end))
-            .Sum(row => row.FinalPrice);
+            .Sum(row => row.QuotedPrice ?? 0m);
 
     private static int CountCompleted(
         IReadOnlyList<BookingRow> rows,
@@ -445,19 +434,19 @@ public sealed partial class AdminService
             row.Status == BookingStatus.Completed &&
             InRange(row.CompletedAt, start, end));
 
-    private static decimal ConversionRate(IReadOnlyList<RequestRow> requests)
+    private static decimal ConversionRate(IReadOnlyList<BookingRow> bookings)
     {
-        if (requests.Count == 0)
+        if (bookings.Count == 0)
         {
             return 0m;
         }
 
-        var converted = requests.Count(ReachedBooked);
-        return Math.Round((decimal)converted / requests.Count, 4, MidpointRounding.AwayFromZero);
+        var converted = bookings.Count(WasAccepted);
+        return Math.Round((decimal)converted / bookings.Count, 4, MidpointRounding.AwayFromZero);
     }
 
-    private static bool ReachedBooked(RequestRow request) =>
-        request.Status is ServiceRequestStatus.Booked or ServiceRequestStatus.Completed;
+    private static bool WasAccepted(BookingRow booking) =>
+        booking.QuotedPrice is not null;
 
     private static decimal AverageRating(
         IReadOnlyList<ReviewRow> rows,
@@ -480,14 +469,9 @@ public sealed partial class AdminService
         DateTimeOffset CreatedAt,
         DateTimeOffset? CompletedAt,
         DateTimeOffset? CancelledAt,
-        DateTimeOffset ScheduledDate,
+        DateTimeOffset? ScheduledStart,
         BookingStatus Status,
-        decimal FinalPrice);
-
-    private sealed record RequestRow(
-        DateTimeOffset CreatedAt,
-        ServiceRequestStatus Status,
-        bool HasOffer);
+        decimal? QuotedPrice);
 
     private sealed record ReviewRow(DateTimeOffset CreatedAt, int Rating);
 }

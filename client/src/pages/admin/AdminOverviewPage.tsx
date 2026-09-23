@@ -118,7 +118,7 @@ export function AdminOverviewPage() {
               kpi={data.kpis.conversionRate}
               format={formatPercent}
               deltaKind="pts"
-              sparkLabel="Request conversion over the selected range"
+              sparkLabel="Accepted bookings over the selected range"
             />
           </>
         ) : null}
@@ -139,11 +139,11 @@ export function AdminOverviewPage() {
           className="admin-span-4"
           title="Marketplace funnel"
           status={
-            status === 'ready' && data && data.funnel.requestsCreated === 0 ? 'empty' : status
+            status === 'ready' && data && data.funnel.requested === 0 ? 'empty' : status
           }
           error={error}
           onRetry={() => void load()}
-          empty="No requests were created in this range."
+          empty="No bookings were requested in this range."
         >
           {data ? <FunnelBars funnel={data.funnel} /> : null}
         </SectionCard>
@@ -163,7 +163,7 @@ export function AdminOverviewPage() {
           status={status === 'ready' && data && data.supplyDemand.length === 0 ? 'empty' : status}
           error={error}
           onRetry={() => void load()}
-          empty="There are no open requests right now."
+          empty="There are no pending bookings right now."
         >
           {data ? <SupplyDemandTable rows={data.supplyDemand} /> : null}
         </SectionCard>

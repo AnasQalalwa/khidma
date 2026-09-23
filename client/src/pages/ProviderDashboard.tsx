@@ -1,23 +1,26 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Briefcase, CalendarCheck, Inbox, Search, Star, UserRound } from 'lucide-react'
+import { CalendarCheck, Inbox, Search, Star, UserRound } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { ApiError } from '../api/client'
 import { getProviderDashboard } from '../api/dashboard'
-import type { ProviderDashboard as ProviderDashboardData } from '../api/types'
+import { getMySchedule } from '../api/schedule'
+import type { ProviderDashboard as ProviderDashboardData, ScheduleEntry } from '../api/types'
 import { useAuth } from '../auth/useAuth'
 import { Roles } from '../auth/roles'
 import { RoleBadge } from '../components/Badge'
 import { Button } from '../components/Button'
 import { DashboardPanel, DashboardShell } from '../components/DashboardShell'
-import { RequestCard } from '../components/RequestCard'
 import { StatCard } from '../components/StatCard'
 import { StatusBadge } from '../components/StatusBadge'
 import { EmptyState, ErrorState, LoadingState } from '../components/States'
 import { WorkspaceLayout } from '../components/WorkspaceLayout'
-import { formatDate, formatMoney } from '../utils/format'
+import { formatDay, formatMoney, formatSlot, formatTime } from '../utils/format'
+import { addDays, toDateInput } from '../utils/hours'
 
 export function ProviderDashboard() {
   const { user } = useAuth()
   const [data, setData] = useState<ProviderDashboardData | null>(null)
+  const [today, setToday] = useState<ScheduleEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -25,7 +28,20 @@ export function ProviderDashboard() {
     setLoading(true)
     setError(null)
     try {
-      setData(await getProviderDashboard())
+      const todayKey = toDateInput(new Date())
+      const [dashboard, schedule] = await Promise.all([
+        getProviderDashboard(),
+        getMySchedule(todayKey, toDateInput(addDays(new Date(), 1))).catch(() => null),
+      ])
+      setData(dashboard)
+      setToday(
+        (schedule?.items ?? []).filter(
+          (item) =>
+            item.start &&
+            item.status !== 'Pending' &&
+            toDateInput(new Date(item.start)) === todayKey,
+        ),
+      )
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not load dashboard.')
     } finally {
@@ -42,7 +58,7 @@ export function ProviderDashboard() {
       <DashboardShell
         badge={<RoleBadge role="Provider" />}
         title={`Welcome back, ${user?.fullName ?? 'Provider'}`}
-        description="See eligible requests, manage offers, and keep jobs moving."
+        description="Respond to booking requests and keep accepted jobs moving."
       >
         {loading ? <LoadingState label="Loading dashboard" /> : null}
         {error ? (
@@ -53,34 +69,31 @@ export function ProviderDashboard() {
             {data.isSuspended ? (
               <div className="alert" role="alert">
                 Your account is suspended
-                {data.suspensionReason ? `: ${data.suspensionReason}` : '.'} You cannot see matching
-                requests or submit new offers. Existing bookings stay available so in-progress jobs
-                can still be completed.
+                {data.suspensionReason ? `: ${data.suspensionReason}` : '.'} Pending booking requests
+                are declined. Scheduled and in-progress jobs stay available so you can finish them.
               </div>
             ) : null}
             {!data.isSuspended && data.verificationStatus !== 'Approved' ? (
               <div className="alert" role="status">
                 {data.verificationStatus === 'Rejected'
-                  ? 'Professional verification was rejected. Upload updated documents from your profile, then wait for admin review.'
-                  : 'Professional verification is pending review. You will see matching requests after an admin approves your documents.'}
+                  ? 'Professional verification was rejected. Upload updated documents from '
+                  : 'Professional verification is pending. Upload a license or certificate from '}
+                <Link to="/provider/profile#verification">Profile → Professional verification</Link>
+                {data.verificationStatus === 'Rejected'
+                  ? ', then wait for admin review.'
+                  : ' so an admin can review it before you receive new work.'}
               </div>
             ) : null}
             <div className="dash-grid">
               <StatCard
-                title="Eligible requests"
-                value={data.eligibleRequestCount}
+                title="Pending requests"
+                value={data.pendingRequestCount}
                 icon={Inbox}
                 accent="home"
               />
               <StatCard
-                title="Pending offers"
-                value={data.pendingOfferCount}
-                icon={Briefcase}
-                accent="technology"
-              />
-              <StatCard
                 title="Active jobs"
-                value={data.activeBookingCount}
+                value={data.activeJobCount}
                 icon={CalendarCheck}
                 accent="cleaning"
               />
@@ -92,14 +105,32 @@ export function ProviderDashboard() {
                 accent="education"
               />
             </div>
+            <DashboardPanel title="Today's schedule">
+              {today.length === 0 ? (
+                <p className="muted">Nothing scheduled for today.</p>
+              ) : (
+                <ul className="plain-list">
+                  {today.map((item) => (
+                    <li key={item.bookingId} className="plain-row">
+                      <div>
+                        <strong>{item.serviceName}</strong>
+                        <p className="muted">
+                          {formatTime(item.start)}–{formatTime(item.end)} · {item.customerName}
+                        </p>
+                      </div>
+                      <Button to={`/provider/bookings/${item.bookingId}`} size="sm" variant="secondary">
+                        Open
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <Button to="/provider/schedule" variant="ghost" size="sm">
+                Open schedule
+              </Button>
+            </DashboardPanel>
             <div className="dashboard-actions">
-              <Button to="/provider/requests">View requests</Button>
-              <Button to="/provider/offers" variant="secondary">
-                My offers
-              </Button>
-              <Button to="/provider/bookings" variant="secondary">
-                My bookings
-              </Button>
+              <Button to="/provider/bookings">View bookings</Button>
               <Button to="/provider/profile" variant="ghost" icon={UserRound}>
                 Edit profile
               </Button>
@@ -107,38 +138,26 @@ export function ProviderDashboard() {
                 Browse catalog
               </Button>
             </div>
-            <DashboardPanel title="Available requests">
-              {data.recentAvailableRequests.length === 0 ? (
+            <DashboardPanel title="Pending requests">
+              {data.recentPendingRequests.length === 0 ? (
                 <EmptyState
-                  title="No matching requests"
-                  description="When customers in your city need your services, they will appear here."
+                  title="No pending requests"
+                  description="When a customer books one of your services, the request appears here."
                 />
               ) : (
-                <div className="card-grid">
-                  {data.recentAvailableRequests.map((request) => (
-                    <RequestCard
-                      key={request.id}
-                      request={request}
-                      href={`/provider/requests/${request.id}`}
-                    />
-                  ))}
-                </div>
-              )}
-            </DashboardPanel>
-            <DashboardPanel title="My offers">
-              {data.recentOffers.length === 0 ? (
-                <p className="muted">You have not submitted any offers yet.</p>
-              ) : (
                 <ul className="plain-list">
-                  {data.recentOffers.map((offer) => (
-                    <li key={offer.id} className="plain-row">
+                  {data.recentPendingRequests.map((booking) => (
+                    <li key={booking.id} className="plain-row">
                       <div>
-                        <strong>{offer.requestTitle}</strong>
+                        <strong>{booking.serviceName}</strong>
                         <p className="muted">
-                          {formatMoney(offer.price)} · {formatDate(offer.estimatedDate)}
+                          {booking.counterpartyName} · {formatDay(booking.requestedDate)}
                         </p>
                       </div>
-                      <StatusBadge status={offer.status} />
+                      <StatusBadge status={booking.status} />
+                      <Button to={`/provider/bookings/${booking.id}`} size="sm" variant="secondary">
+                        Review
+                      </Button>
                     </li>
                   ))}
                 </ul>
@@ -152,9 +171,14 @@ export function ProviderDashboard() {
                   {data.activeJobs.map((job) => (
                     <li key={job.id} className="plain-row">
                       <div>
-                        <strong>{job.title}</strong>
+                        <strong>{job.serviceName}</strong>
                         <p className="muted">
-                          {job.counterpartyName} · {formatDate(job.scheduledDate)}
+                          {job.counterpartyName} ·{' '}
+                          {job.scheduledStart
+                            ? formatSlot(job.scheduledStart, job.scheduledEnd)
+                            : formatDay(job.requestedDate)}{' '}
+                          ·{' '}
+                          {formatMoney(job.quotedPrice)}
                         </p>
                       </div>
                       <StatusBadge status={job.status} />

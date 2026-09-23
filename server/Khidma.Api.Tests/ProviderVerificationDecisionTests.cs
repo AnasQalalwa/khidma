@@ -83,13 +83,13 @@ public sealed class ProviderVerificationDecisionTests : IClassFixture<KhidmaApiF
             new { status = "Approved" });
         Assert.Equal(HttpStatusCode.OK, approved.StatusCode);
 
-        var requestId = await TestHarness.CreateRequestAsync(customer, serviceId, city);
-        var available = await provider.GetAsync("/api/service-requests/available");
+        var available = await customer.GetAsync(
+            $"/api/catalog/services/{serviceId}/providers?city={Uri.EscapeDataString(city)}");
         available.EnsureSuccessStatusCode();
         using var doc = JsonDocument.Parse(await available.Content.ReadAsStringAsync());
         Assert.Contains(
-            doc.RootElement.GetProperty("items").EnumerateArray(),
-            item => item.GetProperty("id").GetInt32() == requestId);
+            doc.RootElement.EnumerateArray(),
+            item => item.GetProperty("id").GetInt32() == profileId);
     }
 
     [Fact]
